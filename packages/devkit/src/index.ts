@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-devkit —— 无宿主运行器
+ * @rain13sad/dsh-mnemo-devkit —— 无宿主运行器
  *
  * 存在的理由：这套插件的行为（注入、门控、巩固、遗忘）全是**时序**相关的，
  * 单测纯函数只能覆盖数学，覆盖不了"第三轮到底注入了什么"。
@@ -10,15 +10,15 @@
  */
 
 import { Context } from '@deepseek-ai/cordis'
-import { defaultConfig, type MnemoConfig, type PanelSnapshot } from '@bcf/dsh-mnemo-core'
-import * as core from '@bcf/dsh-mnemo-core'
-import * as affectPkg from '@bcf/dsh-mnemo-affect'
-import * as encoderPkg from '@bcf/dsh-mnemo-encoder'
-import * as recallPkg from '@bcf/dsh-mnemo-recall'
-import * as consolidatorPkg from '@bcf/dsh-mnemo-consolidator'
-import * as proactivePkg from '@bcf/dsh-mnemo-proactive'
-import * as toolsPkg from '@bcf/dsh-mnemo-tools'
-import * as settingsPkg from '@bcf/dsh-mnemo-settings'
+import { defaultConfig, type MnemoConfig, type PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import * as core from '@rain13sad/dsh-mnemo-core'
+import * as affectPkg from '@rain13sad/dsh-mnemo-affect'
+import * as encoderPkg from '@rain13sad/dsh-mnemo-encoder'
+import * as recallPkg from '@rain13sad/dsh-mnemo-recall'
+import * as consolidatorPkg from '@rain13sad/dsh-mnemo-consolidator'
+import * as proactivePkg from '@rain13sad/dsh-mnemo-proactive'
+import * as toolsPkg from '@rain13sad/dsh-mnemo-tools'
+import * as settingsPkg from '@rain13sad/dsh-mnemo-settings'
 
 export interface HarnessOptions {
   config?: Partial<MnemoConfig>

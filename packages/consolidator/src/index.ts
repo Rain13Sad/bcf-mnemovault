@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-consolidator —— 离线巩固（§10）
+ * @rain13sad/dsh-mnemo-consolidator —— 离线巩固（§10）
  *
  * 在线编码只能做局部决策；全局决策（哪些该抽象、哪些降权、哪些被取代）必须离线。
  * 三个相位：NREM（抽象合并）、REM（发散 + 情绪衰减）、主动遗忘（按比例降权 + 弱边剪除）。
@@ -20,7 +20,7 @@ import {
   slotValue,
   type MemCell,
   type MemoryService,
-} from '@bcf/dsh-mnemo-core'
+} from '@rain13sad/dsh-mnemo-core'
 
 export const name = 'mnemo-consolidator'
 export const inject = ['memory', 'sessions']

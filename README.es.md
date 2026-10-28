@@ -86,7 +86,16 @@ npm run panel        # vista previa del panel lateral en http://127.0.0.1:5178/
 npm run verify       # todo lo anterior en un solo comando (lo que ejecuta CI)
 ```
 
-Aún no está publicado en npm (el scope `@bcf` está libre), así que se instala desde el código:
+Publicado en npm (`@rain13sad/*`, público). Instala solo la porción que necesites — los paquetes son
+independientes, así que memoria sin afecto es `core + encoder + recall + tools`:
+
+```bash
+npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
+npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # capas opcionales
+npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                          # panel y ajustes
+```
+
+Desde el código, si vas a modificarlo:
 
 ```bash
 git clone https://github.com/Rain13Sad/bcf-mnemovault.git
@@ -133,16 +142,16 @@ Mitigaciones (ninguna implementada): división más gruesa, cuantización de pro
 
 | Paquete | Rol |
 | :--- | :--- |
-| `@bcf/dsh-mnemo-core` | retícula, almacenamiento, recuperación, renderizado (`ctx.memory`) |
-| `@bcf/dsh-mnemo-affect` | núcleo afectivo (`ctx.affect`) |
-| `@bcf/dsh-mnemo-encoder` | escritura (se suscribe a `session/event`) |
-| `@bcf/dsh-mnemo-recall` | lectura (compuerta e inyección en `agent/pre-step`) |
-| `@bcf/dsh-mnemo-consolidator` | consolidación fuera de línea (NREM / REM / olvido) |
-| `@bcf/dsh-mnemo-tools` | 6 herramientas · 15 subcomandos `/mnemo` · guarda de salida |
-| `@bcf/dsh-mnemo-proactive` | hablar primero (cuatro compuertas) |
-| `@bcf/dsh-mnemo-settings` | panel de ajustes y matriz de efecto |
-| `@bcf/dsh-mnemo-ui` | panel lateral (lado cliente) |
-| `@bcf/dsh-mnemo-devkit` | ejecutor sin host (`createHarness()`) |
+| `@rain13sad/dsh-mnemo-core` | retícula, almacenamiento, recuperación, renderizado (`ctx.memory`) |
+| `@rain13sad/dsh-mnemo-affect` | núcleo afectivo (`ctx.affect`) |
+| `@rain13sad/dsh-mnemo-encoder` | escritura (se suscribe a `session/event`) |
+| `@rain13sad/dsh-mnemo-recall` | lectura (compuerta e inyección en `agent/pre-step`) |
+| `@rain13sad/dsh-mnemo-consolidator` | consolidación fuera de línea (NREM / REM / olvido) |
+| `@rain13sad/dsh-mnemo-tools` | 6 herramientas · 15 subcomandos `/mnemo` · guarda de salida |
+| `@rain13sad/dsh-mnemo-proactive` | hablar primero (cuatro compuertas) |
+| `@rain13sad/dsh-mnemo-settings` | panel de ajustes y matriz de efecto |
+| `@rain13sad/dsh-mnemo-ui` | panel lateral (lado cliente) |
+| `@rain13sad/dsh-mnemo-devkit` | ejecutor sin host (`createHarness()`) |
 
 El `inject` de Cordis se basa en dependencias: quien quiera memoria sin afecto instala solo
 `core + encoder + recall + tools`, y `recall` degrada a una vía sin compuerta afectiva.

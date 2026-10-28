@@ -12,7 +12,7 @@
  * 三个适配器同一接口，切换不需要改任何视图代码。
  */
 
-import type { PanelAction, PanelCellView, PanelSnapshot } from '@bcf/dsh-mnemo-core'
+import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
 
 export interface MnemoDataSource {
   readonly kind: 'remote' | 'event' | 'demo'

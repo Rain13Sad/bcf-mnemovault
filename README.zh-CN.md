@@ -102,10 +102,19 @@ popcount 183 ns   jaccard 193 ns   containment 297 ns
 
 ### 装到 DSH 里
 
-本项目**尚未发布到 npm**（`@bcf` scope 未注册），当前从源码接：
+已发布到 npm（`@rain13sad/*`，public）。按需装切片——包之间是独立的，只要记忆不要情感就是
+`core + encoder + recall + tools`：
 
 ```bash
-git clone https://github.com/Rain13Sad/bcf-mnemovault.git && cd mnemo-vault
+npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
+npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # 可选层
+npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                          # 面板与设置
+```
+
+想从源码跑（改代码 / 跑 demo）：
+
+```bash
+git clone https://github.com/Rain13Sad/bcf-mnemovault.git && cd bcf-mnemovault
 npm ci && npm run build
 ```
 
@@ -115,7 +124,7 @@ npm ci && npm run build
 ```yaml
 - insert:
     - id: mnemo-core
-      name: '@bcf/dsh-mnemo-core'
+      name: '@rain13sad/dsh-mnemo-core'
       config:
         dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
         sdrDim: 2048
@@ -168,16 +177,16 @@ npm ci && npm run build
 
 | 包 | 角色 | 关键导出 |
 | :--- | :--- | :--- |
-| `@bcf/dsh-mnemo-core` | 晶格 + 存储 + 召回 + 渲染 | `ctx.memory`、`SdrSpace`、`encodeCell`、`SensoryRing`、`WorkingSet` |
-| `@bcf/dsh-mnemo-affect` | 情感内核 | `ctx.affect`、`appraise`、`derivePolicy`、`deriveUserSchema` |
-| `@bcf/dsh-mnemo-encoder` | 写侧 | `Encoder`（订阅 `session/event`，turn/end 编码） |
-| `@bcf/dsh-mnemo-recall` | 读侧 | `agent/pre-step` 门控与注入 |
-| `@bcf/dsh-mnemo-consolidator` | 离线巩固 | `Consolidator`（NREM / REM / 遗忘） |
-| `@bcf/dsh-mnemo-tools` | 工具面 + 命令面 | 6 个工具、15 条 `/mnemo` 子命令、egress 守卫 |
-| `@bcf/dsh-mnemo-proactive` | **主动开口** | `ctx.mnemoProactive`、`candidate()`、`tick()`、静音 |
-| `@bcf/dsh-mnemo-settings` | 设置面板 | `ctx.mnemoSettings`、生效矩阵、配置快照 |
-| `@bcf/dsh-mnemo-ui` | **侧栏面板（client）** | `main` + `sidebar.panellist` 槽注册 |
-| `@bcf/dsh-mnemo-devkit` | 无宿主运行器 | `createHarness()`（真实 Cordis fiber） |
+| `@rain13sad/dsh-mnemo-core` | 晶格 + 存储 + 召回 + 渲染 | `ctx.memory`、`SdrSpace`、`encodeCell`、`SensoryRing`、`WorkingSet` |
+| `@rain13sad/dsh-mnemo-affect` | 情感内核 | `ctx.affect`、`appraise`、`derivePolicy`、`deriveUserSchema` |
+| `@rain13sad/dsh-mnemo-encoder` | 写侧 | `Encoder`（订阅 `session/event`，turn/end 编码） |
+| `@rain13sad/dsh-mnemo-recall` | 读侧 | `agent/pre-step` 门控与注入 |
+| `@rain13sad/dsh-mnemo-consolidator` | 离线巩固 | `Consolidator`（NREM / REM / 遗忘） |
+| `@rain13sad/dsh-mnemo-tools` | 工具面 + 命令面 | 6 个工具、15 条 `/mnemo` 子命令、egress 守卫 |
+| `@rain13sad/dsh-mnemo-proactive` | **主动开口** | `ctx.mnemoProactive`、`candidate()`、`tick()`、静音 |
+| `@rain13sad/dsh-mnemo-settings` | 设置面板 | `ctx.mnemoSettings`、生效矩阵、配置快照 |
+| `@rain13sad/dsh-mnemo-ui` | **侧栏面板（client）** | `main` + `sidebar.panellist` 槽注册 |
+| `@rain13sad/dsh-mnemo-devkit` | 无宿主运行器 | `createHarness()`（真实 Cordis fiber） |
 
 拆包的理由不是洁癖：Cordis 的 `inject` 是依赖驱动的，只要记忆不要情感的用户可以只装
 `core + encoder + recall + tools`，`affect` 缺席时 recall 自动走无情感门控的降级路径。

@@ -10,7 +10,7 @@
  *   · strain 只由"重复追问/明确不满"驱动，不由"用户不同意"驱动
  */
 
-import type { AffectPolicy, Intero, Pad, RelationalSnapshot } from '@bcf/dsh-mnemo-core'
+import type { AffectPolicy, Intero, Pad, RelationalSnapshot } from '@rain13sad/dsh-mnemo-core'
 
 export interface PolicyInput {
   pad: Pad

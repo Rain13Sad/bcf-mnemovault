@@ -6,7 +6,7 @@
  * 代价是两处逻辑必须保持一致，因此测试里有一条对拍（test/explain.test.mjs）：
  * 同一份 breakdown 在 host 与 client 两侧渲染出的文本必须逐字节相同。
  */
-import type { ScoreBreakdown } from '@bcf/dsh-mnemo-core'
+import type { ScoreBreakdown } from '@rain13sad/dsh-mnemo-core'
 
 const LABEL: Record<string, string> = {
   sim: 'sim     ',

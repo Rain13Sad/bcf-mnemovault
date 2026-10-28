@@ -6,7 +6,7 @@
  * 面板底部常驻一行说明，因为这是最容易被误读的一页。
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelCellView, PanelSnapshot } from '@bcf/dsh-mnemo-core'
+import type { PanelCellView, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
 import { Bar, Metric, fmt2, signed } from '../ui.js'
 
 export interface AffectProps {

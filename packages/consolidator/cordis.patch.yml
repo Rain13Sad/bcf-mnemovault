@@ -1,7 +1,7 @@
 # 离线巩固：NREM / REM + 按比例降权 + 弱边剪除
 - insert:
     - id: mnemo-consolidator
-      name: '@bcf/dsh-mnemo-consolidator'
+      name: '@rain13sad/dsh-mnemo-consolidator'
       config:
         enabled: true
         gamma: 0.95

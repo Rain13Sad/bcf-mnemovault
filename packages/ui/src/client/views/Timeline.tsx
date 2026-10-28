@@ -5,7 +5,7 @@
  * 性能约束（§12.10）：单页 ≤ pageSize 条 + 哨兵增量加载，万级 cell 不全量渲染。
  */
 import { createElement as h, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { PanelAction, PanelCellView } from '@bcf/dsh-mnemo-core'
+import type { PanelAction, PanelCellView } from '@rain13sad/dsh-mnemo-core'
 import { Chip, KIND_LABEL, PROV_LABEL, TIER_LABEL, dayKey, fmt2, mmdd, relTime, signed, valenceColor } from '../ui.js'
 
 const LENS_LABEL: Record<string, string> = { fact: '事实', feeling: '感受', bond: '关系', story: '故事' }

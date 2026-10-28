@@ -3,7 +3,7 @@
 **DeepSeek Harness 记忆与情感插件开发文档**
 
 > 版本基线：DSH `0.2.1-rc.3`（2026-10-23，`next` 通道）
-> 插件包族：`@bcf/dsh-mnemo-*`　|　文档版本：**v0.2**　|　日期：2026-10-27
+> 插件包族：`@rain13sad/dsh-mnemo-*`　|　文档版本：**v0.2**　|　日期：2026-10-27
 > 上一版：v0.1（基线 `0.1.2-rc.1`）
 >
 > **兼容性警告**：DSH 仍处 Developer Preview，官方声明存在破坏性变更。本文所有 API 形态以 `@deepseek-ai/dsh 0.2.1-rc.3` 为准；`npm latest` 指向 `0.2.1-rc.2`，rc.3 需显式装 `@deepseek-ai/dsh@0.2.1-rc.3` 或走 `next` 通道。函数签名、事件名、服务键在后续 rc 中可能再变。落地前用 `dsh --profile <name> --dump-config` 与 `node_modules/@deepseek-ai/dsh-tools/dist/*.d.ts` 复核。本文用 ⚠ 标注三处"必须以实机为准"的接缝。
@@ -1477,14 +1477,14 @@ cell 7f3a  总分 0.71（阈值 0.42，槽位 2）
 
 | 包 | 角色 | 提供 | 依赖 |
 | :--- | :--- | :--- | :--- |
-| `@bcf/dsh-mnemo-core` | 服务定义 + 存储 + 索引 | `ctx.memory` | `storage`, `sessions` |
-| `@bcf/dsh-mnemo-encoder` | 写侧 | 订阅 `session/event` | `memory`, `llm` |
-| `@bcf/dsh-mnemo-recall` | 读侧 | `agent/pre-step` 注入 | `memory`, `affect` |
-| `@bcf/dsh-mnemo-affect` | 情感内核 | `ctx.affect` | `memory` |
-| `@bcf/dsh-mnemo-consolidator` | 离线巩固 | pass 调度 | `memory`, `affect` |
-| `@bcf/dsh-mnemo-tools` | 工具面 + 命令面 | 6 工具 + 13 命令 | `tools`, `memory` |
-| `@bcf/dsh-mnemo-ui` | 侧栏面板（client） | 记忆浏览器 | 仅 client |
-| `@bcf/dsh-mnemo-settings` | 设置面板 schema | `ctx.mnemoSettings` | `memory` |
+| `@rain13sad/dsh-mnemo-core` | 服务定义 + 存储 + 索引 | `ctx.memory` | `storage`, `sessions` |
+| `@rain13sad/dsh-mnemo-encoder` | 写侧 | 订阅 `session/event` | `memory`, `llm` |
+| `@rain13sad/dsh-mnemo-recall` | 读侧 | `agent/pre-step` 注入 | `memory`, `affect` |
+| `@rain13sad/dsh-mnemo-affect` | 情感内核 | `ctx.affect` | `memory` |
+| `@rain13sad/dsh-mnemo-consolidator` | 离线巩固 | pass 调度 | `memory`, `affect` |
+| `@rain13sad/dsh-mnemo-tools` | 工具面 + 命令面 | 6 工具 + 13 命令 | `tools`, `memory` |
+| `@rain13sad/dsh-mnemo-ui` | 侧栏面板（client） | 记忆浏览器 | 仅 client |
+| `@rain13sad/dsh-mnemo-settings` | 设置面板 schema | `ctx.mnemoSettings` | `memory` |
 
 **为什么拆八个包**：Cordis 的 `inject` 是依赖驱动的——只要记忆不要情感的用户可只装 core + encoder + recall + tools，`affect` 缺席时 recall 走无情感门控的降级路径。单体包做不到这种裁剪。UI 与 settings 分开是因为它们跑在 client 侧，与 host 侧生命周期不同。
 
@@ -1710,7 +1710,7 @@ dsh-mnemo/
 
 ```json
 {
-  "name": "@bcf/dsh-mnemo-core",
+  "name": "@rain13sad/dsh-mnemo-core",
   "version": "0.2.0",
   "type": "module",
   "main": "./lib/index.js",
@@ -1742,7 +1742,7 @@ dsh-mnemo/
 ```yaml
 - insert:
     - id: mnemo-core
-      name: '@bcf/dsh-mnemo-core'
+      name: '@rain13sad/dsh-mnemo-core'
       config:
         dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
         sdrDim: 2048

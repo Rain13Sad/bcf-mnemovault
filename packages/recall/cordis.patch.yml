@@ -1,7 +1,7 @@
 # 读侧：agent/pre-step 门控 + 注入（写 memory/recall）
 - insert:
     - id: mnemo-recall
-      name: '@bcf/dsh-mnemo-recall'
+      name: '@rain13sad/dsh-mnemo-recall'
       config:
         enabled: true
         injectOnFirstTurn: true

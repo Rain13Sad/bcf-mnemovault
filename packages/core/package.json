@@ -1,5 +1,5 @@
 {
-  "name": "@bcf/dsh-mnemo-core",
+  "name": "@rain13sad/dsh-mnemo-core",
   "version": "0.2.0",
   "description": "服务定义 + 存储 + 索引 + 渲染（ctx.memory）",
   "keywords": [

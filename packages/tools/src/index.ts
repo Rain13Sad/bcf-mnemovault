@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-tools —— 工具面 + 命令面（§17）
+ * @rain13sad/dsh-mnemo-tools —— 工具面 + 命令面（§17）
  *
  * 六个模型可见工具。工具描述是模型唯一能看到的契约，含糊会误用，因此三条必须写进 description：
  *   1. memory_recall 不要滥用（自动注入已覆盖大部分场景）
@@ -25,7 +25,7 @@ import {
   toHex,
   type MemoryService,
   type Slot,
-} from '@bcf/dsh-mnemo-core'
+} from '@rain13sad/dsh-mnemo-core'
 import { buildGuard, isEgressTool, type EgressGuard } from './guard.js'
 import { runCommand, type CommandDeps } from './commands.js'
 

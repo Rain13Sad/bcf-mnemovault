@@ -12,7 +12,7 @@
  * 既能挂到 ctx.cmdline，也能在测试与 demo 里直接调。
  */
 
-import { KIND_NAME, formatBreakdown, toHex, type MemoryService, type Preset } from '@bcf/dsh-mnemo-core'
+import { KIND_NAME, formatBreakdown, toHex, type MemoryService, type Preset } from '@rain13sad/dsh-mnemo-core'
 
 export interface CommandDeps {
   memory: MemoryService

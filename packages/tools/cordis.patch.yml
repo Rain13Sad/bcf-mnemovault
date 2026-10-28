@@ -1,7 +1,7 @@
 # 工具面（6）+ 命令面（/mnemo …）+ egress 守卫
 - insert:
     - id: mnemo-tools
-      name: '@bcf/dsh-mnemo-tools'
+      name: '@rain13sad/dsh-mnemo-tools'
       config:
         piiRedaction: true
         blockMemoryInEgress: true

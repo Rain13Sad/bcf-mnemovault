@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-affect —— 情感内核（§11 / §14.2 / §15）
+ * @rain13sad/dsh-mnemo-affect —— 情感内核（§11 / §14.2 / §15）
  *
  * 四段管线：interocept → core affect → appraisal×context → label（仅渲染时）
  * 对应 Barrett 四步：身体变化 → 感知 → 结合经验解释 → 情绪出现。
@@ -13,7 +13,7 @@
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-session'
 import z from '@deepseek-ai/schemastery'
-import type { Appraisal, Intero, MemoryService, Pad, RelationalSnapshot } from '@bcf/dsh-mnemo-core'
+import type { Appraisal, Intero, MemoryService, Pad, RelationalSnapshot } from '@rain13sad/dsh-mnemo-core'
 import { neutralIntero } from './appraisal.js'
 import { appraise, clampPersona, coreAffect, DEFAULT_COEFF, integrateMood, label, neutralPad, type AffectCoefficients } from './appraisal.js'
 import { derivePolicy, interocept, type InteroSignals } from './policy.js'

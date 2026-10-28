@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-settings —— 设置面板 schema + 预设档 + 生效矩阵（§12.2 / §12.8 / §13）
+ * @rain13sad/dsh-mnemo-settings —— 设置面板 schema + 预设档 + 生效矩阵（§12.2 / §12.8 / §13）
  *
  * 一条原则：**不要手写 UI 表单**。DSH 的插件配置由 Config（schemastery）声明，
  * 设置面板据此生成表单。把 Config 写清楚就够了——这是"可操作性"的最低成本实现，
@@ -22,7 +22,7 @@ import {
   type MemoryService,
   type MnemoConfig,
   type Preset,
-} from '@bcf/dsh-mnemo-core'
+} from '@rain13sad/dsh-mnemo-core'
 
 export const name = 'mnemo-settings'
 export const inject = ['memory']

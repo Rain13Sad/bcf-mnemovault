@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-recall —— 读侧（§14.5）
+ * @rain13sad/dsh-mnemo-recall —— 读侧（§14.5）
  *
  * 在 `agent/pre-step` 的 waterfall 阶段注入记忆块，并写 `memory/recall` 事件。
  * 门控是省 token 的第一道闸：不是"每轮都查"，而是"该查才查"。
@@ -21,7 +21,7 @@ import {
   type RecallQuery,
   type RecallResult,
   type SurfaceMode,
-} from '@bcf/dsh-mnemo-core'
+} from '@rain13sad/dsh-mnemo-core'
 
 export const name = 'mnemo-recall'
 export const inject = ['memory', 'sessions']
@@ -226,6 +226,6 @@ export function buildInjectionMessage(rendered: string, queryId: string): Record
     id: `mnemo-${queryId}`,
     role: 'user',
     content: [{ type: 'text', text: rendered }],
-    source: { kind: 'plugin', plugin: '@bcf/dsh-mnemo-recall', form: 'recall' },
+    source: { kind: 'plugin', plugin: '@rain13sad/dsh-mnemo-recall', form: 'recall' },
   }
 }

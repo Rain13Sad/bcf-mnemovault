@@ -8,7 +8,7 @@
  * 避免"面板显示的和命令显示的不一样"这类最难查的 bug。
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelAction, PanelSnapshot } from '@bcf/dsh-mnemo-core'
+import type { PanelAction, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
 import { Bar, Metric, Sparkline, fmt2 } from '../ui.js'
 
 export interface DiagnosticsProps {

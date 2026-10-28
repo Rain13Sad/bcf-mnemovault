@@ -6,7 +6,7 @@
  * 用户才敢把"主动"开关打开。参考产品里把主动消息做成一键开关的，用户第一反应是关掉。
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelAction, PanelSnapshot } from '@bcf/dsh-mnemo-core'
+import type { PanelAction, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
 import { Metric, fmt2 } from '../ui.js'
 
 export interface ProactiveProps {
@@ -30,7 +30,7 @@ export function Proactive(props: ProactiveProps): ReactNode {
       'div',
       { className: 'mnv-empty' },
       h('div', null, '主动开口未启用'),
-      h('div', null, '安装 @bcf/dsh-mnemo-proactive 后，这里会出现频率、静默时段与候选预览。'),
+      h('div', null, '安装 @rain13sad/dsh-mnemo-proactive 后，这里会出现频率、静默时段与候选预览。'),
     )
   }
 

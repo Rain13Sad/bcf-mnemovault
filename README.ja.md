@@ -124,16 +124,16 @@ Node 22.22 / Windows で実測。`artifacts/bench.json` から再現できます
 
 | パッケージ | 役割 |
 | :--- | :--- |
-| `@bcf/dsh-mnemo-core` | 格子・保存・想起・描画（`ctx.memory`） |
-| `@bcf/dsh-mnemo-affect` | 感情カーネル（`ctx.affect`） |
-| `@bcf/dsh-mnemo-encoder` | 書き込み側（`session/event` を購読） |
-| `@bcf/dsh-mnemo-recall` | 読み出し側（`agent/pre-step` のゲートと注入） |
-| `@bcf/dsh-mnemo-consolidator` | オフライン固定化（NREM / REM / 忘却） |
-| `@bcf/dsh-mnemo-tools` | ツール 6 個・`/mnemo` 15 サブコマンド・egress ガード |
-| `@bcf/dsh-mnemo-proactive` | 主動的に話しかける（四つのゲート） |
-| `@bcf/dsh-mnemo-settings` | 設定パネルと効果マトリクス |
-| `@bcf/dsh-mnemo-ui` | サイドバーパネル（クライアント側） |
-| `@bcf/dsh-mnemo-devkit` | ホスト不要の実行器（`createHarness()`） |
+| `@rain13sad/dsh-mnemo-core` | 格子・保存・想起・描画（`ctx.memory`） |
+| `@rain13sad/dsh-mnemo-affect` | 感情カーネル（`ctx.affect`） |
+| `@rain13sad/dsh-mnemo-encoder` | 書き込み側（`session/event` を購読） |
+| `@rain13sad/dsh-mnemo-recall` | 読み出し側（`agent/pre-step` のゲートと注入） |
+| `@rain13sad/dsh-mnemo-consolidator` | オフライン固定化（NREM / REM / 忘却） |
+| `@rain13sad/dsh-mnemo-tools` | ツール 6 個・`/mnemo` 15 サブコマンド・egress ガード |
+| `@rain13sad/dsh-mnemo-proactive` | 主動的に話しかける（四つのゲート） |
+| `@rain13sad/dsh-mnemo-settings` | 設定パネルと効果マトリクス |
+| `@rain13sad/dsh-mnemo-ui` | サイドバーパネル（クライアント側） |
+| `@rain13sad/dsh-mnemo-devkit` | ホスト不要の実行器（`createHarness()`） |
 
 Cordis の `inject` は依存駆動なので、感情が不要なら `core + encoder + recall + tools` だけで動き、
 `recall` は感情ゲートなしの経路に自動で落ちます。

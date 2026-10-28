@@ -1,7 +1,7 @@
 # 晶格服务：存储、索引、四路召回、MRS 渲染
 - insert:
     - id: mnemo-core
-      name: '@bcf/dsh-mnemo-core'
+      name: '@rain13sad/dsh-mnemo-core'
       config:
         dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
         residualDir: !!js `${ctx.baseDir}/mnemo/blob`

@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-ui —— 侧栏面板（client 侧插件）
+ * @rain13sad/dsh-mnemo-ui —— 侧栏面板（client 侧插件）
  *
  * 这里用的是 DSH 0.2.1-rc.3 **实际发布包**里的 client 插件契约（不是文档里的示意）：
  *   · 模块导出 `name` / `inject` / `apply(ctx)`（见 @deepseek-ai/dsh-client-ui-agent-preset 的 lib/client.js）
@@ -15,7 +15,7 @@
  */
 
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelAction, PanelSnapshot } from '@bcf/dsh-mnemo-core'
+import type { PanelAction, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
 import { MnemoPanel } from './Panel.js'
 import { createDemoSource, createEventSource, createRemoteSource, type MnemoDataSource, type MnemoRemoteFace } from './data.js'
 
@@ -86,7 +86,7 @@ export function apply(ctx: ClientContext, config: Config = defaultConfig): void 
   // 面板本体：`main` 是 keyed/root 槽，key 即 MainPanelId。
   ctx.effect(() => {
     const dispose = ctx.slots.register(
-      { name: 'main', key: PANEL_ID, registrant: '@bcf/dsh-mnemmo-ui' },
+      { name: 'main', key: PANEL_ID, registrant: '@rain13sad/dsh-mnemmo-ui' },
       () =>
         h(MnemoPanel, {
           source,
@@ -104,7 +104,7 @@ export function apply(ctx: ClientContext, config: Config = defaultConfig): void 
   // 侧栏据此渲染图标按钮，并自动把它列进「更多」菜单（§12.1 的入口位置）。
   ctx.effect(() => {
     const dispose = ctx.slots.register(
-      { name: 'sidebar.panellist', id: PANEL_ID, order: 60, label: () => '记忆', registrant: '@bcf/dsh-mnemo-ui' },
+      { name: 'sidebar.panellist', id: PANEL_ID, order: 60, label: () => '记忆', registrant: '@rain13sad/dsh-mnemo-ui' },
       (props) => h(PanelIcon, { size: Number(props.size ?? 16), active: Boolean(props.active) }),
     )
     return () => dispose()

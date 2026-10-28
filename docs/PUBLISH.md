@@ -55,37 +55,42 @@ CI 会在 push 与 PR 上跑 Ubuntu + Windows 两套：`npm ci → build → typ
 - 打 tag：`git tag -a v0.2.0 -m "v0.2.0" && git push --tags`，再在 GitHub 上
   Draft a release，把 CHANGELOG 对应段落粘进去。
 
-## 4. 发布到 npm（可选，当前未发布）
+## 4. 发布到 npm
 
-包名是 `@bcf/dsh-mnemo-*`，需要 npm 上存在 `@bcf` 这个 scope（组织）。如果拿不到，
-先改成你自己的 scope（同样要改 `scripts/scaffold.mjs`、`scripts/patches.mjs` 与各包之间的 import）。
+包名是 `@rain13sad/dsh-mnemo-*`（npm 账号 rain13sad 自带这个 scope，不用建组织）。
+`@bcf` 这个 scope 已经被另一个同名用户占用，所以没有用它。
 
-发布前有两个坑：
+发布前有三个坑，都已经在仓库里处理掉了，记下来免得下次踩：
 
-1. **内部依赖写的是 `"*"`。** npm 不会自动把它改写成具体版本，发布出去的包会依赖"任意版本"。
-   发布前把它们改成 `"^0.2.0"`：
+1. **内部依赖不能写 `"*"`。** npm 不会替你改写成具体版本，发出去的包会依赖"任意版本"。
+   现在各包统一写 `^0.2.0`；升版本时根 package.json 与 10 个子包一起改。
+2. **`lib/` 是 gitignore 的构建产物**，但 `files` 里有它。不 build 就发，发出去的是空包。
+3. **npm 包页只认包内的 README**，仓库根那份不会带过去。`npm run readmes` 会按
+   `scripts/pkg-readme.mjs` 里的表重新生成 10 份；CI 里可以用
+   `node scripts/pkg-readme.mjs --check` 卡住忘记更新的情况。
 
-   ```bash
-   node -e "
-   const fs=require('fs'),path=require('path');
-   const v=require('./package.json').version;
-   for(const d of fs.readdirSync('packages')){
-     const p=path.join('packages',d,'package.json'); const j=JSON.parse(fs.readFileSync(p));
-     for(const k of ['dependencies','peerDependencies'])
-       for(const n of Object.keys(j[k]||{})) if(n.startsWith('@bcf/')) j[k][n]='^'+v;
-     fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');
-   }"
-   ```
+标准流程：
 
-2. **`lib/` 是 gitignore 的构建产物。** `files` 字段里包含它，所以发布前必须先 `npm run build`，
-   否则发出去的是空包。建议顺序：
+```bash
+npm run verify                              # build + test + check + bench，先绿
+npm run readmes                             # 子包 README 与代码对齐
+npm publish --workspaces --access public    # 一次发 10 个包
+```
 
-   ```bash
-   npm run verify                     # 先绿
-   npm publish --workspaces --access public   # 依赖顺序由 npm 处理，必要时逐包发
-   ```
+账号开了 2FA（授权与发布都要），所以 `npm publish` 会要一次性口令：
 
-发布后记得把 README 的「安装」一节从"从源码安装"改成 `npm i @bcf/dsh-mnemo-core`。
+```bash
+npm publish --workspaces --access public --otp=123456
+```
+
+发布顺序无所谓（npm 不校验依赖是否已存在），但装的时候要全都在。发完核对：
+
+```bash
+npm view @rain13sad/dsh-mnemo-core version   # 应为当前版本
+npm access list packages                     # 应能看到 10 个包
+```
+
+`npm run publish:all` 是 `npm publish --workspaces --access public` 的简写。
 
 ## 5. 推送前自检
 

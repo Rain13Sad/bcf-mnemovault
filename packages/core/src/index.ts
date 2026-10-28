@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-core —— 插件入口（§15.4）
+ * @rain13sad/dsh-mnemo-core —— 插件入口（§15.4）
  *
  * 配置直接写在插件行的 `config` 下，由 schemastery 校验并生成设置表单。
  * 不手写 UI 表单：这是"可操作性"的最低成本实现，也是唯一不会随 DSH 升级而失效的实现（§12.2）。

@@ -1,7 +1,7 @@
 # 情感内核：内感受 → 评价 → PAD → 心境 → 关系模型
 - insert:
     - id: mnemo-affect
-      name: '@bcf/dsh-mnemo-affect'
+      name: '@rain13sad/dsh-mnemo-affect'
       config:
         moodTau: 20
         personaDriftEpsilon: 0.25

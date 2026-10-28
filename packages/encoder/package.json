@@ -1,5 +1,5 @@
 {
-  "name": "@bcf/dsh-mnemo-encoder",
+  "name": "@rain13sad/dsh-mnemo-encoder",
   "version": "0.2.0",
   "description": "写侧：订阅 session/event，产出 MemCell",
   "keywords": [
@@ -52,8 +52,8 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "@bcf/dsh-mnemo-core": "^0.2.0",
-    "@bcf/dsh-mnemo-affect": "^0.2.0"
+    "@rain13sad/dsh-mnemo-core": "^0.2.0",
+    "@rain13sad/dsh-mnemo-affect": "^0.2.0"
   },
   "publishConfig": {
     "access": "public"

@@ -1,5 +1,5 @@
 /**
- * @bcf/dsh-mnemo-proactive —— 主动开口
+ * @rain13sad/dsh-mnemo-proactive —— 主动开口
  *
  * 陪伴类产品最缺的不是"记得住"，是"会先开口"。但主动说话是最容易变成骚扰的功能，
  * 所以这个包的一半代码在处理**不该说话的时候不说话**：
@@ -30,7 +30,7 @@ import {
   toHex,
   type MemoryService,
   type Pad,
-} from '@bcf/dsh-mnemo-core'
+} from '@rain13sad/dsh-mnemo-core'
 
 export const name = 'mnemo-proactive'
 export const inject = ['memory', 'sessions']

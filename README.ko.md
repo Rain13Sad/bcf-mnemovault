@@ -124,16 +124,16 @@ brotli 잔차가 원문의 약 `0.42 ×`입니다. 따라서 `ratio ≈ (nCells 
 
 | 패키지 | 역할 |
 | :--- | :--- |
-| `@bcf/dsh-mnemo-core` | 격자·저장·회상·렌더링(`ctx.memory`) |
-| `@bcf/dsh-mnemo-affect` | 정서 커널(`ctx.affect`) |
-| `@bcf/dsh-mnemo-encoder` | 쓰기 측(`session/event` 구독) |
-| `@bcf/dsh-mnemo-recall` | 읽기 측(`agent/pre-step` 게이트와 주입) |
-| `@bcf/dsh-mnemo-consolidator` | 오프라인 고정화(NREM / REM / 망각) |
-| `@bcf/dsh-mnemo-tools` | 도구 6개 · `/mnemo` 15개 하위 명령 · egress 가드 |
-| `@bcf/dsh-mnemo-proactive` | 먼저 말 걸기(네 개의 문) |
-| `@bcf/dsh-mnemo-settings` | 설정 패널과 효과 매트릭스 |
-| `@bcf/dsh-mnemo-ui` | 사이드바 패널(클라이언트 측) |
-| `@bcf/dsh-mnemo-devkit` | 호스트 없는 실행기(`createHarness()`) |
+| `@rain13sad/dsh-mnemo-core` | 격자·저장·회상·렌더링(`ctx.memory`) |
+| `@rain13sad/dsh-mnemo-affect` | 정서 커널(`ctx.affect`) |
+| `@rain13sad/dsh-mnemo-encoder` | 쓰기 측(`session/event` 구독) |
+| `@rain13sad/dsh-mnemo-recall` | 읽기 측(`agent/pre-step` 게이트와 주입) |
+| `@rain13sad/dsh-mnemo-consolidator` | 오프라인 고정화(NREM / REM / 망각) |
+| `@rain13sad/dsh-mnemo-tools` | 도구 6개 · `/mnemo` 15개 하위 명령 · egress 가드 |
+| `@rain13sad/dsh-mnemo-proactive` | 먼저 말 걸기(네 개의 문) |
+| `@rain13sad/dsh-mnemo-settings` | 설정 패널과 효과 매트릭스 |
+| `@rain13sad/dsh-mnemo-ui` | 사이드바 패널(클라이언트 측) |
+| `@rain13sad/dsh-mnemo-devkit` | 호스트 없는 실행기(`createHarness()`) |
 
 Cordis의 `inject`는 의존성 기반이라, 정서가 필요 없으면 `core + encoder + recall + tools`만으로 동작하고
 `recall`은 정서 게이트 없는 경로로 자동 강등됩니다.

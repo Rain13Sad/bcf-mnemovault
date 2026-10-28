@@ -1,4 +1,4 @@
-# @bcf/dsh-mnemo-core
+# @rain13sad/dsh-mnemo-core
 
 Lattice, store, index and renderer — the `ctx.memory` service.
 
@@ -9,7 +9,7 @@ biphasic consolidation, ~116 tokens injected per turn, zero runtime dependencies
 ## Install
 
 ```bash
-npm i @bcf/dsh-mnemo-core
+npm i @rain13sad/dsh-mnemo-core
 ```
 
 Loaded by the harness as a Cordis plugin — declare it in your plugin list and it applies itself.
@@ -33,16 +33,16 @@ prompt renderer. Every other package talks to the vault through this one.
 
 | Package | Role |
 | :--- | :--- |
-| `@bcf/dsh-mnemo-core` | Lattice, store, index and renderer — the `ctx.memory` service. |
-| `@bcf/dsh-mnemo-affect` | Affect kernel — appraisal, mood, persona and the user schema. |
-| `@bcf/dsh-mnemo-encoder` | Write path — turns a finished turn into sparse-code cells. |
-| `@bcf/dsh-mnemo-recall` | Read path — four-channel recall and prompt injection. |
-| `@bcf/dsh-mnemo-consolidator` | Offline consolidation — NREM, REM and forgetting. |
-| `@bcf/dsh-mnemo-proactive` | Companion layer — when the agent may speak first. |
-| `@bcf/dsh-mnemo-tools` | Tool surface and `/mnemo` commands. |
-| `@bcf/dsh-mnemo-settings` | Settings schema, presets and the effect matrix. |
-| `@bcf/dsh-mnemo-devkit` | Host-free runner — mock Cordis context and session replay. |
-| `@bcf/dsh-mnemo-ui` | Sidebar panel — memory browser, graph, affect and diagnostics. |
+| `@rain13sad/dsh-mnemo-core` | Lattice, store, index and renderer — the `ctx.memory` service. |
+| `@rain13sad/dsh-mnemo-affect` | Affect kernel — appraisal, mood, persona and the user schema. |
+| `@rain13sad/dsh-mnemo-encoder` | Write path — turns a finished turn into sparse-code cells. |
+| `@rain13sad/dsh-mnemo-recall` | Read path — four-channel recall and prompt injection. |
+| `@rain13sad/dsh-mnemo-consolidator` | Offline consolidation — NREM, REM and forgetting. |
+| `@rain13sad/dsh-mnemo-proactive` | Companion layer — when the agent may speak first. |
+| `@rain13sad/dsh-mnemo-tools` | Tool surface and `/mnemo` commands. |
+| `@rain13sad/dsh-mnemo-settings` | Settings schema, presets and the effect matrix. |
+| `@rain13sad/dsh-mnemo-devkit` | Host-free runner — mock Cordis context and session replay. |
+| `@rain13sad/dsh-mnemo-ui` | Sidebar panel — memory browser, graph, affect and diagnostics. |
 
 ## Links
 

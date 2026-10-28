@@ -10,8 +10,8 @@
  * 却没定义谁产生——这里用三条启发式，各自带置信度，低置信不更新。
  */
 
-import type { RelationalSnapshot } from '@bcf/dsh-mnemo-core'
-import { attunementSignal, detectBoundary } from '@bcf/dsh-mnemo-core'
+import type { RelationalSnapshot } from '@rain13sad/dsh-mnemo-core'
+import { attunementSignal, detectBoundary } from '@rain13sad/dsh-mnemo-core'
 
 export interface RelationalModel extends RelationalSnapshot {
   /** 内部：上次 attunement 更新的轮次，避免同一轮重复计分 */

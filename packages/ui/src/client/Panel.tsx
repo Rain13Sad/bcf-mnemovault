@@ -7,7 +7,7 @@
  * 生命周期（§12.10 最后一条）：关闭即释放所有订阅——这是热重载与卸载的前提。
  */
 import { createElement as h, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { PanelAction, PanelCellView, PanelSnapshot, Preset, SurfaceMode } from '@bcf/dsh-mnemo-core'
+import type { PanelAction, PanelCellView, PanelSnapshot, Preset, SurfaceMode } from '@rain13sad/dsh-mnemo-core'
 import type { MnemoDataSource } from './data.js'
 import { formatBreakdownClient } from './explain.js'
 import { CSS, STYLE_ID } from './style.js'

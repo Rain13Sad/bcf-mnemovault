@@ -7,8 +7,8 @@
  * 守卫必须 fail-closed（不确定就拒绝），不是 fail-open。
  */
 
-import type { MemoryService } from '@bcf/dsh-mnemo-core'
-import { FLAG } from '@bcf/dsh-mnemo-core'
+import type { MemoryService } from '@rain13sad/dsh-mnemo-core'
+import { FLAG } from '@rain13sad/dsh-mnemo-core'
 
 const EGRESS_TOOL = /(^|_)(web|fetch|http|search|mail|upload|post|publish|browser|curl|http_request)(_|$)/i
 

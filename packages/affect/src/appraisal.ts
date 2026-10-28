@@ -5,7 +5,7 @@
  * 所有输出都是状态变量的投影；标签（"焦虑"/"满意"）只在渲染时生成，不入库。
  */
 
-import type { Appraisal, Intero, Pad } from '@bcf/dsh-mnemo-core'
+import type { Appraisal, Intero, Pad } from '@rain13sad/dsh-mnemo-core'
 
 const clamp = (x: number, lo = -1, hi = 1) => Math.min(hi, Math.max(lo, x))
 

@@ -11,7 +11,7 @@ const patches = {
   core: `# 晶格服务：存储、索引、四路召回、MRS 渲染
 - insert:
     - id: mnemo-core
-      name: '@bcf/dsh-mnemo-core'
+      name: '@rain13sad/dsh-mnemo-core'
       config:
         dbPath: !!js \`\${ctx.baseDir}/mnemo/vault.db\`
         residualDir: !!js \`\${ctx.baseDir}/mnemo/blob\`
@@ -27,7 +27,7 @@ const patches = {
   affect: `# 情感内核：内感受 → 评价 → PAD → 心境 → 关系模型
 - insert:
     - id: mnemo-affect
-      name: '@bcf/dsh-mnemo-affect'
+      name: '@rain13sad/dsh-mnemo-affect'
       config:
         moodTau: 20
         personaDriftEpsilon: 0.25
@@ -37,7 +37,7 @@ const patches = {
   encoder: `# 写侧：turn/end 时把本轮对话编码成 0..N 个 MemCell
 - insert:
     - id: mnemo-encoder
-      name: '@bcf/dsh-mnemo-encoder'
+      name: '@rain13sad/dsh-mnemo-encoder'
       config:
         encodeAssistant: true
         encodeTools: true
@@ -49,7 +49,7 @@ const patches = {
   recall: `# 读侧：agent/pre-step 门控 + 注入（写 memory/recall）
 - insert:
     - id: mnemo-recall
-      name: '@bcf/dsh-mnemo-recall'
+      name: '@rain13sad/dsh-mnemo-recall'
       config:
         enabled: true
         injectOnFirstTurn: true
@@ -61,7 +61,7 @@ const patches = {
   consolidator: `# 离线巩固：NREM / REM + 按比例降权 + 弱边剪除
 - insert:
     - id: mnemo-consolidator
-      name: '@bcf/dsh-mnemo-consolidator'
+      name: '@rain13sad/dsh-mnemo-consolidator'
       config:
         enabled: true
         gamma: 0.95
@@ -73,7 +73,7 @@ const patches = {
   tools: `# 工具面（6）+ 命令面（/mnemo …）+ egress 守卫
 - insert:
     - id: mnemo-tools
-      name: '@bcf/dsh-mnemo-tools'
+      name: '@rain13sad/dsh-mnemo-tools'
       config:
         piiRedaction: true
         blockMemoryInEgress: true
@@ -83,7 +83,7 @@ const patches = {
   settings: `# 设置面板：预设档、生效矩阵、配置快照
 - insert:
     - id: mnemo-settings
-      name: '@bcf/dsh-mnemo-settings'
+      name: '@rain13sad/dsh-mnemo-settings'
       config:
         panelPageSize: 50
         graphMaxNodes: 200

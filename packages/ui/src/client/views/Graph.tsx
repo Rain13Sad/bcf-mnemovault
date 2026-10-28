@@ -6,7 +6,7 @@
  * 中心 → 第一跳均匀分布 → 第二跳外圈。节点上限 graphMaxNodes，超过截断并标注。
  */
 import { createElement as h, useMemo, type ReactNode } from 'react'
-import type { PanelCellView, PanelEdgeView } from '@bcf/dsh-mnemo-core'
+import type { PanelCellView, PanelEdgeView } from '@rain13sad/dsh-mnemo-core'
 import { KIND_LABEL, fmt2, signed, valenceColor } from '../ui.js'
 
 export interface GraphProps {

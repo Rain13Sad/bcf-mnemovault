@@ -6,7 +6,7 @@
  * 这个脚本存在的意义：证明"文档里的每一章都在同一条代码路径上生效"，
  * 而不是各章各自有一个漂亮的单测。
  */
-import { createHarness } from '@bcf/dsh-mnemo-devkit'
+import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
 import { writeFileSync, mkdirSync } from 'node:fs'
 
 const SCRIPT = [

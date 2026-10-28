@@ -111,10 +111,10 @@ const PACKAGES = [
   },
 ]
 
-const family = PACKAGES.map((p) => `| \`@bcf/dsh-mnemo-${p.dir}\` | ${p.tagline.replace(/\|/g, '\\|')} |`).join('\n')
+const family = PACKAGES.map((p) => `| \`@rain13sad/dsh-mnemo-${p.dir}\` | ${p.tagline.replace(/\|/g, '\\|')} |`).join('\n')
 
 const render = (p) => {
-  const name = `@bcf/dsh-mnemo-${p.dir}`
+  const name = `@rain13sad/dsh-mnemo-${p.dir}`
   const isClient = p.dir === 'ui'
   return `# ${name}
 

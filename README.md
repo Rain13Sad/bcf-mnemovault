@@ -9,7 +9,7 @@ Memories are stored as fixed-size cells — sparse codes, int8 vectors, typed hy
 residuals — not as text. Injection renders **~116 tokens per turn** instead of replaying the transcript.
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@bcf/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@bcf/dsh-mnemo-core)
+[![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.5-339933?logo=node.js&logoColor=white)](#requirements)
 [![Tests](https://img.shields.io/badge/tests-93-brightgreen.svg)](test/)
@@ -101,13 +101,13 @@ npm run verify       # all of the above in one shot (this is what CI runs)
 
 ### Installing into DSH
 
-Published on npm as `@bcf/*` (public). Install the slice you want — the packages are independent,
+Published on npm as `@rain13sad/*` (public). Install the slice you want — the packages are independent,
 so memory without affect is `core + encoder + recall + tools`:
 
 ```bash
-npm i @bcf/dsh-mnemo-core @bcf/dsh-mnemo-encoder @bcf/dsh-mnemo-recall @bcf/dsh-mnemo-tools
-npm i @bcf/dsh-mnemo-affect @bcf/dsh-mnemo-consolidator @bcf/dsh-mnemo-proactive   # optional layers
-npm i @bcf/dsh-mnemo-ui @bcf/dsh-mnemo-settings                                    # panel + settings
+npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
+npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # optional layers
+npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                    # panel + settings
 ```
 
 Then insert the plugins into your DSH profile using each package's `cordis.patch.yml`
@@ -167,16 +167,16 @@ moving the embedding from proposition cells to turn level.
 
 | Package | Role | Key exports |
 | :--- | :--- | :--- |
-| [`@bcf/dsh-mnemo-core`](https://www.npmjs.com/package/@bcf/dsh-mnemo-core) | lattice + storage + recall + rendering | `ctx.memory`, `SdrSpace`, `encodeCell`, `SensoryRing`, `WorkingSet` |
-| [`@bcf/dsh-mnemo-affect`](https://www.npmjs.com/package/@bcf/dsh-mnemo-affect) | affect kernel | `ctx.affect`, `appraise`, `derivePolicy`, `deriveUserSchema` |
-| [`@bcf/dsh-mnemo-encoder`](https://www.npmjs.com/package/@bcf/dsh-mnemo-encoder) | write side | `Encoder` (subscribes to `session/event`) |
-| [`@bcf/dsh-mnemo-recall`](https://www.npmjs.com/package/@bcf/dsh-mnemo-recall) | read side | `agent/pre-step` gating and injection |
-| [`@bcf/dsh-mnemo-consolidator`](https://www.npmjs.com/package/@bcf/dsh-mnemo-consolidator) | offline consolidation | `Consolidator` (NREM / REM / forgetting) |
-| [`@bcf/dsh-mnemo-tools`](https://www.npmjs.com/package/@bcf/dsh-mnemo-tools) | tools + commands | 6 tools, 15 `/mnemo` subcommands, egress guard |
-| [`@bcf/dsh-mnemo-proactive`](https://www.npmjs.com/package/@bcf/dsh-mnemo-proactive) | **speaking up first** | `ctx.mnemoProactive`, `candidate()`, `tick()` |
-| [`@bcf/dsh-mnemo-settings`](https://www.npmjs.com/package/@bcf/dsh-mnemo-settings) | settings panel | `ctx.mnemoSettings`, effect matrix |
-| [`@bcf/dsh-mnemo-ui`](https://www.npmjs.com/package/@bcf/dsh-mnemo-ui) | **sidebar panel (client)** | `main` + `sidebar.panellist` slot registration |
-| [`@bcf/dsh-mnemo-devkit`](https://www.npmjs.com/package/@bcf/dsh-mnemo-devkit) | host-free harness | `createHarness()` (real Cordis fiber) |
+| [`@rain13sad/dsh-mnemo-core`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core) | lattice + storage + recall + rendering | `ctx.memory`, `SdrSpace`, `encodeCell`, `SensoryRing`, `WorkingSet` |
+| [`@rain13sad/dsh-mnemo-affect`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-affect) | affect kernel | `ctx.affect`, `appraise`, `derivePolicy`, `deriveUserSchema` |
+| [`@rain13sad/dsh-mnemo-encoder`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-encoder) | write side | `Encoder` (subscribes to `session/event`) |
+| [`@rain13sad/dsh-mnemo-recall`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-recall) | read side | `agent/pre-step` gating and injection |
+| [`@rain13sad/dsh-mnemo-consolidator`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-consolidator) | offline consolidation | `Consolidator` (NREM / REM / forgetting) |
+| [`@rain13sad/dsh-mnemo-tools`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-tools) | tools + commands | 6 tools, 15 `/mnemo` subcommands, egress guard |
+| [`@rain13sad/dsh-mnemo-proactive`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-proactive) | **speaking up first** | `ctx.mnemoProactive`, `candidate()`, `tick()` |
+| [`@rain13sad/dsh-mnemo-settings`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-settings) | settings panel | `ctx.mnemoSettings`, effect matrix |
+| [`@rain13sad/dsh-mnemo-ui`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-ui) | **sidebar panel (client)** | `main` + `sidebar.panellist` slot registration |
+| [`@rain13sad/dsh-mnemo-devkit`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-devkit) | host-free harness | `createHarness()` (real Cordis fiber) |
 
 The split is not cosmetic: Cordis `inject` is dependency-driven, so users who want memory without
 affect install `core + encoder + recall + tools` only, and `recall` degrades to a no-affect gating path.
