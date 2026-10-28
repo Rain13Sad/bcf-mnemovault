@@ -1,0 +1,1079 @@
+/**
+ * MemoryService —— 晶格读写 / 四路召回 / 巩固调度（§14.3 / §15.4 / §15.7）
+ *
+ * 热重载契约（§14.7）在这个类里落地的具体形态：
+ *   · 所有副作用（DB 连接、定时器、文件句柄）由 apply() 的 ctx.effect 持有，类本身不建定时器
+ *   · 没有模块级可变状态，状态全挂实例
+ *   · open() 幂等，可重复调用
+ *   · 热层缓存从 DB 重建，不假设常驻
+ *   · 布局版本门控：magic/version/dim 不匹配就拒绝启动并提示 rebuild
+ */
+
+import { Service, type Context } from '@deepseek-ai/cordis'
+import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import {
+  FLAG,
+  KIND,
+  KIND_NAME,
+  REL,
+  REL_NAME,
+  SLOT_ROLE,
+  SLOT_ROLE_NAME,
+  deriveCellId,
+  encodeCell,
+  topicOf,
+  type CellKind,
+  type MemCell,
+  type Slot,
+} from './cell.js'
+import { retrievabilityFrom, reinforce, shouldArchive, shouldDemote } from './forgetting.js'
+import { estimateTokens, fmt2, mmdd, assignShortIds, kvPairs } from './render.js'
+import { formatBreakdown, runRecall, SIM_FLOOR } from './recall.js'
+import { SdrSpace } from './sdr.js'
+import { createStore, type EvictRecord, type Store } from './store.js'
+import { SensoryRing, WorkingSet } from './working.js'
+import { applyPreset } from './preset.js'
+import { hash64, toHex } from './hash.js'
+import { redact, isRedactionPlaceholder } from './text.js'
+import type {
+  DoctorReport,
+  ExpandResult,
+  MnemoConfig,
+  PanelAction,
+  PanelCellView,
+  PanelEdgeView,
+  PanelSnapshot,
+  RecallQuery,
+  RecallResult,
+  StatsSnapshot,
+} from './types.js'
+
+const DAY = 86_400_000
+
+export interface IngestResult {
+  cell: MemCell
+  action: 'created' | 'merged' | 'linked' | 'conflict'
+  conflictWith?: string
+  mergedInto?: string
+}
+
+export interface MemoryServiceOptions {
+  config: MnemoConfig
+  /** 作用域键：单机 'user:local'；多用户部署传 'user:<id>'（§14.10） */
+  scopeKey?: string
+  store?: Store
+  now?: () => number
+  /** 面板快照落盘路径；undefined 则不落盘（测试/浏览器） */
+  panelPath?: string
+}
+
+export class MemoryService extends Service {
+  readonly space: SdrSpace
+  readonly store: Store
+  /** 感觉记忆：原始输入环形缓冲，TTL 2 轮，不落盘（§8.1） */
+  readonly sensory = new SensoryRing()
+  /** 工作记忆：本轮摸过的 cell 引用集，硬上限 16（§8.2） */
+  readonly working = new WorkingSet(16)
+  /** 作用域键（§14.10）：所有新写入的 cell 默认落在这个作用域里 */
+  readonly scopeKey: string
+  config: MnemoConfig
+  private readonly now: () => number
+  private readonly panelPath?: string
+  private opened = false
+
+  private tokenSeries: Array<{ turn: number; tokens: number }> = []
+  private recalls = 0
+  private hitRecalls = 0
+  private latencies: number[] = []
+  private evictions = 0
+  private turns = 0
+  private lastRecall: PanelSnapshot['lastRecall'] = null
+  private affectState: PanelSnapshot['affect'] = null
+  private listeners = new Set<(s: PanelSnapshot) => void>()
+  private pendingActions: PanelAction[] = []
+  /** 单会话内每个 cell 的展开次数（§14.9：上限 2 次） */
+  private expandCounts = new Map<string, number>()
+
+  constructor(ctx: Context, opts: MemoryServiceOptions) {
+    super(ctx, 'memory')
+    this.config = opts.config
+    this.scopeKey = opts.scopeKey ?? 'user:local'
+    this.now = opts.now ?? (() => Date.now())
+    this.space = new SdrSpace({ dim: opts.config.sdrDim, k: opts.config.sdrK })
+    this.store = opts.store ?? createStore({ path: opts.config.dbPath, space: this.space })
+    this.panelPath = opts.panelPath
+  }
+
+  // ── 生命周期 ─────────────────────────────────────────────────────
+
+  /** 幂等启动。返回逆序释放函数（索引 → 连接，§14.7）。 */
+  open(): () => void {
+    if (this.opened) return () => this.close()
+    this.store.open()
+    const meta = this.store.meta('layout')
+    const expect = `${this.config.sdrDim}:${this.config.sdrK}:${this.config.embDim}`
+    if (meta && meta !== expect) {
+      this.store.close()
+      throw new Error(
+        `[mnemo] 布局不匹配：库为 ${meta}，配置为 ${expect}。` +
+          `改了 sdrDim/sdrK/embDim 必须 /mnemo rebuild --from-log（§12.8）。`,
+      )
+    }
+    if (!meta) this.store.setMeta('layout', expect)
+    this.store.setMeta('layoutVersion', '2')
+    this.opened = true
+    return () => this.close()
+  }
+
+  close(): void {
+    if (!this.opened) return
+    this.opened = false
+    try {
+      this.store.close()
+    } catch {
+      /* 关闭失败不掩盖原始错误 */
+    }
+  }
+
+  /** 定时维护（由 apply() 的 ctx.effect 持有定时器，类本身不建）。 */
+  tick(): void {
+    if (!this.opened) return
+    this.demoteDue()
+    this.drainPanelActions()
+    this.publishPanel()
+  }
+
+  // ── 写入路径 ────────────────────────────────────────────────────
+
+  /**
+   * 唯一的写入口（对应内嗅皮层的串行瓶颈，§7）。
+   * 去重 / 合并竞争 / 矛盾版本链都在这里，编码器只负责"记成什么形状"。
+   */
+  ingest(cell: MemCell, sources: Array<{ session: string; seq: number }> = []): IngestResult {
+    const t = this.now()
+    // 脱敏占位符绝不入库（§7.7 V-06）：槽位降 UNK，避免模型记住"key 是 ***"
+    const slots = cell.slots.map((s) =>
+      s.type === 'LIT' && isRedactionPlaceholder(s.value) ? ({ role: s.role, type: 'UNK', value: '' } as Slot) : s,
+    )
+    // 视角与情感标记在写入时算一次（读侧不再解析文本，§2.2 A2）
+    const lens = cell.lens ?? deriveLens(cell)
+    // 判据只用"效价强度"与"唤起"，**不用显著度**：
+    // 显著度由 tanh 归一化后基线就在 0.7 附近，拿它当阈值会把每条事实都标成情感记忆（实测踩过）。
+    const emotional = Math.abs(cell.valence) >= 0.45 || cell.arousal >= 0.65
+    const clean: MemCell = {
+      ...cell,
+      lens,
+      flags: emotional ? cell.flags | FLAG.emotional : cell.flags,
+      slots,
+      tIngest: BigInt(cell.tIngest || t),
+      // 作用域与会话归属：不写这两个字段，§14.10 的隔离就无从谈起
+      scope: cell.scope ?? this.scopeKey,
+      session: cell.session ?? (sources[0]?.session ?? ''),
+    }
+
+    return this.store.write(() => {
+      // ① 残差先写（内容寻址，幂等）——崩溃时不会留下半条 cell（§14.11）
+      if (clean.digest && !clean.residual) {
+        const red = redact(clean.digest)
+        if (red.pii) clean.flags |= FLAG.pii | FLAG.redacted
+      }
+
+      // ② 去重与合并竞争（§7.5）
+      let best: { cell: MemCell; j: number } | undefined
+      this.store.forEachCell((other) => {
+        if (other.kind !== clean.kind) return
+        const j = this.space.sim(other.sdr, clean.sdr)
+        if (!best || j > best.j) best = { cell: other, j }
+      })
+
+      // 已失效（tInvalid ≠ 0）的版本不参与合并：再次断言同一事实应当产生新版本，
+      // 否则"改回来了"这件事会被静默抹平（§7.6 的立场）。
+      if (best && best.j > 0.85 && sameSlots(best.cell.slots, clean.slots) && Number(best.cell.tInvalid ?? 0) === 0) {
+        // 合并必须保留**先写入那条的 cell_id**：id 是外部引用（渲染行、面板、边），
+        // 每次重复出现都换 id 会让旧引用全部悬空（这是实测抓到的真 bug，不是理论风险）。
+        const target = best.cell
+        target.support = Math.max(1, target.support) + Math.max(1, clean.support)
+        target.stability = Math.min(3650, target.stability * 1.3)
+        target.tAccess = BigInt(t)
+        target.accessCount = target.accessCount + 1
+        target.importance = Math.max(target.importance, clean.importance)
+        target.confidence = Math.max(target.confidence, clean.confidence)
+        // 残差共享：同一事实重复出现时只存一份（§6.3）
+        target.residual = target.residual ?? clean.residual
+        if (target.residual) this.store.addResidualRef(target.residual.sha)
+        this.store.putCell(target)
+        for (const s of sources) this.store.putSource(target.cellId, s.session, s.seq)
+        return { cell: target, action: 'merged', mergedInto: toHex(target.cellId, 16) }
+      }
+
+      // ③ 矛盾检测：同 (AGENT, PRED) 但 PATIENT / POLARITY 冲突（§7.6）
+      const conflict = this.findConflict(clean)
+      if (conflict) {
+        clean.edges.push({ targetPrefix: Number(conflict.cellId & 0xffffffffn), rel: REL.CONTRADICTS, weight: 96 })
+        const newer = Number(clean.tFrom) >= Number(conflict.tFrom)
+        if (newer) {
+          clean.edges.push({ targetPrefix: Number(conflict.cellId & 0xffffffffn), rel: REL.SUPERSEDES, weight: 96 })
+          conflict.flags |= FLAG.disputed
+          conflict.importance = Math.max(0, conflict.importance * 0.6)
+          // 双时态：旧版本在**新断言发生的时刻**不再为真。它不删，只是不再是"现在的答案"。
+          // 用事件时间而不是入库时间：重放同一段日志必须得到同一组失效时刻（§18.5 可复现要求）。
+          conflict.tInvalid = clean.tFrom
+          this.store.putCell(conflict)
+        } else {
+          clean.flags |= FLAG.disputed
+        }
+        this.emit('memory/conflict', { a: toHex(clean.cellId, 16), b: toHex(conflict.cellId, 16), field: 'PATIENT/POLARITY' })
+      }
+
+      // ④ 关联而非合并（0.45 < J ≤ 0.85）
+      if (best && best.j > 0.45 && best.j <= 0.85) {
+        const rel = sameAgent(clean, best.cell) ? REL.PART_OF : REL.SAME_AS
+        clean.edges.push({ targetPrefix: Number(best.cell.cellId & 0xffffffffn), rel, weight: 48 })
+      }
+
+      // ⑤ 落库：先 cell 后边（边是派生投影，可从 cell 重建）
+      this.store.putCell(clean)
+      for (const s of sources) this.store.putSource(clean.cellId, s.session, s.seq)
+      for (const e of clean.edges) {
+        const dst = this.resolveByPrefix(e.targetPrefix)
+        if (dst) this.store.putEdge({ src: clean.cellId, dst, rel: e.rel, weight: e.weight })
+      }
+
+      return {
+        cell: clean,
+        action: conflict ? 'conflict' : best && best.j > 0.45 ? 'linked' : 'created',
+        conflictWith: conflict ? toHex(conflict.cellId, 16) : undefined,
+      }
+    })
+  }
+
+  private findConflict(cell: MemCell): MemCell | undefined {
+    const agent = slotValue(cell, 'AGENT')
+    const pred = slotValue(cell, 'PRED')
+    if (!pred) return undefined
+    let out: MemCell | undefined
+    this.store.forEachCell((other) => {
+      if (other.cellId === cell.cellId) return
+      // 谓词家族归一：'喜欢'/'不喜欢'、'用'/'改用'/'部署' 说的是同一件事的不同极/不同说法。
+      // 不做这层归一，矛盾检测会漏掉最常见的"用户改主意"形态。
+      const fam = (x?: string) => {
+        if (x === 'prefers' || x === 'dislikes') return 'prefers'
+        if (x === 'uses' || x === 'changes' || x === 'deploys') return 'uses'
+        if (x === 'decides') return 'decides'
+        return x
+      }
+      if (fam(slotValue(other, 'PRED')) !== fam(pred)) return
+      const a1 = agent ?? ''
+      const a2 = slotValue(other, 'AGENT') ?? ''
+      if (a1 !== a2) return
+      const p1 = slotValue(cell, 'PATIENT') ?? ''
+      const p2 = slotValue(other, 'PATIENT') ?? ''
+      const m1 = slotValue(cell, 'MANNER') ?? ''
+      const m2 = slotValue(other, 'MANNER') ?? ''
+      const pol1 = slotValue(cell, 'POLARITY') ?? 'pos'
+      const pol2 = slotValue(other, 'POLARITY') ?? 'pos'
+      // 两种冲突形态：
+      //   · 同一客体、极性相反（'喜欢深色' vs '不喜欢深色'）
+      //   · 同一话题、取值不同（'字体=等宽' vs '字体=无衬线'）—— 这是偏好演化最常见的形态
+      const sameTopic = (m1 && m1 === m2) || (p1 && p1 === p2)
+      const valueDiffers = p1 !== p2 || pol1 !== pol2
+      if (!sameTopic || !valueDiffers) return
+      // 只和"仍然有效"的版本比：否则第二次改主意会去改一条已经失效的旧记录，
+      // 结果是版本链断在中间（实测：pnpm→npm→bun 时 npm 永远不会被取代）。
+      if (Number(other.tInvalid ?? 0) !== 0) return
+      // 取最新的一条：链式取代必须逐级传递，不能跳回最早的版本
+      if (!out || Number(other.tFrom) > Number(out.tFrom)) out = other
+    })
+    return out
+  }
+
+  private resolveByPrefix(prefix: number): bigint | undefined {
+    let found: bigint | undefined
+    this.store.forEachCell((c) => {
+      if (!found && Number(c.cellId & 0xffffffffn) === prefix) found = c.cellId
+    })
+    return found
+  }
+
+  // ── 读路径 ──────────────────────────────────────────────────────
+
+  recall(q: RecallQuery): RecallResult {
+    const r = runRecall(
+      {
+        space: this.space,
+        store: this.store,
+        config: this.config,
+        now: this.now(),
+        working: this.working,
+        scopeKey: this.scopeKey,
+      },
+      q,
+    )
+    r.snapshotId = this.snapshot(r.rendered, r.tokens)
+    this.recalls++
+    if (r.hits.length > 0) this.hitRecalls++
+    this.latencies.push(r.elapsedMs)
+    if (this.latencies.length > 500) this.latencies.shift()
+    this.tokenSeries.push({ turn: this.turns, tokens: r.tokens })
+    if (this.tokenSeries.length > 500) this.tokenSeries.shift()
+
+    // 被召回的 cell：t_access 更新、复述增益（§10.6）、进工作记忆（§8.2）
+    const now = this.now()
+    for (const h of r.hits) {
+      const id = BigInt('0x' + h.cellId)
+      const cell = this.store.getCell(id)
+      if (!cell) continue
+      const dtDays = (now - Number(cell.tAccess)) / DAY
+      const R = retrievabilityFrom(Number(cell.tAccess), cell.stability, now)
+      cell.stability = reinforce(cell.stability, R, dtDays)
+      cell.tAccess = BigInt(now)
+      cell.accessCount++
+      this.store.putCell(cell)
+      this.working.touch(id, Math.min(1, 0.4 + h.score))
+    }
+    // 共激活强化（Hebbian）：同一轮被一起想起的东西，之间长出连接。
+    // 这是"联想"的物理实现——不是随机连边，是"一起出现过"才连。
+    this.coactivate(r.hits.map((h) => BigInt('0x' + h.cellId)))
+
+    this.lastRecall = {
+      queryId: r.queryId,
+      at: now,
+      tokens: r.tokens,
+      hits: r.hits,
+      breakdowns: r.breakdowns,
+      rendered: r.rendered,
+    }
+    this.emit('memory/recall', {
+      queryId: r.queryId,
+      strategy: r.strategy,
+      hits: r.hits,
+      renderedTokens: r.tokens,
+      surfaceMode: r.surfaceMode,
+      snapshotId: r.snapshotId,
+    })
+    this.publishPanel()
+    return r
+  }
+
+  snapshot(rendered: string, tokens: number): string {
+    return this.store.putSnapshot(rendered, tokens)
+  }
+
+  /**
+   * 共激活强化：把同一轮里一起被召回的记忆两两连起来（ASSOC 边权递增，封顶 120）。
+   * 只连前 6 条——再多就是噪声，"一起被想起"这件事本身有强弱。
+   */
+  coactivate(ids: bigint[], delta = 8): void {
+    const top = ids.slice(0, 6)
+    if (top.length < 2) return
+    this.store.write(() => {
+      for (let i = 0; i < top.length; i++) {
+        for (let j = i + 1; j < top.length; j++) {
+          const existing = this.store.edgesFrom(top[i]).find((e) => e.dst === top[j] && e.rel === REL.ASSOC)
+          const weight = Math.min(120, (existing?.weight ?? 32) + delta)
+          this.store.putEdge({ src: top[i], dst: top[j], rel: REL.ASSOC, weight })
+          // 反向也连：联想是双向的，检索从任一端出发都该走得到
+          this.store.putEdge({ src: top[j], dst: top[i], rel: REL.ASSOC, weight })
+        }
+      }
+    })
+  }
+
+  /**
+   * 联想链：从一条记忆出发，沿 ASSOC / SAME_AS / PART_OF / CAUSES 游走。
+   * 返回按 `边权 × decay^hop` 排序的链条，供主动聊天挑话题、面板画邻域。
+   *
+   * 与"图路召回"的区别：那个是**从查询**扩散，这个是**从一条记忆**扩散，
+   * 不需要 query 文本——"想到这件事，还会想到什么"。
+   */
+  associate(seedId: bigint | string, opts: { depth?: number; decay?: number; limit?: number } = {}): Array<{
+    cellId: string
+    shortId: string
+    hop: number
+    score: number
+    digest: string
+    lens: string
+  }> {
+    const depth = Math.max(1, Math.min(3, opts.depth ?? 2))
+    const decay = opts.decay ?? 0.55
+    const limit = opts.limit ?? 12
+    const seed = typeof seedId === 'string' ? BigInt('0x' + seedId.replace(/^0x/, '').padStart(16, '0')) : seedId
+
+    const visited = new Set<string>([toHex(seed, 16)])
+    const out: Array<{ cellId: string; shortId: string; hop: number; score: number; digest: string; lens: string }> = []
+    let frontier: Array<{ id: bigint; score: number; hop: number }> = [{ id: seed, score: 1, hop: 0 }]
+
+    for (let hop = 1; hop <= depth; hop++) {
+      const next: Array<{ id: bigint; score: number; hop: number }> = []
+      for (const f of frontier) {
+        for (const e of this.store.edgesFrom(f.id)) {
+          if (e.rel !== REL.ASSOC && e.rel !== REL.SAME_AS && e.rel !== REL.PART_OF && e.rel !== REL.CAUSES && e.rel !== REL.EVOKES) continue
+          const key = toHex(e.dst, 16)
+          if (visited.has(key)) continue
+          visited.add(key)
+          const score = f.score * Math.pow(decay, hop) * Math.min(1, e.weight / 64)
+          next.push({ id: e.dst, score, hop })
+        }
+      }
+      for (const n of next) {
+        const cell = this.store.getCell(n.id)
+        if (!cell) continue
+        out.push({
+          cellId: toHex(cell.cellId, 16),
+          shortId: toHex(cell.cellId, 16).slice(-4),
+          hop: n.hop,
+          score: Math.round(n.score * 1000) / 1000,
+          digest: cell.digest ?? '',
+          lens: cell.lens ?? 'fact',
+        })
+      }
+      frontier = next
+      if (frontier.length === 0) break
+    }
+    return out.sort((a, b) => b.score - a.score).slice(0, limit)
+  }
+
+  /**
+   * 重放一次召回的渲染快照（修 D-05 的验证路径）。
+   * 事件里只存 snapshotId，重放时按 id 取回原文，保证"重放看到的 = 当时看到的"。
+   */
+  replayRecall(snapshotId: string): { rendered: string; tokens: number } | null {
+    const snap = this.store.getSnapshot(snapshotId)
+    return snap ? { rendered: snap.rendered, tokens: snap.tokens } : null
+  }
+
+  /** 重建钩子由编码器注册（它才知道怎么把日志重新编码成 cell）。 */
+  private rebuildHook?: () => Promise<{ turns: number; cells: number }>
+
+  registerRebuildHook(fn: () => Promise<{ turns: number; cells: number }>): void {
+    this.rebuildHook = fn
+  }
+
+  /**
+   * 从会话日志重建晶格（§14.11）。
+   * 不删 session_log、不删 residuals —— 重建的是**派生层**，不是事实源。
+   */
+  async rebuildFromLog(): Promise<{ turns: number; cells: number }> {
+    if (!this.rebuildHook) throw new Error('没有注册重建钩子（需要 mnemo-encoder）')
+    return this.rebuildHook()
+  }
+
+  /** 展开（§14.9）：800 字硬上限、遮蔽检测、单会话 2 次上限、写 expand 事件。 */
+  expand(cellId: string, level: 0 | 1 | 2, sessionId = 'default'): ExpandResult {
+    const id = BigInt('0x' + cellId.replace(/^0x/, '').padStart(16, '0'))
+    // 第 2 次之后不再返回原文：同一段文字反复展开，等于把压缩掉的内容反复塞回上下文
+    const key = sessionId + ':' + cellId
+    const used = this.expandCounts.get(key) ?? 0
+    if (level === 2 && used >= 2) {
+      const text = '[本会话内该记忆已展开 2 次，不再重复返回原文。如确需细节，请先 /mnemo search 重新定位]'
+      this.emit('memory/expand', { cellId, level, chars: text.length, capped: true })
+      return { cellId, level, text, tokens: estimateTokens(text), shadowed: false, truncated: false, chars: text.length }
+    }
+    if (level === 2) this.expandCounts.set(key, used + 1)
+    const cell = this.store.getCell(id)
+    if (!cell) throw new Error(`cell 不存在: ${cellId}`)
+    if (level === 0) {
+      const text = summarize(cell)
+      return { cellId, level, text, tokens: estimateTokens(text), shadowed: false, truncated: false, chars: text.length }
+    }
+    if (level === 1) {
+      const text = cell.slots
+        .map((s) => `${SLOT_ROLE_NAME[s.role] ?? s.role}=${s.type === 'UNK' ? 'UNK' : s.value}`)
+        .join(' ')
+      return { cellId, level, text, tokens: estimateTokens(text), shadowed: false, truncated: false, chars: text.length }
+    }
+    // level 2：原文残差
+    const sources = this.store.sourcesOf(id)
+    const shadowed = sessionId ? sources.every((s) => this.store.isShadowed(s.session, s.seq)) : false
+    if (shadowed) {
+      const text = '[该段已被压缩摘要覆盖，原文仅按需提供]'
+      this.emit('memory/expand', { cellId, level, chars: text.length, shadowed: true })
+      return { cellId, level, text, tokens: estimateTokens(text), shadowed: true, truncated: false, chars: text.length }
+    }
+    const raw = cell.residual ? this.store.getResidual(Number(cell.residual.off)) : null
+    let text = raw ? new TextDecoder().decode(raw) : summarize(cell)
+    let truncated = false
+    if (text.length > 800) {
+      text = text.slice(0, 800) + '…[截断]'
+      truncated = true
+    }
+    this.emit('memory/expand', { cellId, level, chars: text.length, shadowed: false })
+    return { cellId, level, text, tokens: estimateTokens(text), shadowed, truncated, chars: text.length }
+  }
+
+  forget(cellId: string, mode: 'soft' | 'hard', actor: EvictRecord['actor'] = 'user', reason = 'user request'): void {
+    const id = BigInt('0x' + cellId.replace(/^0x/, '').padStart(16, '0'))
+    const cell = this.store.getCell(id)
+    if (!cell) return
+    this.store.write(() => {
+      if (mode === 'hard') {
+        this.store.deleteCell(id)
+        if (cell.residual) this.store.deleteEdge(id, id, 0)
+      } else {
+        cell.tier = 3
+        cell.importance = Math.min(cell.importance, 0.05)
+        cell.flags &= ~FLAG.noDecay
+        this.store.putCell(cell)
+      }
+      const rec: EvictRecord = { cellId, mode, reason, actor, at: this.now() }
+      this.store.appendEvict(rec)
+      this.evictions++
+    })
+    this.emit('memory/evict', { cellId, mode, reason, actor })
+    this.publishPanel()
+  }
+
+  explain(cellId: string, q?: RecallQuery): string {
+    const target = cellId.replace(/^0x/, '').padEnd(16, '0').slice(-16)
+    const b = this.lastRecall?.breakdowns.find((x) => x.cellId.endsWith(target.slice(-4)) || x.cellId === target)
+    if (!b) {
+      // 没有当轮召回记录时，现场算一次解释，而不是返回"无数据"
+      const r = this.recall({ ...(q ?? { text: '', budget: 400 }), manual: true })
+      const fresh = r.breakdowns.find((x) => x.cellId.endsWith(target.slice(-4)))
+      return fresh ? formatBreakdown(fresh, this.config.recall.ignition) : `cell ${target} 不在候选池内（可能低于 ignition 或被隔离）`
+    }
+    return formatBreakdown(b, this.config.recall.ignition)
+  }
+
+  // ── 统计与体检 ──────────────────────────────────────────────────
+
+  stats(): StatsSnapshot {
+    const s = this.store.stats()
+    const byKind: Record<string, number> = {}
+    const byTier: Record<string, number> = {}
+    let supportOne = 0
+    let disputed = 0
+    let invalidated = 0
+    let contradictions = 0
+    this.store.forEachCell((c) => {
+      byKind[KIND_NAME[c.kind] ?? String(c.kind)] = (byKind[KIND_NAME[c.kind] ?? String(c.kind)] ?? 0) + 1
+      byTier[String(c.tier)] = (byTier[String(c.tier)] ?? 0) + 1
+      if (c.support <= 1) supportOne++
+      if (c.flags & FLAG.disputed) disputed++
+      if (Number(c.tInvalid ?? 0) !== 0) invalidated++
+    })
+    for (const e of this.store.allEdges()) if (e.rel === REL.CONTRADICTS) contradictions++
+    const sorted = [...this.latencies].sort((a, b) => a - b)
+    const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 0
+    const tokensPerTurn = this.tokenSeries.length
+      ? this.tokenSeries.reduce((n, x) => n + x.tokens, 0) / this.tokenSeries.length
+      : 0
+    return {
+      cells: s.cells,
+      edges: s.edges,
+      bytes: s.bytes,
+      byKind,
+      byTier,
+      supportOne,
+      disputed,
+      invalidated,
+      contradictions,
+      hitRate: this.recalls ? this.hitRecalls / this.recalls : 0,
+      tokensPerTurn,
+      tokenSeries: this.tokenSeries.slice(-40),
+      // 存储比 = (cell blob + 压缩后残差) / 原始文本字节。这是 §18.1 的 storage_ratio 口径。
+      storageRatio: (s as { rawBytes?: number }).rawBytes ? s.bytes / (s as { rawBytes: number }).rawBytes : 0,
+      recallP95Ms: p95,
+      turns: this.turns,
+      evictions: this.evictions,
+    }
+  }
+
+  doctor(opts: { fix?: boolean; unlock?: boolean } = {}): DoctorReport {
+    const issues: string[] = []
+    const fixed: string[] = []
+    const ids = new Set<string>()
+    this.store.forEachCell((c) => ids.add(toHex(c.cellId, 16)))
+
+    let orphanEdges = 0
+    for (const e of this.store.allEdges()) {
+      const a = ids.has(toHex(e.src, 16))
+      const b = ids.has(toHex(e.dst, 16))
+      if (!a || !b) {
+        orphanEdges++
+        if (opts.fix) this.store.deleteEdge(e.src, e.dst, e.rel)
+      }
+    }
+    if (orphanEdges && opts.fix) fixed.push(`删除孤儿边 ${orphanEdges} 条`)
+    else if (orphanEdges) issues.push(`孤儿边 ${orphanEdges} 条（/mnemo doctor --fix 可清理）`)
+
+    let danglingSlots = 0
+    this.store.forEachCell((c) => {
+      for (const s of c.slots) if (s.type === 'REF' && !ids.has(s.value.padStart(16, '0'))) danglingSlots++
+    })
+    if (danglingSlots) issues.push(`悬空槽位引用 ${danglingSlots} 个`)
+
+    // 遗留锁：未匹配的 consolidate/start（§10.2）
+    const openLock = this.store.meta('consolidate:open')
+    if (openLock) {
+      if (opts.unlock) {
+        this.store.setMeta('consolidate:open', '')
+        fixed.push(`清除遗留锁 ${openLock}`)
+      } else issues.push(`遗留巩固锁 ${openLock}（/mnemo doctor --unlock 解除）`)
+    }
+
+    const layout = this.store.meta('layout') ?? ''
+    const expect = `${this.config.sdrDim}:${this.config.sdrK}:${this.config.embDim}`
+    if (layout && layout !== expect) issues.push(`布局不匹配 ${layout} ≠ ${expect}，需 rebuild`)
+
+    return {
+      ok: issues.length === 0,
+      orphanEdges,
+      danglingSlots,
+      staleLocks: openLock ? 1 : 0,
+      indexConsistent: orphanEdges === 0 && danglingSlots === 0,
+      layoutVersion: Number(this.store.meta('layoutVersion') ?? 2),
+      sdrDim: this.config.sdrDim,
+      issues,
+      fixed,
+    }
+  }
+
+  /** 冷层降级 + 归档（§8.4）。任何层都不自动物理删除。 */
+  demoteDue(): number {
+    const now = this.now()
+    let demoted = 0
+    this.store.forEachCell((c) => {
+      if (c.flags & FLAG.noDecay) return
+      if (c.tier === 0 && now - Number(c.tAccess) > 30 * 60_000) {
+        c.tier = 1
+        this.store.putCell(c)
+        demoted++
+      } else if (c.tier === 1 && shouldDemote(Number(c.tAccess), c.stability * ((c.flags & FLAG.emotional) !== 0 ? 3 : 1), now)) {
+        c.tier = 2
+        c.emb = pq32(c.emb)
+        this.store.putCell(c)
+        demoted++
+      } else if (c.tier === 2 && (c.flags & FLAG.emotional) === 0 && shouldArchive(Number(c.tAccess), c.stability, now)) {
+        c.tier = 3
+        this.store.putCell(c)
+        demoted++
+      }
+    })
+    return demoted
+  }
+
+  // ── 面板（host 侧数据源，§12.4 / §12.10 / §20.2） ───────────────
+
+  setAffectState(state: PanelSnapshot['affect']): void {
+    this.affectState = state
+  }
+
+  onPanelUpdate(fn: (s: PanelSnapshot) => void): () => void {
+    this.listeners.add(fn)
+    return () => this.listeners.delete(fn)
+  }
+
+  /** 面板视图：万级 cell 也不全量渲染——默认只给最近 500 条，其余靠搜索。 */
+  panelCells(limit = 500): PanelCellView[] {
+    const cells = this.store.listCells({ limit, order: 'recent' })
+    const shortIds = assignShortIds(cells.map((cell) => ({ cell })))
+    return cells.map((c, i) => {
+      const kv = kvPairs(c)
+      return {
+        cellId: toHex(c.cellId, 16),
+        shortId: shortIds[i],
+        kind: c.kind,
+        kindName: KIND_NAME[c.kind] ?? 'fact',
+        tier: c.tier,
+        tFrom: Number(c.tFrom),
+        valence: c.valence,
+        arousal: c.arousal,
+        salience: c.salience,
+        importance: c.importance,
+        support: c.support,
+        confidence: c.confidence,
+        provenance: c.provenance,
+        trust: c.trust,
+        changed: (c.flags & FLAG.disputed) !== 0,
+        pinned: (c.flags & FLAG.noDecay) !== 0,
+        disputed: (c.flags & FLAG.disputed) !== 0,
+        invalidated: Number(c.tInvalid ?? 0) !== 0,
+        tInvalid: Number(c.tInvalid ?? 0),
+        lens: (c.lens ?? 'fact') as never,
+        emotional: (c.flags & FLAG.emotional) !== 0,
+        digest: c.digest ?? kv.map(([k, v]) => `${k}=${v}`).join(' '),
+        kv,
+        slots: c.slots,
+        residualChars: c.residual?.rawLen ?? 0,
+        stability: c.stability,
+        accessCount: c.accessCount,
+      }
+    })
+  }
+
+  panelSnapshot(): PanelSnapshot {
+    const cells = this.panelCells()
+    const byId = new Map(cells.map((c) => [c.cellId, c]))
+    const edges: PanelEdgeView[] = this.store
+      .allEdges()
+      .slice(0, 4000)
+      .map((e) => ({
+        src: toHex(e.src, 16),
+        dst: toHex(e.dst, 16),
+        rel: e.rel,
+        relName: REL_NAME[e.rel] ?? String(e.rel),
+        weight: e.weight,
+      }))
+      .filter((e) => byId.has(e.src) && byId.has(e.dst))
+    return {
+      version: 2,
+      generatedAt: this.now(),
+      stats: this.stats(),
+      affect: this.affectState,
+      cells,
+      edges,
+      lastRecall: this.lastRecall,
+      evictions: this.store.recentEvicts(50),
+      proactive: this.proactiveView(),
+    }
+  }
+
+  /** 面板操作（pin / 改效价 / 遗忘 / 裁决）。`support` 不可手改是刻意的（§12.4）。 */
+  applyAction(a: PanelAction): { ok: boolean; message: string } {
+    const id = 'cellId' in a ? BigInt('0x' + a.cellId.replace(/^0x/, '').padStart(16, '0')) : undefined
+    const cell = id ? this.store.getCell(id) : null
+    switch (a.kind) {
+      case 'pin':
+        if (!cell) return { ok: false, message: 'cell 不存在' }
+        cell.flags = a.pinned ? cell.flags | FLAG.noDecay : cell.flags & ~FLAG.noDecay
+        if (a.pinned) cell.importance = Math.max(cell.importance, 0.8)
+        this.store.putCell(cell)
+        this.publishPanel()
+        return { ok: true, message: a.pinned ? '已固定（不衰减）' : '已取消固定' }
+      case 'valence':
+        if (!cell) return { ok: false, message: 'cell 不存在' }
+        cell.valence = Math.max(-1, Math.min(1, a.valence))
+        if (a.salience !== undefined) cell.salience = Math.max(0, Math.min(1, a.salience))
+        this.store.putCell(cell)
+        this.publishPanel()
+        return { ok: true, message: `效价 → ${fmt2(cell.valence)}` }
+      case 'importance':
+        if (!cell) return { ok: false, message: 'cell 不存在' }
+        cell.importance = Math.max(0, Math.min(1, a.importance))
+        this.store.putCell(cell)
+        this.publishPanel()
+        return { ok: true, message: `重要性 → ${fmt2(cell.importance)}` }
+      case 'slot':
+        if (!cell) return { ok: false, message: 'cell 不存在' }
+        cell.slots = cell.slots.filter((s) => s.role !== a.role)
+        if (a.value.trim()) cell.slots.push({ role: a.role, type: 'LIT', value: a.value.trim() })
+        cell.sdr = this.reencodeSdr(cell)
+        this.store.putCell(cell)
+        this.publishPanel()
+        return { ok: true, message: '槽位已更新（触发重编码）' }
+      case 'forget':
+        if (a.mode === 'hard' && a.confirm !== 'delete') return { ok: false, message: '硬删除需输入 delete 确认' }
+        this.forget(a.cellId, a.mode)
+        return { ok: true, message: a.mode === 'hard' ? '已物理删除' : '已软删除（可唤醒）' }
+      case 'resolve': {
+        const A = BigInt('0x' + a.a.replace(/^0x/, ''))
+        const B = BigInt('0x' + a.b.replace(/^0x/, ''))
+        this.store.putEdge({ src: A, dst: B, rel: REL.SUPERSEDES, weight: 96 })
+        const b = this.store.getCell(B)
+        if (b) {
+          b.flags |= FLAG.disputed
+          b.importance = Math.max(0, b.importance * 0.6)
+          this.store.putCell(b)
+        }
+        this.publishPanel()
+        return { ok: true, message: '已裁决：新版本覆盖旧版本' }
+      }
+      case 'proactive': {
+        const pro = this.ctx.get('mnemoProactive') as
+          | {
+              config: Record<string, unknown>
+              candidate(now?: number, opts?: { ignoreSchedule?: boolean }): unknown
+              fire(c: unknown): void
+              muteFor(ms: number): void
+              unmute(): void
+            }
+          | undefined
+        if (!pro) return { ok: false, message: '未安装 mnemo-proactive' }
+        if (a.action === 'mute') {
+          pro.muteFor((a.minutes ?? 120) * 60_000)
+          return { ok: true, message: `已静音 ${a.minutes ?? 120} 分钟` }
+        }
+        if (a.action === 'unmute') {
+          pro.unmute()
+          return { ok: true, message: '已解除静音' }
+        }
+        if (a.action === 'config') {
+          Object.assign(pro.config, a.patch ?? {})
+          this.publishPanel()
+          return { ok: true, message: `主动设置已更新：${Object.keys(a.patch ?? {}).join(', ')}` }
+        }
+        // 'now'：绕过时间表试一次（手动触发不受频率限制，但仍然记账）
+        const c = pro.candidate(this.now(), { ignoreSchedule: true })
+        if (!c) return { ok: false, message: '当前没有值得主动说的由头（可关掉"必须要有由头"再试）' }
+        pro.fire(c)
+        return { ok: true, message: `已生成主动开口：${(c as { reason?: string }).reason ?? ''}` }
+      }
+      case 'reappraise': {
+        const affect = this.ctx.get('affect') as { reappraise?(id: string): { ok: boolean; message: string } } | undefined
+        if (!affect?.reappraise) return { ok: false, message: '情感内核未安装' }
+        const r = affect.reappraise(a.cellId)
+        return { ok: r.ok, message: r.message }
+      }
+      case 'config': {
+        const next = this.setConfig(a.patch as Partial<MnemoConfig>)
+        return { ok: true, message: `已更新 ${Object.keys(a.patch).join(', ')}（preset=${next.preset}，下一轮生效）` }
+      }
+      case 'refresh':
+        this.publishPanel()
+        return { ok: true, message: '已刷新' }
+      case 'search':
+        return { ok: true, message: `命中 ${this.search(a.q).length} 条` }
+      default:
+        return { ok: false, message: `未支持的操作: ${(a as { kind: string }).kind}` }
+    }
+  }
+
+  search(text: string, limit = 50): PanelCellView[] {
+    if (!text.trim()) return this.panelCells(limit)
+    const qSdr = this.space.bundle(
+      (text.match(/[\u4e00-\u9fa5]{2,8}|[A-Za-z_][A-Za-z0-9_.\-]{1,40}/g) ?? [text]).slice(0, 16).map((e) => this.space.identity('E:' + e.toLowerCase())),
+    )
+    const scored: Array<{ c: MemCell; s: number }> = []
+    const needle = text.toLowerCase()
+    this.store.forEachCell((c) => {
+      let s = this.space.simNorm(qSdr, c.sdr)
+      const hay = (c.digest ?? '') + ' ' + c.slots.map((x) => x.value).join(' ')
+      if (hay.toLowerCase().includes(needle)) s = Math.max(s, 0.95)
+      if (s > 0.05) scored.push({ c, s })
+    })
+    scored.sort((a, b) => b.s - a.s)
+    const cells = scored.slice(0, limit).map((x) => x.c)
+    const shortIds = assignShortIds(cells.map((cell) => ({ cell })))
+    return cells.map((c, i) => ({
+      cellId: toHex(c.cellId, 16),
+      shortId: shortIds[i],
+      kind: c.kind,
+      kindName: KIND_NAME[c.kind] ?? 'fact',
+      tier: c.tier,
+      tFrom: Number(c.tFrom),
+      valence: c.valence,
+      arousal: c.arousal,
+      salience: c.salience,
+      importance: c.importance,
+      support: c.support,
+      confidence: c.confidence,
+      provenance: c.provenance,
+      trust: c.trust,
+      changed: (c.flags & FLAG.disputed) !== 0,
+      pinned: (c.flags & FLAG.noDecay) !== 0,
+      disputed: (c.flags & FLAG.disputed) !== 0,
+      invalidated: Number(c.tInvalid ?? 0) !== 0,
+      lens: (c.lens ?? 'fact') as never,
+      emotional: (c.flags & FLAG.emotional) !== 0,
+      tInvalid: Number(c.tInvalid ?? 0),
+      digest: c.digest ?? '',
+      kv: kvPairs(c),
+      slots: c.slots,
+      residualChars: c.residual?.rawLen ?? 0,
+      stability: c.stability,
+      accessCount: c.accessCount,
+    }))
+  }
+
+  /** 主动开口的状态：从 proactive 服务取（未装则为 null，面板显示"未启用"） */
+  private proactiveView(): PanelSnapshot['proactive'] {
+    const pro = this.ctx.get('mnemoProactive') as
+      | {
+          config: { enabled: boolean; maxPerDay: number; minIntervalMin: number; quietStart: number; quietEnd: number; idleMin: number }
+          snapshot(): {
+            blocked: string | null
+            todayCount: number
+            lastAt: number
+            nextEligibleAt: number
+            lastCandidate: { text: string; reason: string; kind: string; cellIds: string[]; urgency: number } | null
+            skipped: Array<{ at: number; reason: string }>
+          }
+        }
+      | undefined
+    if (!pro) return null
+    try {
+      const st = pro.snapshot()
+      return {
+        enabled: pro.config.enabled,
+        blocked: st.blocked,
+        todayCount: st.todayCount,
+        maxPerDay: pro.config.maxPerDay,
+        minIntervalMin: pro.config.minIntervalMin,
+        quietStart: pro.config.quietStart,
+        quietEnd: pro.config.quietEnd,
+        idleMin: pro.config.idleMin,
+        lastAt: st.lastAt,
+        nextEligibleAt: st.nextEligibleAt,
+        lastCandidate: st.lastCandidate,
+        skipped: st.skipped.slice(-6),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  /** 落盘给 client 侧面板消费（原子替换，避免读到半个文件）。 */
+  publishPanel(): void {
+    const snap = this.panelSnapshot()
+    for (const fn of this.listeners) {
+      try {
+        fn(snap)
+      } catch (err) {
+        this.ctx.logger?.('mnemo')?.warn?.(`panel listener failed: ${String(err)}`)
+      }
+    }
+    if (!this.panelPath) return
+    try {
+      mkdirSync(dirname(this.panelPath), { recursive: true })
+      const tmp = this.panelPath + '.tmp'
+      writeFileSync(tmp, JSON.stringify(snap), 'utf8')
+      renameSync(tmp, this.panelPath)
+    } catch (err) {
+      this.ctx.logger?.('mnemo')?.warn?.(`publishPanel failed: ${String(err)}`)
+    }
+  }
+
+  /** client 侧动作队列（无 remote 时的桥；有 remote 时由 tools 直接调 applyAction）。 */
+  enqueueAction(a: PanelAction): void {
+    this.pendingActions.push(a)
+  }
+
+  drainPanelActions(): number {
+    if (this.pendingActions.length === 0) return 0
+    const batch = this.pendingActions.splice(0, 64)
+    for (const a of batch) this.applyAction(a)
+    return batch.length
+  }
+
+  // ── 内部工具 ────────────────────────────────────────────────────
+
+  private reencodeSdr(cell: MemCell): MemCell['sdr'] {
+    const items = cell.slots
+      .filter((s) => s.type !== 'UNK' && s.value)
+      .slice(0, 8)
+      .map((s) => {
+        const roleName = SLOT_ROLE_NAME[s.role] ?? String(s.role)
+        return this.space.bind(this.space.identity('V:' + s.value.toLowerCase()), this.space.role(roleName))
+      })
+    return this.space.bundle(items)
+  }
+
+  /** 参数热更新（§12.8）。写 mnemo/settings 事件，便于审计谁在什么时候改了什么。 */
+  setConfig(patch: Partial<MnemoConfig>): MnemoConfig {
+    // 改细项即视为 custom：否则 applyPreset 会把刚改的值覆盖回预设值，
+    // 这正是文档 §12.2 要避免的"我改了但被预设覆盖"。
+    const touchesFine = Object.keys(patch).some((k) => k !== 'preset')
+    const effective = touchesFine && patch.preset === undefined ? { ...patch, preset: 'custom' as const } : patch
+    const next = applyPreset({ ...this.config, ...effective })
+    const changed = Object.keys(effective)
+    this.config = next
+    this.emit('mnemo/settings', { changed, preset: next.preset, appliedAt: this.now() })
+    this.publishPanel()
+    return next
+  }
+
+  noteTurn(): number {
+    this.turns++
+    // turn 结束只释放引用，不删数据（§8.2）；感觉记忆按轮过期（§8.1）
+    this.working.clearTurn()
+    this.sensory.expire(this.turns)
+    return this.turns
+  }
+
+  get turnCount(): number {
+    return this.turns
+  }
+
+  /** 对外日志入口：其他包不该直接摸 this.ctx（protected）。 */
+  warn(msg: string): void {
+    this.ctx.logger?.('mnemo').warn?.(msg)
+  }
+
+  error(msg: string): void {
+    this.ctx.logger?.('mnemo').error?.(msg)
+  }
+
+  /** 事件发射：cordis 的 Events 由 dsh 包合并，插件自定义事件走宽类型入口 + 运行时校验。 */
+  emit(name: string, payload: Record<string, unknown>): void {
+    try {
+      ;(this.ctx as unknown as { emit: (n: string, p: unknown) => void }).emit(name, payload)
+    } catch (err) {
+      this.ctx.logger?.('mnemo')?.warn?.(`emit ${name} failed: ${String(err)}`)
+    }
+  }
+}
+
+// ── 辅助 ──────────────────────────────────────────────────────────
+
+export function slotValue(cell: MemCell, roleName: string): string | undefined {
+  const role = SLOT_ROLE[roleName as keyof typeof SLOT_ROLE]
+  if (!role) return undefined
+  const s = cell.slots.find((x) => x.role === role && x.type !== 'UNK')
+  return s?.value
+}
+
+/** 视角判定：故事 > 感受 > 关系 > 事实。顺序即优先级。 */
+export function deriveLens(cell: MemCell): 'fact' | 'feeling' | 'bond' | 'story' {
+  if (cell.kind === KIND.narrative) return 'story'
+  // 同 ingest：显著度不能当判据（它的基线太高）
+  if (Math.abs(cell.valence) >= 0.45) return 'feeling'
+  const text = (cell.digest ?? '') + ' ' + cell.slots.map((s) => s.value).join(' ')
+  if (/我们|一起|陪我|陪你|在乎|想你|喜欢你|谢谢|约定|答应|吵架|和好/.test(text)) return 'bond'
+  return 'fact'
+}
+
+function sameSlots(a: readonly Slot[], b: readonly Slot[]): boolean {
+  const norm = (xs: readonly Slot[]) =>
+    xs
+      .filter((s) => s.type !== 'UNK')
+      .map((s) => `${s.role}:${s.value}`)
+      .sort()
+      .join('|')
+  return norm(a) === norm(b)
+}
+
+function sameAgent(a: MemCell, b: MemCell): boolean {
+  return (slotValue(a, 'AGENT') ?? '') === (slotValue(b, 'AGENT') ?? '')
+}
+
+/** 合并竞争（§7.5）：support 高者胜 → importance 高者胜 → t_ingest 早者胜（可复现）。 */
+function compete(a: MemCell, b: MemCell): MemCell {
+  if (a.support !== b.support) return a.support > b.support ? a : b
+  if (a.importance !== b.importance) return a.importance > b.importance ? a : b
+  return Number(a.tIngest) <= Number(b.tIngest) ? a : b
+}
+
+function summarize(cell: MemCell): string {
+  const kv = kvPairs(cell)
+    .map(([k, v]) => `${k}=${v}`)
+    .join(' ')
+  return `${KIND_NAME[cell.kind] ?? 'fact'} ${mmdd(Number(cell.tFrom))} ${kv} V${fmt2(cell.valence)} S${fmt2(cell.salience)} C${fmt2(cell.confidence)}`
+}
+
+/** 冷层 PQ：8 段 × 4 bit → 32 B（§8.4 修 D-07）。丢掉 emb 会让语义召回归零。 */
+export function pq32(emb: Int8Array | null): Int8Array | null {
+  if (!emb) return null
+  if (emb.length <= 32) return emb
+  const seg = Math.floor(emb.length / 8)
+  const out = new Int8Array(32)
+  for (let s = 0; s < 8; s++) {
+    for (let b = 0; b < 4; b++) {
+      let acc = 0
+      const from = s * seg + b * Math.floor(seg / 4)
+      const to = from + Math.floor(seg / 4)
+      for (let i = from; i < to; i++) acc += emb[i]
+      const avg = acc / Math.max(1, to - from)
+      out[s * 4 + b] = Math.max(-8, Math.min(7, Math.round(avg / 16)))
+    }
+  }
+  return out
+}
+
+/** 派生 cell id（供编码器用，保证重放幂等）。 */
+export function cellIdFor(sessionId: string, seqs: number[], sdr: Uint32Array): bigint {
+  return deriveCellId(sessionId, seqs, new Uint8Array(new Uint32Array(sdr).buffer))
+}
+
+export { SIM_FLOOR, encodeCell, topicOf, hash64 }

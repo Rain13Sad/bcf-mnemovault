@@ -1,0 +1,59 @@
+{
+  "name": "@bcf/dsh-mnemo-proactive",
+  "version": "0.2.0",
+  "description": "主动开口：情感/记忆由头 + 频率与静默预算",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "agent-memory",
+    "typescript",
+    "proactive",
+    "companion-ai"
+  ],
+  "homepage": "https://github.com/Rain13Sad/mnemo-vault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rain13Sad/mnemo-vault.git",
+    "directory": "packages/proactive"
+  },
+  "bugs": {
+    "url": "https://github.com/Rain13Sad/mnemo-vault/issues"
+  },
+  "author": "Rain13Sad",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-session": "*"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "@bcf/dsh-mnemo-core": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

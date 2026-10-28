@@ -1,0 +1,29 @@
+# 统一换行：仓库内一律 LF，检出时由 git 按平台转换
+* text=auto eol=lf
+
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.mjs   text eol=lf
+*.cjs   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+
+# 二进制：不要做换行转换，也不要尝试 diff
+*.db      binary
+*.sqlite  binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary
+
+# 构建产物不计入语言统计
+artifacts/** linguist-generated=true
+packages/*/lib/** linguist-generated=true

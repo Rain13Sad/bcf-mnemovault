@@ -1,0 +1,75 @@
+name: Bug 报告
+description: 报告一个可复现的缺陷（行为不符预期、测试失败、面板错乱等）
+title: '[bug] '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈。本项目多数缺陷是**跑出来的**，不是看出来的，所以"复现步骤"比"描述"有用得多。
+        提交前可以先看 [`docs/PROJECT-GUIDE.md`](https://github.com/Rain13Sad/mnemo-vault/blob/main/docs/PROJECT-GUIDE.md)
+        的「缺点」一章——里面列了 15 条已知问题，可能已经有答案。
+
+  - type: textarea
+    id: symptom
+    attributes:
+      label: 现象
+      description: 实际发生了什么？你期望发生什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 能贴出命令和最小输入最好
+      placeholder: |
+        1. npm ci && npm run build
+        2. node scripts/demo.mjs
+        3. 第 7 轮注入里出现了已被取代的版本
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块
+      multiple: true
+      options:
+        - core（晶格 / 存储 / 召回 / 渲染）
+        - encoder（写侧切分与抽取）
+        - recall（读侧门控与注入）
+        - consolidator（巩固 / 遗忘）
+        - affect（情感内核 / 关系 / 人格锚）
+        - proactive（主动开口）
+        - tools（工具面 / 命令面 / egress 守卫）
+        - ui（侧栏面板）
+        - devkit / 测试宿主
+        - scripts 或 CI
+        - 文档
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: Node 版本、操作系统、DSH 版本
+      placeholder: Node 22.22.2 / Windows 11 / DSH 0.2.1-rc.3
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志或测试输出
+      description: `npm test` 的失败片段、`node --test --test-name-pattern` 的输出、或面板报错
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 自查
+      options:
+        - label: 我已经跑过 `npm run build && npm test`，问题仍存在
+        - label: 这不是"DSH 版本不匹配"导致的（本项目只支持 `>=0.2.1-rc.3 <0.3.0`）

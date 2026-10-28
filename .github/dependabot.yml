@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # devDependencies：typescript / react / 类型包
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '09:00'
+      timezone: Asia/Shanghai
+    open-pull-requests-limit: 5
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    commit-message:
+      prefix: chore
+      include: scope
+
+  # CI 用的 action 版本
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci

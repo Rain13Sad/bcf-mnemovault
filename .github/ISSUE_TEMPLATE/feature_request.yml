@@ -1,0 +1,43 @@
+name: 功能建议
+description: 提议新能力、调参默认值、或对现有算法取舍的意见
+title: '[feat] '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        这个项目的取舍写得很明确（见 README「与开源实现的对照」与项目说明书「优点 / 缺点」），
+        所以建议里最有价值的部分是：**你要解决的使用场景**，以及**为什么现有做法解决不了**。
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 使用场景
+      description: 谁在什么情况下会遇到这个问题？
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议做法
+      description: 如果涉及参数，请给出你希望的默认值以及理由
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 你考虑过的替代方案
+      description: 包括"不改代码、只调参"能不能解决
+
+  - type: dropdown
+    id: cost
+    attributes:
+      label: 你判断的代价
+      description: 这个项目的硬约束是"注入 token 有预算、写入要可复现"，越界的方案会被拒
+      multiple: true
+      options:
+        - 会增加每轮注入的 token
+        - 会引入新的运行时依赖
+        - 会削弱可复现性（引入随机或模型判断）
+        - 只影响离线巩固，不影响在线路径
+        - 只影响面板与可观测性

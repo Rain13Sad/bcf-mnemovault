@@ -1,0 +1,11 @@
+# 写侧：turn/end 时把本轮对话编码成 0..N 个 MemCell
+- insert:
+    - id: mnemo-encoder
+      name: '@bcf/dsh-mnemo-encoder'
+      config:
+        encodeAssistant: true
+        encodeTools: true
+        maxCellsPerTurn: 8
+        maxResidualBytes: 8192
+        l1:
+          enabled: false
