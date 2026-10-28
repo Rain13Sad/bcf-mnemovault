@@ -55,7 +55,7 @@ jobs:
 
       - name: 上传基准报告
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-${{ matrix.os }}-node${{ matrix.node }}
           path: artifacts/bench.json
