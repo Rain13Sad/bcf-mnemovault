@@ -11,14 +11,14 @@
     "settings",
     "schema"
   ],
-  "homepage": "https://github.com/Rain13Sad/mnemo-vault#readme",
+  "homepage": "https://github.com/Rain13Sad/bcf-mnemovault#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Rain13Sad/mnemo-vault.git",
+    "url": "git+https://github.com/Rain13Sad/bcf-mnemovault.git",
     "directory": "packages/settings"
   },
   "bugs": {
-    "url": "https://github.com/Rain13Sad/mnemo-vault/issues"
+    "url": "https://github.com/Rain13Sad/bcf-mnemovault/issues"
   },
   "author": "Rain13Sad",
   "license": "MIT",

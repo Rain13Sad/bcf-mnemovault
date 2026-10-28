@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="400" viewBox="0 0 1240 400" role="img" aria-label="MnemoVault data flow: write side, read side, offline consolidation">
+  <defs>
+    <linearGradient id="dbg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c1120"/>
+      <stop offset="1" stop-color="#151a2e"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5578"/>
+    </marker>
+    <marker id="arrowTeal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#59e3c8"/>
+    </marker>
+    <marker id="arrowViolet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b7cff"/>
+    </marker>
+  </defs>
+
+  <rect width="1240" height="400" rx="14" fill="url(#dbg)"/>
+  <rect x="0.5" y="0.5" width="1239" height="399" rx="14" fill="none" stroke="#252d47"/>
+
+  <!-- lane labels -->
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="2.2">
+    <text x="40" y="95" fill="#59e3c8">WRITE</text>
+    <text x="40" y="205" fill="#8b7cff">READ</text>
+    <text x="40" y="315" fill="#e0a45e">OFFLINE</text>
+  </g>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6790">
+    <text x="40" y="113">every turn</text>
+    <text x="40" y="223">every turn</text>
+    <text x="40" y="333">sleep cycle</text>
+  </g>
+
+  <!-- lane separators -->
+  <g stroke="#1d2438" stroke-width="1">
+    <line x1="150" y1="60" x2="150" y2="345"/>
+  </g>
+
+  <!-- WRITE lane -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
+    <rect x="180" y="70" width="176" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
+    <text x="268" y="101" fill="#dfe4f5" text-anchor="middle">session/event</text>
+
+    <rect x="404" y="70" width="236" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
+    <text x="522" y="101" fill="#dfe4f5" text-anchor="middle">Encoder · propositions</text>
+
+    <rect x="688" y="70" width="420" height="52" rx="9" fill="#12211f" stroke="#2f6b5e"/>
+    <text x="898" y="94" fill="#c9f4e9" text-anchor="middle">MemCell · 704 B fixed base</text>
+    <text x="898" y="112" fill="#7fb6a8" text-anchor="middle" font-size="12">SDR + int8 vector + typed edges + brotli residual</text>
+
+    <line x1="356" y1="96" x2="400" y2="96" stroke="#4b5578" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="640" y1="96" x2="684" y2="96" stroke="#59e3c8" stroke-width="1.5" marker-end="url(#arrowTeal)"/>
+  </g>
+
+  <!-- READ lane -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
+    <rect x="180" y="180" width="176" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
+    <text x="268" y="211" fill="#dfe4f5" text-anchor="middle">user message</text>
+
+    <rect x="404" y="180" width="196" height="52" rx="9" fill="#1a1733" stroke="#453a86"/>
+    <text x="502" y="203" fill="#dfe4f5" text-anchor="middle">4-channel recall</text>
+    <text x="502" y="220" fill="#8f86c9" text-anchor="middle" font-size="11.5">semantic · identity · graph · time</text>
+
+    <rect x="648" y="180" width="212" height="52" rx="9" fill="#1a1733" stroke="#453a86"/>
+    <text x="754" y="203" fill="#dfe4f5" text-anchor="middle">4±1 slot competition</text>
+    <text x="754" y="220" fill="#8f86c9" text-anchor="middle" font-size="11.5">redundancy penalty · empty slot ok</text>
+
+    <rect x="908" y="180" width="200" height="52" rx="9" fill="#1a1733" stroke="#453a86"/>
+    <text x="1008" y="203" fill="#dfe4f5" text-anchor="middle">MRS render</text>
+    <text x="1008" y="220" fill="#8f86c9" text-anchor="middle" font-size="11.5">~116 tokens / turn</text>
+
+    <line x1="356" y1="206" x2="400" y2="206" stroke="#4b5578" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="600" y1="206" x2="644" y2="206" stroke="#8b7cff" stroke-width="1.5" marker-end="url(#arrowViolet)"/>
+    <line x1="860" y1="206" x2="904" y2="206" stroke="#8b7cff" stroke-width="1.5" marker-end="url(#arrowViolet)"/>
+  </g>
+
+  <!-- OFFLINE lane -->
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
+    <rect x="180" y="290" width="196" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
+    <text x="278" y="313" fill="#dfe4f5" text-anchor="middle">lattice snapshot</text>
+    <text x="278" y="330" fill="#8a93b5" text-anchor="middle" font-size="11.5">cells + hyperedges</text>
+
+    <rect x="420" y="290" width="212" height="52" rx="9" fill="#231a14" stroke="#6d5231"/>
+    <text x="526" y="313" fill="#f3dcc0" text-anchor="middle">NREM · abstract</text>
+    <text x="526" y="330" fill="#b09170" text-anchor="middle" font-size="11.5">merge into schemas</text>
+
+    <rect x="676" y="290" width="212" height="52" rx="9" fill="#231a14" stroke="#6d5231"/>
+    <text x="782" y="313" fill="#f3dcc0" text-anchor="middle">REM · diverge</text>
+    <text x="782" y="330" fill="#b09170" text-anchor="middle" font-size="11.5">grow ASSOC edges</text>
+
+    <rect x="932" y="290" width="176" height="52" rx="9" fill="#231a14" stroke="#6d5231"/>
+    <text x="1020" y="313" fill="#f3dcc0" text-anchor="middle">forget</text>
+    <text x="1020" y="330" fill="#b09170" text-anchor="middle" font-size="11.5">(1 + F·t/S)^-0.5</text>
+
+    <line x1="376" y1="316" x2="416" y2="316" stroke="#4b5578" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="632" y1="316" x2="672" y2="316" stroke="#e0a45e" stroke-width="1.5" marker-end="url(#arrow)"/>
+    <line x1="888" y1="316" x2="928" y2="316" stroke="#e0a45e" stroke-width="1.5" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- caption -->
+  <text x="40" y="378" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#5d6790">The lattice is derived state: it can be rebuilt by replaying session_log, and any recall can be replayed byte-for-byte from its snapshot.</text>
+</svg>
