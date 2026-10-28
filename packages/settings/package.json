@@ -1,0 +1,58 @@
+{
+  "name": "@bcf/dsh-mnemo-settings",
+  "version": "0.2.0",
+  "description": "设置面板 schema + 预设档 + 生效矩阵（ctx.mnemoSettings）",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "agent-memory",
+    "typescript",
+    "settings",
+    "schema"
+  ],
+  "homepage": "https://github.com/Rain13Sad/mnemo-vault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rain13Sad/mnemo-vault.git",
+    "directory": "packages/settings"
+  },
+  "bugs": {
+    "url": "https://github.com/Rain13Sad/mnemo-vault/issues"
+  },
+  "author": "Rain13Sad",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "@bcf/dsh-mnemo-core": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

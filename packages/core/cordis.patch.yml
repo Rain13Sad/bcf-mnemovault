@@ -1,0 +1,15 @@
+# 晶格服务：存储、索引、四路召回、MRS 渲染
+- insert:
+    - id: mnemo-core
+      name: '@bcf/dsh-mnemo-core'
+      config:
+        dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
+        residualDir: !!js `${ctx.baseDir}/mnemo/blob`
+        sdrDim: 2048
+        sdrK: 8
+        embDim: 256
+        preset: balanced
+        maxSlots: 4
+        surfaceMode: rows
+        forgettingProfile: semantic
+        affectEnabled: true

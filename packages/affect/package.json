@@ -1,0 +1,61 @@
+{
+  "name": "@bcf/dsh-mnemo-affect",
+  "version": "0.2.0",
+  "description": "情感内核：内感受 / 评价 / PAD / 心境 / 关系模型（ctx.affect）",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "agent-memory",
+    "typescript",
+    "affect",
+    "emotion",
+    "appraisal",
+    "pad-model"
+  ],
+  "homepage": "https://github.com/Rain13Sad/mnemo-vault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rain13Sad/mnemo-vault.git",
+    "directory": "packages/affect"
+  },
+  "bugs": {
+    "url": "https://github.com/Rain13Sad/mnemo-vault/issues"
+  },
+  "author": "Rain13Sad",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*",
+    "@deepseek-ai/dsh-session": "*"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "@bcf/dsh-mnemo-core": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

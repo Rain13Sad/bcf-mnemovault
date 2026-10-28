@@ -1,0 +1,61 @@
+{
+  "name": "@bcf/dsh-mnemo-devkit",
+  "version": "0.2.0",
+  "description": "无宿主运行器：mock Cordis ctx + 会话回放，用于 demo / 测试",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "agent-memory",
+    "typescript",
+    "testing",
+    "harness"
+  ],
+  "homepage": "https://github.com/Rain13Sad/mnemo-vault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rain13Sad/mnemo-vault.git",
+    "directory": "packages/devkit"
+  },
+  "bugs": {
+    "url": "https://github.com/Rain13Sad/mnemo-vault/issues"
+  },
+  "author": "Rain13Sad",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {},
+  "dependencies": {
+    "@bcf/dsh-mnemo-core": "*",
+    "@bcf/dsh-mnemo-affect": "*",
+    "@bcf/dsh-mnemo-encoder": "*",
+    "@bcf/dsh-mnemo-recall": "*",
+    "@bcf/dsh-mnemo-consolidator": "*",
+    "@bcf/dsh-mnemo-tools": "*",
+    "@bcf/dsh-mnemo-settings": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

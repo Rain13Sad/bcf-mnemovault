@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify · ${{ matrix.os }} · node ${{ matrix.node }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22.x']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # 只有 devDependencies；运行期依赖 node:sqlite / node:zlib，无原生模块
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 编译 10 个包
+        run: npm run build
+
+      - name: 类型检查（含测试用到的 .d.ts 形状）
+        run: npm run typecheck
+
+      - name: 单元与集成测试
+        run: npm test
+
+      - name: SDR 性质校验（错了就全盘失效的那一层）
+        run: npm run check
+
+      - name: mnemo-bench
+        run: npm run bench:eval
+
+      - name: 基准门槛
+        run: node scripts/ci-assert-bench.mjs
+
+      - name: 上传基准报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.os }}-node${{ matrix.node }}
+          path: artifacts/bench.json
+          if-no-files-found: warn
+          retention-days: 14

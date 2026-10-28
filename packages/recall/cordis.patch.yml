@@ -1,0 +1,11 @@
+# 读侧：agent/pre-step 门控 + 注入（写 memory/recall）
+- insert:
+    - id: mnemo-recall
+      name: '@bcf/dsh-mnemo-recall'
+      config:
+        enabled: true
+        injectOnFirstTurn: true
+        topicDriftThreshold: 0.6
+        minTurnsBetweenInjections: 1
+        budgetGuard: 0.8
+        applyTemperature: false

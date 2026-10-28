@@ -1,0 +1,11 @@
+# 离线巩固：NREM / REM + 按比例降权 + 弱边剪除
+- insert:
+    - id: mnemo-consolidator
+      name: '@bcf/dsh-mnemo-consolidator'
+      config:
+        enabled: true
+        gamma: 0.95
+        pruneBelow: 8
+        pruneAfterDays: 90
+        divergenceTemp: 0.7
+        maxSeeds: 60

@@ -1,0 +1,63 @@
+{
+  "name": "dsh-mnemo",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "MnemoVault — DeepSeek Harness 的记忆与情感插件包族：稀疏码记忆晶格、四路召回、双相巩固、情感内核与侧栏面板",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "plugin",
+    "agent-memory",
+    "long-term-memory",
+    "sparse-distributed-representations",
+    "hyperdimensional-computing",
+    "affective-computing",
+    "companion-ai",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Rain13Sad/mnemo-vault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rain13Sad/mnemo-vault.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Rain13Sad/mnemo-vault/issues"
+  },
+  "author": "Rain13Sad",
+  "license": "MIT",
+  "packageManager": "npm@10.9.7",
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0",
+    "node": ">=22.5.0",
+    "npm": ">=10"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "clean": "node scripts/build.mjs --clean",
+    "typecheck": "tsc -p tsconfig.check.json",
+    "pretest": "node scripts/panel-build.mjs",
+    "test": "node --test test/*.test.mjs",
+    "check": "node scripts/sdr-check.mjs",
+    "demo": "node scripts/demo.mjs",
+    "panel:build": "node scripts/panel-build.mjs",
+    "panel": "node scripts/panel-dev.mjs 5178",
+    "bench": "node scripts/bench.mjs",
+    "preview": "node scripts/demo.mjs && node scripts/panel-dev.mjs 5178",
+    "bench:eval": "node scripts/bench-eval.mjs",
+    "verify": "npm run build && npm test && npm run check && npm run bench:eval"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "esbuild": "^0.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.7.2"
+  }
+}

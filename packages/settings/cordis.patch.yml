@@ -1,0 +1,8 @@
+# 设置面板：预设档、生效矩阵、配置快照
+- insert:
+    - id: mnemo-settings
+      name: '@bcf/dsh-mnemo-settings'
+      config:
+        panelPageSize: 50
+        graphMaxNodes: 200
+        lockSafetyGroup: true

@@ -1,0 +1,41 @@
+# ── 依赖 ───────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+
+# ── 编译产物（npm run build 生成，随包发布而不是入库）────
+lib/
+*.tsbuildinfo
+
+# ── 面板预览（npm run panel 生成）──────────────────────
+artifacts/panel/
+
+# ── 本地记忆库与残差块（含真实对话内容，绝不入库）────────
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+artifacts/blob/
+
+# ── 日志与临时文件 ─────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+*.tmp
+
+# ── 环境变量与密钥 ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── 测试覆盖率 ─────────────────────────────────────────
+coverage/
+.nyc_output/
+
+# ── 操作系统 / 编辑器 ──────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
