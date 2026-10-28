@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-label="MnemoVault — long-term memory and affect for DeepSeek Harness">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0a0f1f"/>
+      <stop offset="0.55" stop-color="#151a33"/>
+      <stop offset="1" stop-color="#241a3d"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.84" cy="0.3" r="0.6">
+      <stop offset="0" stop-color="#6d5efc" stop-opacity="0.42"/>
+      <stop offset="0.6" stop-color="#6d5efc" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#6d5efc" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0.08" cy="0.9" r="0.5">
+      <stop offset="0" stop-color="#2ad3b6" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#2ad3b6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1280" height="320" fill="url(#bg)"/>
+  <rect width="1280" height="320" fill="url(#glow)"/>
+  <rect width="1280" height="320" fill="url(#glow2)"/>
+
+  <!-- lattice: a memory cell and its typed hyperedges -->
+  <g stroke-linecap="round">
+    <line x1="742" y1="104" x2="852" y2="62"  stroke="#7c6bff" stroke-opacity="0.35" stroke-width="1.5"/>
+    <line x1="742" y1="104" x2="812" y2="186" stroke="#7c6bff" stroke-opacity="0.28" stroke-width="1.5"/>
+    <line x1="852" y1="62"  x2="944" y2="132" stroke="#59e3c8" stroke-opacity="0.55" stroke-width="1.5"/>
+    <line x1="852" y1="62"  x2="1058" y2="86" stroke="#7c6bff" stroke-opacity="0.3" stroke-width="1.5"/>
+    <line x1="944" y1="132" x2="1058" y2="86" stroke="#59e3c8" stroke-opacity="0.45" stroke-width="1.5"/>
+    <line x1="944" y1="132" x2="1016" y2="208" stroke="#59e3c8" stroke-opacity="0.5" stroke-width="1.5"/>
+    <line x1="812" y1="186" x2="908" y2="238" stroke="#7c6bff" stroke-opacity="0.35" stroke-width="1.5"/>
+    <line x1="908" y1="238" x2="1016" y2="208" stroke="#59e3c8" stroke-opacity="0.4" stroke-width="1.5"/>
+    <line x1="1058" y1="86" x2="1152" y2="132" stroke="#7c6bff" stroke-opacity="0.3" stroke-width="1.5"/>
+    <line x1="1016" y1="208" x2="1136" y2="246" stroke="#59e3c8" stroke-opacity="0.4" stroke-width="1.5"/>
+    <line x1="1152" y1="132" x2="1136" y2="246" stroke="#7c6bff" stroke-opacity="0.25" stroke-width="1.5"/>
+    <line x1="742" y1="104" x2="716" y2="240" stroke="#7c6bff" stroke-opacity="0.2" stroke-width="1.5"/>
+    <line x1="716" y1="240" x2="812" y2="186" stroke="#59e3c8" stroke-opacity="0.28" stroke-width="1.5"/>
+  </g>
+
+  <g fill="#59e3c8">
+    <circle cx="852" cy="62"  r="4.5" fill-opacity="0.9"/>
+    <circle cx="944" cy="132" r="6"   fill-opacity="0.95"/>
+    <circle cx="1016" cy="208" r="4.5" fill-opacity="0.9"/>
+    <circle cx="1152" cy="132" r="3.5" fill-opacity="0.7"/>
+  </g>
+  <g fill="#8b7cff">
+    <circle cx="742" cy="104" r="7"   fill-opacity="0.95"/>
+    <circle cx="812" cy="186" r="4"   fill-opacity="0.8"/>
+    <circle cx="908" cy="238" r="4"   fill-opacity="0.8"/>
+    <circle cx="1058" cy="86"  r="5"  fill-opacity="0.85"/>
+    <circle cx="1136" cy="246" r="3.5" fill-opacity="0.7"/>
+    <circle cx="716" cy="240" r="3"   fill-opacity="0.6"/>
+  </g>
+
+  <!-- wordmark -->
+  <text x="72" y="132" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="62" font-weight="700" fill="#f6f7ff" letter-spacing="-1.5">MnemoVault</text>
+  <text x="74" y="176" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="25" fill="#a8b2d8">Long-term memory &amp; affect for DeepSeek Harness</text>
+  <text x="74" y="222" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#6f7aa8">2048-bit sparse codes · 4-channel recall · ~116 tokens per turn</text>
+
+  <rect x="74" y="252" width="44" height="3" rx="1.5" fill="#59e3c8"/>
+</svg>

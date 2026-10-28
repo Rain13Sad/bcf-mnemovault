@@ -6,7 +6,8 @@
 
 | 你想… | 读这份 | 长度 |
 | :--- | :--- | ---: |
-| **把它跑起来、看看它是什么** | 根目录 [`README.md`](../README.md) | 15 分钟 |
+| **先知道这是什么** | 根目录 [`README.md`](../README.md)（英文）或 [`README.zh-CN.md`](../README.zh-CN.md)（中文，最详细） | 15 分钟 |
+| **把它跑起来** | 同上，第「Quick start」节；不需要装 DSH | 5 分钟 |
 | **接手维护 / 判断能不能用** | [`PROJECT-GUIDE.md`](PROJECT-GUIDE.md) — 系统怎么运作、15 条缺点、12 条改进意见（P0–P2） | 40 分钟 |
 | **改代码 / 加插件** | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — 环境、代码地图、硬约束、提交规范 | 15 分钟 |
 | **对着宿主版本核对接口** | [`API-CONTRACT.md`](API-CONTRACT.md) — DSH `0.2.1-rc.3` 实际发布包与设计文档写法的差异 | 20 分钟 |
@@ -14,6 +15,19 @@
 | **追根到神经科学依据** | [`design/BRAIN-MEMORY-RESEARCH.md`](design/BRAIN-MEMORY-RESEARCH.md)、[`design/AI-AFFECT-RESEARCH.md`](design/AI-AFFECT-RESEARCH.md) | 各 1 小时 |
 | **发布 / 建仓 / 打 tag** | [`PUBLISH.md`](PUBLISH.md) | 5 分钟 |
 | **看这版改了什么** | [`../CHANGELOG.md`](../CHANGELOG.md) | 5 分钟 |
+
+## 语言
+
+仓库首页有五个语言版本，内容深度不同——**中文版最详细，是术语与数字的权威来源**：
+
+| 文件 | 语言 | 定位 |
+| :--- | :--- | :--- |
+| [`README.md`](../README.md) | English | 首页默认版本，面向第一次看到这个仓库的人 |
+| [`README.zh-CN.md`](../README.zh-CN.md) | 简体中文 | 完整版：能力清单、缺陷记录、参考项目对照、目录树 |
+| [`README.ja.md`](../README.ja.md) / [`README.ko.md`](../README.ko.md) / [`README.es.md`](../README.es.md) | 日本語 / 한국어 / Español | 摘要版，均指向中文长文档 |
+
+配图在 [`assets/`](assets/)：`banner.svg`（首页横幅）、`pipeline.svg`（写入/读取/离线三条链路）、
+`social-preview.png`（1280×640，用于 GitHub 仓库的 Social preview，见 [`PUBLISH.md`](PUBLISH.md)）。
 
 ## 四份核心文档的分工
 

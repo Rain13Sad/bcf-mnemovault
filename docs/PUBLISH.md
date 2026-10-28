@@ -2,12 +2,12 @@
 
 这份文件是给维护者看的操作单，不涉及代码。
 
-> 文中所有链接都按 **`Rain13Sad/mnemo-vault`** 写。如果你的用户名或仓库名不同，
-> 在仓库根目录跑一次替换即可（把 `Rain13Sad` 与 `mnemo-vault` 换成你的）：
+> 文中所有链接都按 **`Rain13Sad/bcf-mnemovault`** 写。如果你的用户名或仓库名不同，
+> 在仓库根目录跑一次替换即可（把 `Rain13Sad` 与 `bcf-mnemovault` 换成你的）：
 >
 > ```bash
-> grep -rl "Rain13Sad/mnemo-vault" --include="*.md" --include="*.json" --include="*.yml" . \
->   | xargs sed -i 's#Rain13Sad/mnemo-vault#<你的用户名>/<你的仓库名>#g'
+> grep -rl "Rain13Sad/bcf-mnemovault" --include="*.md" --include="*.json" --include="*.yml" . \
+>   | xargs sed -i 's#Rain13Sad/bcf-mnemovault#<你的用户名>/<你的仓库名>#g'
 > ```
 
 ---
@@ -18,7 +18,7 @@
 README / .gitignore / LICENSE，否则要先 pull 再处理冲突），然后：
 
 ```bash
-git remote add origin git@github.com:Rain13Sad/mnemo-vault.git   # 或 https:// 形式
+git remote add origin git@github.com:Rain13Sad/bcf-mnemovault.git   # 或 https:// 形式
 git push -u origin main
 ```
 
@@ -26,16 +26,23 @@ git push -u origin main
 
 ## 2. 仓库设置（网页上点一遍）
 
+README 已经改成英文为主（`README.md`）+ 四份译文（`README.zh-CN.md` / `.ja.md` / `.ko.md` / `.es.md`），
+所以 About 里的描述也用英文——GitHub 的 About 只有一处，写中文会让非中文读者看不懂这个仓库是干什么的。
+
 | 位置 | 建议值 |
 | :--- | :--- |
-| **About → Description** | DeepSeek Harness 的记忆与情感插件包族：稀疏码晶格 · 四路召回 · 双相巩固 · 情感内核 |
-| **About → Topics** | `dsh` `deepseek-harness` `cordis` `agent-memory` `sparse-distributed-representations` `affective-computing` `companion-ai` `typescript` |
+| **About → Description** | `Long-term memory & affect for DeepSeek Harness — sparse-code cells, 4-channel recall, ~116 tokens/turn. Zero runtime deps.` |
+| **About → Topics** | `dsh` `deepseek-harness` `cordis` `agent-memory` `long-term-memory` `sparse-distributed-representations` `hyperdimensional-computing` `affective-computing` `companion-ai` `typescript` |
 | **About → Website** | 留空（没有独立站点，README 就是入口） |
+| **Social preview** | 上传 `docs/assets/social-preview.png`（1280×640，已生成） |
 | **Settings → General → Default branch** | `main` |
 | **Settings → Features** | 开 Issues；Discussions 可选 |
 | **Settings → Code security** | 开 Dependabot alerts、Secret scanning、Push protection |
 | **Settings → Branches** | 给 `main` 加保护：要求 PR + CI 通过 |
 | **Actions → General** | Workflow permissions 选 *Read repository contents*（CI 只读） |
+
+> 仓库主页的「About」和「Topics」只能在网页上改，不能通过 git 推送。改完之后，仓库右侧会多出一排
+> 可点击的话题标签——这是别人在 GitHub 上搜到这个项目的唯一入口，值得花两分钟填。
 
 CI 会在 push 与 PR 上跑 Ubuntu + Windows 两套：`npm ci → build → typecheck → test → check → bench:eval`，
 最后用 `scripts/ci-assert-bench.mjs` 卡住 Recall@8 ≥ 0.80 / MRR ≥ 0.60 / tokens ≤ 240。

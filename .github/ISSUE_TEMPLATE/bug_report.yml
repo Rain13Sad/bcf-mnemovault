@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         谢谢反馈。本项目多数缺陷是**跑出来的**，不是看出来的，所以"复现步骤"比"描述"有用得多。
-        提交前可以先看 [`docs/PROJECT-GUIDE.md`](https://github.com/Rain13Sad/mnemo-vault/blob/main/docs/PROJECT-GUIDE.md)
+        提交前可以先看 [`docs/PROJECT-GUIDE.md`](https://github.com/Rain13Sad/bcf-mnemovault/blob/main/docs/PROJECT-GUIDE.md)
         的「缺点」一章——里面列了 15 条已知问题，可能已经有答案。
 
   - type: textarea

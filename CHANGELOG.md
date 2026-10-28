@@ -6,6 +6,25 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [Unreleased]
+
+### 新增
+
+- **多语言 README**：`README.md` 改为英文首页，新增 `README.zh-CN.md`（完整版）、`README.ja.md`、
+  `README.ko.md`、`README.es.md`（摘要版），首页顶部带语言切换。
+- **仓库视觉**：`docs/assets/banner.svg`（横幅）、`pipeline.svg`（写入/读取/离线三条链路示意图）、
+  `social-preview.png`（1280×640，用于 GitHub Social preview）。
+- **CI 门槛**：`scripts/ci-assert-bench.mjs`，把 README 的指标变成会失败的断言。
+- `CONTRIBUTING.md` / `SECURITY.md` / `docs/PUBLISH.md` / `docs/README.md`。
+
+### 变更
+
+- 仓库地址统一为 `Rain13Sad/bcf-mnemovault`（此前文档里写的是占位名 `mnemo-vault`）。
+- 面板构建与伺服拆分为 `scripts/panel-build.mjs` + `scripts/panel-dev.mjs`，并加 `pretest` 钩子——
+  原先 `test/panel-bundle.test.mjs` 依赖一个会起服务器且不退出的脚本，CI 无法通过。
+- 文档改用 ASCII 文件名（`docs/项目说明书.md` → `docs/PROJECT-GUIDE.md`），中文标题保留在正文。
+- 每个包补齐 `repository.directory` / `homepage` / `bugs` / `keywords` / `publishConfig`。
+
 ## [0.2.0] — 2026-10-28
 
 首个公开版本。10 个包 / 93 条测试 / 4 项基准指标。

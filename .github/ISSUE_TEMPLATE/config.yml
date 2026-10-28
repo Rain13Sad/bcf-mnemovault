@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: 先读项目说明书
-    url: https://github.com/Rain13Sad/mnemo-vault/blob/main/docs/PROJECT-GUIDE.md
+    url: https://github.com/Rain13Sad/bcf-mnemovault/blob/main/docs/PROJECT-GUIDE.md
     about: 系统怎么运作、哪些地方靠得住、15 条已知缺点与 12 条改进意见（按 P0/P1/P2 排过序）
   - name: 设计文档（v0.2）
-    url: https://github.com/Rain13Sad/mnemo-vault/blob/main/docs/design/MNEMOVAULT-DESIGN.md
+    url: https://github.com/Rain13Sad/bcf-mnemovault/blob/main/docs/design/MNEMOVAULT-DESIGN.md
     about: 稀疏码晶格、四路召回、MRS 渲染、双相巩固的完整推导与参数依据
   - name: 集成契约核对记录
-    url: https://github.com/Rain13Sad/mnemo-vault/blob/main/docs/API-CONTRACT.md
+    url: https://github.com/Rain13Sad/bcf-mnemovault/blob/main/docs/API-CONTRACT.md
     about: DSH 0.2.1-rc.3 实际发布包与文档写法的差异（哪几处必须改）
