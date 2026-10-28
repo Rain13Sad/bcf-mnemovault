@@ -47,13 +47,13 @@
   },
   "peerDependencies": {},
   "dependencies": {
-    "@bcf/dsh-mnemo-core": "*",
-    "@bcf/dsh-mnemo-affect": "*",
-    "@bcf/dsh-mnemo-encoder": "*",
-    "@bcf/dsh-mnemo-recall": "*",
-    "@bcf/dsh-mnemo-consolidator": "*",
-    "@bcf/dsh-mnemo-tools": "*",
-    "@bcf/dsh-mnemo-settings": "*"
+    "@bcf/dsh-mnemo-core": "^0.2.0",
+    "@bcf/dsh-mnemo-affect": "^0.2.0",
+    "@bcf/dsh-mnemo-encoder": "^0.2.0",
+    "@bcf/dsh-mnemo-recall": "^0.2.0",
+    "@bcf/dsh-mnemo-consolidator": "^0.2.0",
+    "@bcf/dsh-mnemo-tools": "^0.2.0",
+    "@bcf/dsh-mnemo-settings": "^0.2.0"
   },
   "publishConfig": {
     "access": "public"

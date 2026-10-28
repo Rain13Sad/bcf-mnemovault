@@ -1,0 +1,31 @@
+# Auto-generated release notes categories (GitHub → Releases → Draft a new release).
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+    authors:
+      - dependabot
+  categories:
+    - title: Breaking changes
+      labels:
+        - breaking
+    - title: Memory lattice & recall
+      labels:
+        - core
+        - recall
+        - encoder
+    - title: Affect & companion
+      labels:
+        - affect
+        - proactive
+    - title: Panel & tooling
+      labels:
+        - ui
+        - tools
+        - settings
+    - title: Docs
+      labels:
+        - documentation
+    - title: Other changes
+      labels:
+        - "*"

@@ -1,5 +1,5 @@
 {
-  "name": "dsh-mnemo",
+  "name": "bcf-mnemovault",
   "version": "0.2.0",
   "private": true,
   "type": "module",
@@ -49,6 +49,8 @@
     "bench": "node scripts/bench.mjs",
     "preview": "node scripts/demo.mjs && node scripts/panel-dev.mjs 5178",
     "bench:eval": "node scripts/bench-eval.mjs",
+    "readmes": "node scripts/pkg-readme.mjs",
+    "publish:all": "npm publish --workspaces --access public",
     "verify": "npm run build && npm test && npm run check && npm run bench:eval"
   },
   "devDependencies": {
