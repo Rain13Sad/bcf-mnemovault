@@ -51,7 +51,8 @@
     "bench:eval": "node scripts/bench-eval.mjs",
     "readmes": "node scripts/pkg-readme.mjs",
     "check:publish": "node scripts/ci-check-publish.mjs",
-    "publish:all": "node scripts/ci-check-publish.mjs && npm publish --workspaces --access public",
+    "publish:all": "node scripts/publish-all.mjs",
+    "publish:dry": "node scripts/publish-all.mjs --dry-run",
     "verify": "npm run build && npm test && npm run check && npm run bench:eval"
   },
   "devDependencies": {
