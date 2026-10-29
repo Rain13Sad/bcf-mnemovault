@@ -1,7 +1,7 @@
 /**
  * 按依赖顺序发布 10 个包。
  *
- *   node scripts/publish-all.mjs                 # 真发（需要已登录 + 2FA）
+ *   node scripts/publish-all.mjs                 # 真发：npm 会逐个包提示输入验证码
  *   node scripts/publish-all.mjs --dry-run       # 只打包预演
  *   node scripts/publish-all.mjs --otp=123456    # 带上一次性验证码
  *   node scripts/publish-all.mjs --only=core     # 只发某一个（重试用）
@@ -52,27 +52,38 @@ for (const name of targets) {
   if (dryRun) argv.push('--dry-run')
   if (otp) argv.push(`--otp=${otp}`)
 
-  process.stdout.write(`→ ${name} … `)
+  console.log(`→ ${name} …`)
   // Windows 上直接 spawn 'npm.cmd' 会 ENOENT（npm 是 .cmd，不是可执行文件）；
   // 走 shell 才能解析。参数里没有空格，拼接是安全的。
-  const r = spawnSync(`npm ${argv.join(' ')}`, { cwd: dir, encoding: 'utf8', shell: true })
+  //
+  // stdio 的选择很关键：
+  //   · 没带 --otp 时必须 **inherit**，否则子进程拿不到 TTY，npm 无法弹出验证码输入，
+  //     只会直接报 EOTP（我第一版就是这样，白试了 5 次还触发了限流）。
+  //   · 带了 --otp 或 --dry-run 时用 pipe，才能把错误抓出来判断要不要提前停。
+  const interactive = !otp && !dryRun
+  const r = interactive
+    ? spawnSync(`npm ${argv.join(' ')}`, { cwd: dir, shell: true, stdio: 'inherit' })
+    : spawnSync(`npm ${argv.join(' ')}`, { cwd: dir, encoding: 'utf8', shell: true })
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+
   if (r.status === 0) {
-    console.log('ok')
-  } else {
-    const err = out
-      .split('\n')
-      .filter((l) => /npm error/.test(l))
-      .slice(0, 2)
-      .join(' | ')
-    console.log(`FAIL  ${err}`)
-    failed.push(name)
-    // EOTP / E429 之后继续发只会加重限流，直接停
-    if (/EOTP|E429/.test(out)) {
-      console.error('\n遇到 2FA 相关错误，已停止（继续尝试会触发 OTP 限流）。')
-      break
-    }
+    console.log(`  ✓ ${name}`)
+    continue
   }
+
+  const err = out
+    .split('\n')
+    .filter((l) => /npm error/.test(l))
+    .slice(0, 2)
+    .join(' | ')
+  console.log(`  ✗ ${name}  ${err || `退出码 ${r.status}`}`)
+  failed.push(name)
+  // EOTP / E429 之后继续发只会加重限流，直接停
+  if (/EOTP|E429/.test(out)) {
+    console.error('\n遇到 2FA 相关错误，已停止（继续重试会触发 OTP 限流，通常要等 15 分钟）。')
+    break
+  }
+  if (!interactive) break
 }
 
 if (failed.length) {
