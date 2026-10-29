@@ -134,9 +134,8 @@ export function Search(props: SearchProps): ReactNode {
               { className: 'mnv-actions' },
               h('button', { className: 'mnv-btn', onClick: () => props.onExplain(c.cellId) }, open ? '收起理由' : '为什么'),
               h('button', { className: 'mnv-btn', onClick: () => props.onAct({ kind: 'pin', cellId: c.cellId, pinned: !c.pinned }) }, c.pinned ? '取消固定' : '固定'),
-              props.onCommand
-                ? h('button', { className: 'mnv-btn', onClick: () => props.onCommand!(`why ${c.shortId}`) }, '命令解释')
-                : null,
+              // 不再放「命令解释」：三个按钮挤在一行会让列表变吵，
+              // 「为什么」已经给出同一份 breakdown，命令面留给需要精确复现的人。
             ),
             open && props.explain
               ? h(

@@ -85,7 +85,7 @@ export function Overview(props: OverviewProps): ReactNode {
         h(Stat, { label: '置顶', value: pinned }),
         h(Stat, { label: '已归档', value: archived }),
         h(Stat, { label: '已忽略', value: ignored }),
-        h(Stat, { label: '待整合', value: pendingMerge }),
+        h(Stat, { label: '单证据', value: pendingMerge, title: 'support=1 的记忆：还没被重复确认过' }),
         h(Stat, { label: '索引条目', value: idx?.entries ?? s.cells }),
       ),
     ),

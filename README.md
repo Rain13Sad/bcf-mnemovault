@@ -145,6 +145,13 @@ Measured on Node 22.22 / Windows; reproducible from `artifacts/bench.json` (`npm
 | Storage ratio (800-char turn, default split) | **0.84×** | ≤ 0.90 | 762 chars/turn, 2.25 cells/turn |
 | Storage ratio (800-char turn, one cell) | **0.68×** | ≤ 0.72 | coarse control, shows split-granularity sensitivity |
 
+**Size and latency are a trade — read both numbers.** MC03 cut a cell from 844 B to 341 B at the
+cost of a more expensive decode (sparse delta-varint SDR, `encodeCell` +29%). Size is a persistent
+cost, latency is paid on every recall, so v0.3.1 also removed three storage-layer constant factors
+(cached prepared statements, single-query streaming traversal, single-pass `getCell`) and the
+"rebuild the whole panel snapshot on every recall" waste — recall p50 at 500 cells went from 90 ms
+back to 26 ms. Reporting only one of the two numbers would be telling half the story.
+
 CI turns these into failing assertions via [`scripts/ci-assert-bench.mjs`](scripts/ci-assert-bench.mjs)
 (Recall@8 ≥ 0.80 / MRR ≥ 0.60 / tokens ≤ 240 / both storage profiles). Since v0.3 the storage ratio
 **is gated** — but against the measured, reachable target, not the arithmetically impossible 0.60.
@@ -179,6 +186,33 @@ it with the derived targets above and keeps `storageBreakEvenChars = 1443` — "
 structured memory costs more than the raw text" — which is the number users actually need.
 
 </details>
+
+---
+
+## v0.3.1: fixing what v0.3.0 broke
+
+v0.3.0 shipped a real improvement (storage ratio below 1.0 for the first time) but **could not be
+installed**: `npm ci` failed and `npm install` produced compile errors. Ten packages were bumped to
+0.3.0 while eight `package.json` files still declared `^0.2.0` for their siblings — and `^0.2.0`
+excludes 0.3.0 in semver. Eight string replacements took the whole release down, which says the
+missing piece was a **gate**, not a skill.
+
+v0.3.1 fixes that, then works through two external audits:
+
+| Area | What changed |
+| :--- | :--- |
+| Release | sibling deps → `^0.3.1`, regenerated lockfile, verified `npm ci && build` in a clean tree, new `ci-check-publish.mjs` gate, `engines.node` → 22.13 |
+| Privacy (P0) | redaction now covers entities / slots / embeddings / topic / digest / **shadow log**; 7 → 11 PII classes; slot-level fallback |
+| Deletion (P0) | `forget(hard)` releases the residual when no cell references it any more; `doctor` reports and purges orphan residuals |
+| Approval | hard delete always asks; refuses outright with no approval surface; `mnemo_command` refuses `forget --hard` |
+| Egress | guard is allowlist-based fail-closed (`webSearch` / `execute_shell` / `send_email` no longer slip through) |
+| XSS | the explain panel no longer builds HTML strings |
+| Read-side effects | opening the panel no longer wipes the proactive daily quota (v0.3 only fixed the test) |
+| Reproducibility | seq off-by-one, three `Math.random` call sites, 32-bit edge prefix collisions, empty `snapshotId` |
+| Performance | statement cache, streaming traversal, single-pass reads, `busy_timeout`, panel snapshot throttling |
+| Panel | unified type scale and spacing, re-tuned dark palette, tag cloud from structured slots only, narrow-sidebar layout |
+
+Tests 109 → 115. `npm run verify` green. `storageRatioRealistic` unchanged at 0.839.
 
 ---
 

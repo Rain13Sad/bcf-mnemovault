@@ -6,6 +6,102 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [0.3.1] — 2026-10-29
+
+修 v0.3.0 的**发布事故**与两次外部审查指出的问题。v0.3.0 在技术上是进步的，
+但它**装不上**：`npm ci` 直接失败，`npm install` 后编译报错——一个 8 处字符串的问题
+让整个版本不可用。这一版先把它修好，再补安全与正确性。
+
+### 发布工程（v0.3.0 不可安装）
+
+- **修 8 个 `package.json` 的兄弟依赖**：`^0.2.0` → `^0.3.1`。semver 里 `^0.2.0` 不含 0.3.0，
+  于是 `npm ci` 报 "Missing from lock file"、`npm install` 会从 registry 拉真正的 0.2.0
+  副本装进子包，affect/consolidator 就近解析到旧 core → `TS2339: 'upsertMeta' does not exist`。
+- **重新生成 `package-lock.json`**，并在干净目录实测 `npm ci && npm run build` 10 包全过。
+- **新增 `scripts/ci-check-publish.mjs`**：校验 10 个包版本一致、兄弟依赖范围恰好是 `^<同版本>`、
+  lockfile 同步。已接进 CI 与 `npm run publish:all`——这类问题不该再靠人记得。
+- `engines.node` 从 `>=22.5` 改为 `>=22.13`（22.5–22.12 的 `node:sqlite` 需要
+  `--experimental-sqlite` 标志，按 README 装 22.5 会直接跑不起来），并在加载失败时给明确报错。
+
+### 安全（两条 P0 连续两版未修）
+
+- **PII 脱敏贯穿全部派生字段**。`buildCell` 里的实体抽取、槽位填充、向量、话题指纹
+  原来读的都是**原文**，只有 digest 用了脱敏文本——于是"摘要里是 «SECRET:1»、
+  旁边的槽位里是完整手机号"，而槽位会经 `kvPairs()` 直接渲染进模型上下文。
+  现在从入口起只用脱敏文本，槽位出口还有一道 `scrubSlots()` 兜底。
+- **PII 规则从 7 类扩到 11 类**：补 IP、银行卡（Luhn 校验，避免误伤订单号）、
+  PEM 私钥块、Bearer token、URL query token。
+- **影子日志也脱敏**：`session_log` 存的是重建依据，重建用的编码器读脱敏文本，所以存脱敏版本等价且不落第二份明文。
+- **`forget(hard)` 真删残差**：新增 `releaseResidualRef()`，按 sha 检查是否还有 cell 引用
+  （残差按轮共享，不能用 `ref_cnt` 判断），没有则物理删除；`deleteCell` 自动调用。
+  `doctor` 新增"孤儿残差"检查与 `--fix` 清理。**GDPR 删除权在这条路径上才真正成立。**
+- **`memory_forget` 走审批**：物理删除永远要审批，没有审批面时直接拒绝（v0.3 之前
+  `requireApprovalFor` 默认含它但 execute 从不检查，模型一句 `mode:"hard"` 就能删）。
+  `mnemo_command` 工具通道**禁止** `forget --hard`（模型能自己发 `--yes`）。
+- **egress 守卫改 fail-closed**：白名单之外一律扫（含不认识的工具名）。
+  旧正则只认下划线分词，`webSearch` / `WebSearch` / `execute_shell` / `write_file` / `send_email` 全部漏过。
+- **去掉 UI 的 XSS 面**：`Timeline` 的解释器渲染不再用 `dangerouslySetInnerHTML`，
+  改为构造 React 节点（旧实现只转义 `&` 和 `<`，`>` 与引号没转义，而解释器文本含用户可控内容）。
+- `memory_assert` 入库前脱敏（之前只有 encoder 路径脱敏）。
+
+### 正确性
+
+- **主动开口的只读接口不再有写副作用**（审查用一个最小场景证伪了 v0.3 的"修法"）：
+  `snapshot()` 里调 `blockedBy()` 会顺手把 `todayCount` 清零，于是**用户打开面板看一眼，
+  当日配额就没了**。现在读写分离：跨日滚动只在 `fire()` / `tick()` 里发生，
+  `blockedBy()` 变成纯函数。补了显式的跨午夜回归用例（不再靠"把测试日期改成今天"绕开）。
+- **主动开口状态落盘**：`lastAt` / `todayCount` / `mutedUntil` 写进 `meta`，重启不再清零
+  （之前重启即绕过每日上限与静音）。`fire()` 自己也会校验频率/静音/上限。
+- **`dayKey` 改用本地日期**：原来用 `toISOString()`（UTC）而静默时段用本地小时，跨时区日限错乱。
+- **`tick` 门槛 0.45 → 0.3（可配）**：`pickMemory`(0.42) 与 `pickSilence`(0.3) 之前永远走不到 tick，是死路径。
+- **边界词静音**：头注释承诺过"boundaries 命中静音词 → 静音"，一直没有实现，现在实现了（7 天）。
+- **打分里 `moodW` 被乘了两次**：`rawParts.affect` 与 `weights.affect` 各乘一次，
+  得到 `wAffect × moodW² × congruence`，心境影响被平方放大，面板上"0.62 × 1.00"与实际贡献对不上。
+  现在只在 weights 里乘一次。
+- **写入 seq 差一**：`buildCell(..., seq++)` 配 `ingest(..., { seq })`，cellId 用自增前的值、
+  来源记录用自增后的值——从 `session_log` 重放会算出**不同的 cellId**，直接违反"写入可复现"。
+- **三处 `Math.random` 改确定性**：REM 联想采样（改为 `hash(passId, seed, target)`）、
+  `queryId`（改为文本+时间+库大小的哈希）、主动开口挑记忆（改为哈希取模）。
+  同一段日志跑两遍 `rebuild` 现在得到同一组边。
+- **边改存完整 64 位 `dst`**：32 位前缀在 10 万 cell 下期望碰撞 ≈1.2 对，而 `resolveByPrefix`
+  只取第一个匹配——边可能静默指向另一条 cell，且每条边一次全表扫描。创建边的地方本来就知道完整 id。
+- **`runRecall` 返回真实 `snapshotId`**：之前是硬编码空串，只有经 `service.recall()` 才被填上，
+  裸调拿不到可重放的 id。现在两侧共用内容寻址函数 `snapshotIdOf()`。
+- **英文句号切分**：`SPLIT_RE` 不含 `.`，`I use pnpm. I like dark mode.` 会粘成一条命题。
+  补上 `.` 并排除小数点/缩写/省略号。
+- `compete()` 接进并列裁决（定义了从未调用），删除 `cellToRow` / `rowToCell` / `hash64Local` 三处死代码。
+
+### 性能
+
+审查实测指出"99.9% 的耗时不在 Jaccard，而在存储层"，并给了三个常数因子。逐条修：
+
+- **prepared statement 缓存**（38 处 `prepare()` 全部无缓存）。
+- **`forEachCell` 单查询 + `.iterate()` 流式**：之前是 `SELECT cell_id, blob` + 每行一次
+  `hydrate` 点查（N+1 条 SQL）。
+- **`getCell` 合并为单趟 SQL**（blob 与列承载字段一起取）。
+- **`PRAGMA busy_timeout = 5000`**：WAL 下并发写不再直接抛 `SQLITE_BUSY`。
+- **面板快照节流**：`publishPanel()` 之前**每次召回**都同步重建整份快照（全量 cell 视图 +
+  doctor 两次全扫 + 标签 + 分类），2000 cell 时一次召回 444 ms。现在 400 ms 合并一次，
+  需要立即落盘的路径显式 `force`。
+- 实测（本机，真实 SQLite 路径）：500 cell 召回 p50 **90 ms → 26 ms**，1000 cell **43 ms**，
+  `forEachCell` 2000 cell **111 ms → 34 ms**。新增 `scripts/bench-scale.mjs` 专门测这条路径，
+  并在 `scripts/bench.mjs` 的输出里标注"驱动 MemoryStore，非 SQLite"。
+- 诚实说明：**写入仍是 O(n)**（去重 + 冲突检测各一次全扫），这一版只削了常数因子。
+
+### 面板
+
+- 样式重做：统一四档字号与 4 的倍数间距、暗色模式重新取色（不是反色）、
+  去掉重投影、页签改胶囊高亮、小节标题加 3px 强调条、滚动条与焦点环。
+- 标签云改为只取 PATIENT / MANNER / QTY 三个槽位——之前从 digest 抓 2–6 字片段，
+  产出的是「别写进代码」「的缓存方案先」这种分词失败的半截话。
+- 窄侧栏（≤340px）单独一档布局；预览支持 `#tab,dark,tall` 便于一次截两套主题。
+- 「待整合」改为「单证据」（原词会被误读成巩固队列）。
+
+### 测试
+
+115 条（+6 条主动开口：跨午夜只读、跨日滚动、`fire` 校验、状态落盘、边界静音、tick 门槛）。
+新增 `scripts/bench-scale.mjs` 与 `scripts/ci-check-publish.mjs`。
+
 ## [0.3.0] — 2026-10-29
 
 处理 v0.2 遗留的六个问题（存储比 / L1 端口 / embedding / HNSW / `ctx.remote` / 命令面），

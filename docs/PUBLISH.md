@@ -50,10 +50,14 @@ CI 会在 push 与 PR 上跑 Ubuntu + Windows 两套：`npm ci → build → typ
 
 ## 3. 版本与发布节奏
 
-- 版本号写在根 `package.json` 与 10 个子包里（当前都是 `0.3.0`），升级时**一起改**。
+- 版本号写在根 `package.json` 与 10 个子包里（当前都是 `0.3.1`），升级时**一起改**。
   注意 `0.3.0` 换了存储布局（MC03），发布说明里必须写明旧库需 `/mnemo rebuild --from-log`。
+
+**发布前必跑**：`node scripts/ci-check-publish.mjs`（版本/兄弟依赖/lockfile 三项一致）。
+v0.3.0 正是漏了这一步：10 个包升到 0.3.0，8 个 package.json 的兄弟依赖还写 `^0.2.0`，
+结果 `npm ci` 失败、`npm install` 后编译报错，整个版本不可安装。
 - `CHANGELOG.md` 用 Keep a Changelog 格式；每个发布条目至少写清「新增 / 修复 / 已知问题」。
-- 打 tag：`git tag -a v0.3.0 -m "v0.3.0" && git push --tags`，再在 GitHub 上
+- 打 tag：`git tag -a v0.3.1 -m "v0.3.1" && git push --tags`，再在 GitHub 上
   Draft a release，把 CHANGELOG 对应段落粘进去。
 
 ## 4. 发布到 npm
@@ -64,7 +68,7 @@ CI 会在 push 与 PR 上跑 Ubuntu + Windows 两套：`npm ci → build → typ
 发布前有三个坑，都已经在仓库里处理掉了，记下来免得下次踩：
 
 1. **内部依赖不能写 `"*"`。** npm 不会替你改写成具体版本，发出去的包会依赖"任意版本"。
-   现在各包统一写 `^0.3.0`；升版本时根 package.json 与 10 个子包一起改。
+   现在各包统一写 `^0.3.1`；升版本时根 package.json 与 10 个子包一起改。
 2. **`lib/` 是 gitignore 的构建产物**，但 `files` 里有它。不 build 就发，发出去的是空包。
 3. **npm 包页只认包内的 README**，仓库根那份不会带过去。`npm run readmes` 会按
    `scripts/pkg-readme.mjs` 里的表重新生成 10 份；CI 里可以用

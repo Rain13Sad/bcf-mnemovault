@@ -121,7 +121,8 @@ export function Settings(props: SettingsProps): ReactNode {
           'span',
           null,
           h(Status, { ok: rt?.l1.mode === 'port', text: rt?.l1.mode === 'port' ? `端口 ${rt?.l1.entry ?? ''}` : rt?.l1.enabled ? 'lite 规则切分' : '未启用' }),
-          rt?.l1.note ? h('div', { className: 'mnv-muted', style: { marginTop: 2 } }, rt.l1.note) : null,
+          // 「未启用 L1」与左边的状态文字重复，只在有实质信息（自检失败原因等）时显示
+          rt?.l1.note && !/^L1 未启用$/.test(rt.l1.note) ? h('div', { className: 'mnv-muted', style: { marginTop: 2 } }, rt.l1.note) : null,
         ),
       ),
       h(

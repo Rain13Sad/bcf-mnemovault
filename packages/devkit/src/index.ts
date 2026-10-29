@@ -133,7 +133,7 @@ export async function createHarness(opts: HarnessOptions = {}): Promise<Harness>
       ...(opts.encoder ?? {}),
     })
   if (want.has('recall')) await load(recallPkg, { enabled: true, injectOnFirstTurn: true, topicDriftThreshold: 0.6, minTurnsBetweenInjections: 1, budgetGuard: 0.8, applyTemperature: false })
-  if (want.has('proactive')) await load(proactivePkg, { enabled: true, minIntervalMin: 45, maxPerDay: 3, quietStart: 23, quietEnd: 8, idleMin: 90, requireReason: true })
+  if (want.has('proactive')) await load(proactivePkg, { enabled: true, minIntervalMin: 45, maxPerDay: 3, quietStart: 23, quietEnd: 8, idleMin: 90, requireReason: true, minUrgency: 0.3 })
   if (want.has('consolidator')) await load(consolidatorPkg, { enabled: true, gamma: 0.95, pruneBelow: 8, pruneAfterDays: 90, divergenceTemp: 0.7, maxSeeds: 60 })
   if (want.has('tools')) await load(toolsPkg, { piiRedaction: true, blockMemoryInEgress: true, requireApprovalFor: ['memory_forget', 'memory_assert'], commandToolFallback: true })
   if (want.has('settings')) await load(settingsPkg, { panelPageSize: 50, graphMaxNodes: 200, lockSafetyGroup: true })

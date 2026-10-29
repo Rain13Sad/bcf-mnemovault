@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-core",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "服务定义 + 存储 + 索引 + 渲染（ctx.memory）",
   "keywords": [
     "dsh",

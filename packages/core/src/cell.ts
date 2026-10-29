@@ -158,11 +158,23 @@ export interface Slot {
 }
 
 export interface Edge {
-  /** 目标 cell id 的低 32 位（前缀索引，§6.2）。 */
+  /** 目标 cell id 的低 32 位（前缀索引，§6.2）。**写入时只作为回退**。 */
   targetPrefix: number
   rel: number
   /** i8 尺度：−128..127，弱边剪除阈值 8。 */
   weight: number
+  /**
+   * 目标 cell 的完整 64 位 id。
+   *
+   * 为什么需要它：32 位前缀在 10 万 cell 规模下期望碰撞 ≈ n²/2³³ ≈ 1.2 对，
+   * 而 `resolveByPrefix` 只取第一个匹配——边可能静默指向**另一条** cell，
+   * 而且每条边都要一次全表扫描（实测 4 条边 425ms @2000 cell）。
+   *
+   * 创建边的地方本来就知道完整 id（冲突检测刚拿到那条 cell），所以直接存下来：
+   * 二进制里仍写 6 字节前缀（布局不变），但**写入路径用 dst 精确定位**，
+   * 前缀只在读旧库/外部构造时作为回退。
+   */
+  dst?: bigint
 }
 
 export interface ResidualRef {
@@ -483,79 +495,12 @@ export function topicOf(text: string): string {
   return norm.slice(0, 6).join('-')
 }
 
-// ── 行映射（存储层与二进制层之间的桥） ────────────────────────────────
-
-export function cellToRow(c: MemCell): CellRow {
-  return {
-    cell_id: toHex(c.cellId, 16),
-    kind: c.kind,
-    tier: c.tier,
-    flags: c.flags,
-    t_from: Number(c.tFrom),
-    t_to: Number(c.tTo),
-    t_ingest: Number(c.tIngest),
-    t_access: Number(c.tAccess),
-    access_cnt: c.accessCount,
-    stability: c.stability,
-    importance: c.importance,
-    valence: c.valence,
-    arousal: c.arousal,
-    dominance: c.dominance,
-    salience: c.salience,
-    provenance: c.provenance,
-    trust: c.trust,
-    sdr: packSdr(c.sdr),
-    emb: c.emb ? new Uint8Array(c.emb.buffer, c.emb.byteOffset, c.emb.length).slice() : null,
-    slots: encodeSlots(c.slots),
-    residual_sha: c.residual ? c.residual.sha : null,
-    residual_off: c.residual ? Number(c.residual.off) : 0,
-    residual_len: c.residual ? c.residual.rawLen : 0,
-    confidence: c.confidence,
-    support: c.support,
-    topic: c.topic,
-    digest: c.digest ?? '',
-    t_invalid: Number(c.tInvalid ?? 0),
-    scope: c.scope ?? 'user:local',
-    session: c.session ?? '',
-    lens: c.lens ?? 'fact',
-  }
-}
-
-export function rowToCell(r: CellRow, space: SdrSpace): MemCell {
-  const { slots } = decodeSlots(r.slots, 0, 0xffff)
-  return {
-    cellId: BigInt('0x' + r.cell_id),
-    kind: r.kind as CellKind,
-    tier: r.tier as CellTier,
-    flags: r.flags,
-    tFrom: BigInt(r.t_from),
-    tTo: BigInt(r.t_to),
-    tIngest: BigInt(r.t_ingest),
-    tAccess: BigInt(r.t_access),
-    accessCount: r.access_cnt,
-    stability: r.stability,
-    importance: r.importance,
-    valence: r.valence,
-    arousal: r.arousal,
-    dominance: r.dominance,
-    salience: r.salience,
-    provenance: r.provenance as Provenance,
-    trust: r.trust,
-    sdr: unpackSdr(r.sdr),
-    emb: r.emb ? new Int8Array(r.emb.buffer, r.emb.byteOffset, r.emb.length).slice() : null,
-    slots,
-    edges: [],
-    residual: r.residual_sha ? { sha: r.residual_sha, off: BigInt(r.residual_off), rawLen: r.residual_len } : null,
-    confidence: r.confidence,
-    support: r.support,
-    topic: r.topic,
-    digest: r.digest,
-    tInvalid: BigInt(r.t_invalid ?? 0),
-    scope: r.scope || 'user:local',
-    session: r.session || '',
-    lens: (r.lens as Lens) || 'fact',
-  }
-}
+// ── 行映射 ──────────────────────────────────────────────────────────
+//
+// v0.3.1 删掉了 `cellToRow` / `rowToCell`：它们零引用，且与 store 里的 `rowFromCell`
+// 是**两套并存的映射**——前者存 valence 原值，后者存 Math.round(valence*1000)，
+// 而 blob 里又是 Q14/i8。三套精度同时存在，是"改了这里忘了那里"的温床。
+// 真正的行映射只有一份：`store.ts` 的 `rowFromCell`（写）+ `hydrate`（读）。
 
 // ── 内部编解码 ──────────────────────────────────────────────────────
 

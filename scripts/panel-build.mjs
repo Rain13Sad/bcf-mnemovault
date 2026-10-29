@@ -116,6 +116,7 @@ export default { jsx, jsxs, Fragment }
 <style>
   html, body { margin: 0; height: 100%; background: #0f1115; overflow: hidden; }
   body { display: grid; place-items: center; font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  [data-tall="1"] .frame { height: 100vh !important; border-radius: 0 !important; }
   .frame { width: min(420px, 100vw); min-width: 0; max-width: 100vw; height: min(780px, 100vh); background: #fff; border-radius: 12px; overflow: hidden;
            box-shadow: 0 20px 60px rgba(0,0,0,.45); display: flex; flex-direction: column; position: relative; }
   #root { flex: 1; min-height: 0; display: flex; }
@@ -128,6 +129,15 @@ export default { jsx, jsxs, Fragment }
   <script src="./vendor/react.js"></script>
   <script src="./vendor/react-dom.js"></script>
   <script>window.__MNEMO_SNAPSHOT__ = ${snapshot};</script>
+  <script>
+    // 预览支持 #tab 与 #tab,dark —— 后者强制暗色，便于一次性截两种主题
+    const hash = (location.hash || '#overview').slice(1)
+    const parts = hash.split(',')
+    if (parts.includes('dark')) document.documentElement.dataset.theme = 'dark'
+    // #tab,tall —— 预览时让容器撑满视口，便于整页截图（默认 780px 是真实侧栏高度）
+    if (parts.includes('tall')) document.documentElement.dataset.tall = '1'
+    window.__MNV_TAB__ = parts[0] || 'overview'
+  </script>
   <script type="module">
     import { createElement } from './vendor/react-shim.js'
     const { MnemoPanel } = await import('./client/Panel.js')
@@ -137,7 +147,7 @@ export default { jsx, jsxs, Fragment }
       source: createDemoSource(window.__MNEMO_SNAPSHOT__),
       pageSize: 50,
       graphMaxNodes: 200,
-      initialTab: (location.hash || '#overview').slice(1),
+      initialTab: window.__MNV_TAB__,
       affectEnabled: true,
       ignition: 0.42,
       runCommand: (line) => '（预览模式）已执行 /mnemo ' + line + '；真实命令面在宿主内生效。',

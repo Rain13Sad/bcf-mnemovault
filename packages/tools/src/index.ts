@@ -21,6 +21,7 @@ import {
   cellIdFor,
   hashEmbedding,
   isUserAskedToRemember,
+  redact,
   topicOf,
   toHex,
   type MemoryService,
@@ -304,10 +305,15 @@ export function apply(ctx: Context, config: Config) {
             return { cellId: '', action: 'denied', message: `用户未批准（${outcome}），未写入任何内容。` }
           }
         }
+        // 写入前脱敏：工具入口同样不能把明文凭据放进槽位（与 encoder 的规则一致）
+        const red = redact(`${a.subject} ${a.predicate} ${a.object}`)
+        const rSubject = redact(a.subject).text
+        const rPredicate = redact(a.predicate).text
+        const rObject = redact(a.object).text
         const slots: Slot[] = [
-          { role: 1, type: 'LIT', value: a.subject },
-          { role: 3, type: 'LIT', value: a.predicate },
-          { role: 2, type: 'LIT', value: a.object },
+          { role: 1, type: 'LIT', value: rSubject },
+          { role: 3, type: 'LIT', value: rPredicate },
+          { role: 2, type: 'LIT', value: rObject },
           { role: 9, type: 'LIT', value: 'pos' },
         ]
         const sdr = memory.space.bundle(
@@ -319,7 +325,7 @@ export function apply(ctx: Context, config: Config) {
             cellId: cellIdFor('assert', [now], sdr),
             kind: KIND.semantic,
             tier: 1,
-            flags: 0,
+            flags: red.pii ? FLAG.pii | FLAG.redacted : 0,
             tFrom: BigInt(now),
             tTo: BigInt(now),
             tIngest: BigInt(now),
@@ -334,14 +340,14 @@ export function apply(ctx: Context, config: Config) {
             provenance: 0,
             trust: TRUST_BY_PROVENANCE[0],
             sdr,
-            emb: hashEmbedding(`${a.subject} ${a.predicate} ${a.object}`, memory.config.embDim),
+            emb: hashEmbedding(`${rSubject} ${rPredicate} ${rObject}`, memory.config.embDim),
             slots,
             edges: [],
             residual: null,
             confidence: a.confidence ?? 0.8,
             support: 1,
-            topic: topicOf(a.object),
-            digest: `${a.subject} ${a.predicate} ${a.object}`,
+            topic: topicOf(rObject),
+            digest: `${rSubject} ${rPredicate} ${rObject}`,
           },
           [],
         )
@@ -374,16 +380,61 @@ export function apply(ctx: Context, config: Config) {
       output: {
         schema: {
           type: 'object',
-          properties: { cellId: { type: 'string' }, mode: { type: 'string' }, ok: { type: 'boolean' } },
+          properties: { cellId: { type: 'string' }, mode: { type: 'string' }, ok: { type: 'boolean' }, message: { type: 'string' } },
           required: ['cellId', 'mode', 'ok'],
         },
-        render: (_a: unknown, v: Record<string, unknown>) => text(`已${v.mode === 'hard' ? '物理删除' : '软删除'} ${v.cellId}`),
+        render: (_a: unknown, v: Record<string, unknown>) =>
+          text(v.ok === false ? String(v.message ?? '未删除') : `已${v.mode === 'hard' ? '物理删除' : '软删除'} ${v.cellId}`),
       },
-      async execute(args: unknown) {
+      async execute(args: unknown, exec?: { agent?: unknown; callId?: unknown; signal?: AbortSignal }) {
         const a = args as { cell_id: string; mode: 'soft' | 'hard'; reason?: string }
         const id = a.cell_id.length >= 16 ? a.cell_id : resolveShort(memory, a.cell_id)
+        const sid = String((exec?.agent as { session?: { id?: string } } | undefined)?.session?.id ?? 'default')
+
+        /**
+         * 审批（修 D-H）。
+         *
+         * v0.3 之前 `requireApprovalFor` 默认包含 `memory_forget`，但 execute 从不检查——
+         * 配置项形同虚设，模型一句 `mode:"hard"` 就能物理删除，而且残差当时还删不掉。
+         *
+         * 现在的规则：
+         *   · `hard` —— **永远**要审批。不可撤销的操作不接受"模型自己觉得可以"。
+         *   · `soft` —— 用户明说"忘掉/删掉"时免审（可唤醒，风险低）。
+         *   · 没有审批面时：hard 直接拒绝（返回 ok:false，什么都不删）；
+         *     soft 照常执行（可恢复），但在 message 里写明没有经过确认。
+         */
+        const needApproval =
+          config.requireApprovalFor.includes('memory_forget') &&
+          (a.mode === 'hard' || !isUserAskedToRemember(lastUser.get(sid) ?? ''))
+
+        if (needApproval) {
+          const approval = ctx.get('approval') as { request(req: Record<string, unknown>): Promise<string> } | undefined
+          const agent = (exec?.agent as object | undefined) ?? undefined
+          if (!approval || !agent) {
+            if (a.mode === 'hard') {
+              return {
+                cellId: a.cell_id,
+                mode: a.mode,
+                ok: false,
+                message: '物理删除需要用户确认，但当前环境没有可用的审批面。未删除任何内容；请让用户改用 /mnemo forget 或先确认。',
+              }
+            }
+          } else {
+            const outcome = await approval.request({
+              agent,
+              toolName: 'memory_forget',
+              callId: exec?.callId,
+              reason: `删除记忆 ${a.cell_id}（${a.mode === 'hard' ? '物理删除，不可撤销' : '软删除，可唤醒'}）：${a.reason ?? '未说明'}`,
+              signal: exec?.signal,
+            })
+            if (outcome !== 'allowed-once') {
+              return { cellId: a.cell_id, mode: a.mode, ok: false, message: `用户未批准（${outcome}），未删除任何内容。` }
+            }
+          }
+        }
+
         memory.forget(id, a.mode, 'user', a.reason ?? 'tool call')
-        return { cellId: a.cell_id, mode: a.mode, ok: true }
+        return { cellId: a.cell_id, mode: a.mode, ok: true, message: a.mode === 'hard' ? '已物理删除（含原文残差）' : '已软删除（可唤醒）' }
       },
     }),
   )
@@ -492,6 +543,16 @@ export function apply(ctx: Context, config: Config) {
           async execute(args: unknown) {
             const line = String((args as { line: string }).line ?? '')
             const argv = line.trim().split(/\s+/).filter(Boolean)
+            /**
+             * 命令面降级成工具后，`forget --hard --yes` 就绕开了 memory_forget 的审批。
+             * 模型能自己给自己发 --yes，所以这条路径必须封掉：
+             * 物理删除只允许人从真实命令面（/mnemo）发起。
+             */
+            if (/^forget$/i.test(argv[0] ?? '') && argv.some((x) => x === '--hard')) {
+              return {
+                text: '拒绝：物理删除不能通过 mnemo_command 执行（它会绕过审批）。请改用 memory_forget（需要用户确认），或让用户自己在 /mnemo 里执行。',
+              }
+            }
             return { text: await runCommand(argv, deps) }
           },
         }),

@@ -160,11 +160,19 @@ test('egress 守卫：含记忆原文的外发参数被拒，正常参数放行�
   assert.ok(pii, '邮箱形态必须拦截')
 })
 
-test('命令面：硬删需要 --yes、批量遗忘先预览', async () => {
+test('命令面：工具通道禁止硬删、真实命令面仍要求 --yes、批量遗忘先预览', async () => {
   const cmd = harness.tools.get('mnemo_command')
   assert.ok(cmd)
-  const noYes = await cmd.execute({ line: 'forget 7f3a --hard' })
-  assert.match(noYes.text, /不可恢复|--yes/)
+
+  // 模型能自己给 --yes，所以工具通道的硬删必须整条封掉（v0.3.1 起）
+  const viaTool = await cmd.execute({ line: 'forget 7f3a --hard --yes' })
+  assert.match(viaTool.text, /拒绝|审批/)
+
+  // 真实命令面（用户敲 /mnemo，等价于 mnemoCommands.run）仍可用，但必须显式 --yes
+  const raw = harness.ctx.get('mnemoCommands')
+  assert.ok(raw?.run, '命令桥必须存在')
+  const noYes = await raw.run('forget 7f3a --hard')
+  assert.match(noYes, /不可恢复|--yes/)
 
   const preview = await cmd.execute({ line: 'forget --before 2099-01-01' })
   assert.match(preview.text, /将遗忘 \d+ 条/)

@@ -4,7 +4,12 @@
  *   node scripts/bench.mjs
  *
  * 数字只在一台机器上有意义，所以这里输出的是**分布**（p50/p95），不是单个最好成绩。
- * 顺带跑一遍 recall 的端到端延迟，因为"算子快"和"检索快"是两件事。
+ *
+ * ⚠ **口径警告**：这个脚本用的是 `MemoryStore`（纯内存 Map），
+ * **完全绕开 SQLite**。所以它的 recall 延迟只反映算子与打分逻辑，
+ * 不代表真实部署路径。审查实测过两者的差距：v0.3 时同一规模下
+ * MemoryStore 5 ms vs 真实 SQLite 213 ms（43 倍）。
+ * 要看真实路径请用 `node scripts/bench-scale.mjs`（会打印驱动名）。
  */
 import { SdrSpace } from '../packages/core/lib/sdr.js'
 import { runRecall, hashEmbedding } from '../packages/core/lib/recall.js'
@@ -91,7 +96,7 @@ for (let i = 0; i < 50; i++) {
   lat.push(Date.now() - s)
 }
 lat.sort((x, y) => x - y)
-console.log(`  recall @2000 cells    p50 ${lat[25]} ms   p95 ${lat[47]} ms`)
+console.log(`  recall @2000 cells    p50 ${lat[25]} ms   p95 ${lat[47]} ms   [驱动 MemoryStore，非 SQLite]`)
 
 const cell = store.listCells({ limit: 1 })[0]
 const tEnc = process.hrtime.bigint()

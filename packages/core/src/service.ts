@@ -93,6 +93,8 @@ export class MemoryService extends Service {
   private annBuilds = 0
   private annBuildMs = 0
   private lastConsolidation: PanelSnapshot['consolidation'] = null
+  private panelTimer: ReturnType<typeof setTimeout> | null = null
+  private closed = false
 
   private tokenSeries: Array<{ turn: number; tokens: number }> = []
   private recalls = 0
@@ -142,6 +144,12 @@ export class MemoryService extends Service {
   }
 
   close(): void {
+    this.closed = true
+    if (this.panelTimer) {
+      clearTimeout(this.panelTimer)
+      this.panelTimer = null
+    }
+
     if (!this.opened) return
     this.opened = false
     try {
@@ -149,6 +157,11 @@ export class MemoryService extends Service {
     } catch {
       /* 关闭失败不掩盖原始错误 */
     }
+  }
+
+  /** 当前时钟（毫秒）。给需要与记忆服务共用时钟的插件用（如 proactive）。 */
+  nowMs(): number {
+    return this.now()
   }
 
   /** 定时维护（由 apply() 的 ctx.effect 持有定时器，类本身不建）。 */
@@ -271,7 +284,11 @@ export class MemoryService extends Service {
       this.store.forEachCell((other) => {
         if (other.kind !== clean.kind) return
         const j = this.space.sim(other.sdr, clean.sdr)
-        if (!best || j > best.j) best = { cell: other, j }
+        // Jaccard 高者胜；**并列时**按 §7.5 的合并竞争规则裁决（support → importance → tIngest 早）。
+        // 之前 `compete()` 定义了却从未被调用，而"并列"在稀疏码上并不罕见——
+        // 两个候选的相似度打成平手时，选谁完全取决于遍历顺序（即插入顺序的副作用）。
+        if (!best || j > best.j + 1e-9) best = { cell: other, j }
+        else if (Math.abs(j - best.j) <= 1e-9) best = { cell: compete(best.cell, other), j }
       })
 
       // 已失效（tInvalid ≠ 0）的版本不参与合并：再次断言同一事实应当产生新版本，
@@ -297,10 +314,10 @@ export class MemoryService extends Service {
       // ③ 矛盾检测：同 (AGENT, PRED) 但 PATIENT / POLARITY 冲突（§7.6）
       const conflict = this.findConflict(clean)
       if (conflict) {
-        clean.edges.push({ targetPrefix: Number(conflict.cellId & 0xffffffffn), rel: REL.CONTRADICTS, weight: 96 })
+        clean.edges.push({ targetPrefix: Number(conflict.cellId & 0xffffffffn), dst: conflict.cellId, rel: REL.CONTRADICTS, weight: 96 })
         const newer = Number(clean.tFrom) >= Number(conflict.tFrom)
         if (newer) {
-          clean.edges.push({ targetPrefix: Number(conflict.cellId & 0xffffffffn), rel: REL.SUPERSEDES, weight: 96 })
+          clean.edges.push({ targetPrefix: Number(conflict.cellId & 0xffffffffn), dst: conflict.cellId, rel: REL.SUPERSEDES, weight: 96 })
           conflict.flags |= FLAG.disputed
           conflict.importance = Math.max(0, conflict.importance * 0.6)
           // 双时态：旧版本在**新断言发生的时刻**不再为真。它不删，只是不再是"现在的答案"。
@@ -316,14 +333,15 @@ export class MemoryService extends Service {
       // ④ 关联而非合并（0.45 < J ≤ 0.85）
       if (best && best.j > 0.45 && best.j <= 0.85) {
         const rel = sameAgent(clean, best.cell) ? REL.PART_OF : REL.SAME_AS
-        clean.edges.push({ targetPrefix: Number(best.cell.cellId & 0xffffffffn), rel, weight: 48 })
+        clean.edges.push({ targetPrefix: Number(best.cell.cellId & 0xffffffffn), dst: best.cell.cellId, rel, weight: 48 })
       }
 
       // ⑤ 落库：先 cell 后边（边是派生投影，可从 cell 重建）
       this.store.putCell(clean)
       for (const s of sources) this.store.putSource(clean.cellId, s.session, s.seq)
       for (const e of clean.edges) {
-        const dst = this.resolveByPrefix(e.targetPrefix)
+        // 精确 id 优先；只有外部构造/旧数据才回退到前缀扫描
+        const dst = e.dst ?? this.resolveByPrefix(e.targetPrefix)
         if (dst) this.store.putEdge({ src: clean.cellId, dst, rel: e.rel, weight: e.weight })
       }
       // 索引增量更新：只在新 cell 落库后插入，合并路径改的是同 id 的计数、向量不变
@@ -576,7 +594,7 @@ export class MemoryService extends Service {
     this.ann = null
     const r = await this.rebuildHook()
     this.store.setMeta('lastRebuildAt', String(this.now()))
-    this.publishPanel()
+    this.publishPanel(true)
     return r
   }
 
@@ -629,8 +647,7 @@ export class MemoryService extends Service {
     if (!cell) return
     this.store.write(() => {
       if (mode === 'hard') {
-        this.store.deleteCell(id)
-        if (cell.residual) this.store.deleteEdge(id, id, 0)
+        this.store.deleteCell(id) // 内含残差释放（没人再引用时物理删）
         this.ann?.remove(id)
       } else {
         cell.tier = 3
@@ -739,13 +756,35 @@ export class MemoryService extends Service {
     const expect = `${this.config.sdrDim}:${this.config.sdrK}:${this.config.embStoreDim}:3`
     if (layout && layout !== expect) issues.push(`布局不匹配 ${layout} ≠ ${expect}，需 rebuild`)
 
+    /**
+     * 孤儿残差：没有任何 cell 引用、却还留在盘上的原文。
+     *
+     * 这类残差是"硬删没删干净"的遗留物——v0.3 之前 `deleteCell` 只删行不删残差，
+     * 于是用户被告知"已物理删除"，原文仍在磁盘上。v0.3.1 起 deleteCell 会顺手释放，
+     * 这一项负责把**历史遗留**清掉。
+     */
+    const orphans = this.store.orphanResiduals()
+    let orphanResiduals = orphans.length
+    if (orphanResiduals > 0) {
+      if (opts.fix) {
+        let purged = 0
+        for (const o of orphans) if (this.store.purgeOrphanResidual(o.sha)) purged++
+        orphanResiduals = this.store.orphanResiduals().length
+        fixed.push(`清理孤儿残差 ${purged} 条（释放 ${(orphans.reduce((n, o) => n + o.bytes, 0) / 1024).toFixed(1)} KB）`)
+      } else {
+        const bytes = orphans.reduce((n, o) => n + o.bytes, 0)
+        issues.push(`孤儿残差 ${orphanResiduals} 条 / ${(bytes / 1024).toFixed(1)} KB（/mnemo doctor --fix 可清理）`)
+      }
+    }
+
     return {
       ok: issues.length === 0,
       orphanEdges,
       danglingSlots,
+      orphanResiduals,
       staleLocks: openLock ? 1 : 0,
       indexConsistent: orphanEdges === 0 && danglingSlots === 0,
-      layoutVersion: Number(this.store.meta('layoutVersion') ?? 2),
+      layoutVersion: Number(this.store.meta('layoutVersion') ?? 3),
       sdrDim: this.config.sdrDim,
       issues,
       fixed,
@@ -1004,7 +1043,7 @@ export class MemoryService extends Service {
         return { ok: true, message: `已更新 ${Object.keys(a.patch).join(', ')}（preset=${next.preset}，下一轮生效）` }
       }
       case 'refresh':
-        this.publishPanel()
+        this.publishPanel(true)
         return { ok: true, message: '已刷新' }
       case 'consolidate': {
         const c = this.ctx.get('mnemoConsolidator') as { run(id: string): unknown } | undefined
@@ -1028,7 +1067,7 @@ export class MemoryService extends Service {
         return { ok: true, message: '重建已排队（异步执行，完成后面板会刷新）' }
       case 'doctor': {
         const d = this.doctor({ fix: a.fix, unlock: a.unlock })
-        this.publishPanel()
+        this.publishPanel(true)
         return {
           ok: d.ok || (a.fix || a.unlock ? true : false),
           message: d.issues.length ? d.issues.join('；') : d.fixed.length ? d.fixed.join('；') : '体检通过，没有发现问题',
@@ -1141,7 +1180,43 @@ export class MemoryService extends Service {
   }
 
   /** 落盘给 client 侧面板消费（原子替换，避免读到半个文件）。 */
-  publishPanel(): void {
+  /**
+   * 发布面板快照。
+   *
+   * ── 为什么要节流 ────────────────────────────────────────────────
+   * `panelSnapshot()` 会重建整份面板数据（全量 cell 视图 + doctor 两次全扫 +
+   * 标签 + 分类），成本随库线性增长。v0.3 里**每次召回都同步调它一次**——
+   * 2000 cell 时一次召回 444ms，其中大半花在"重建一份没人看的面板"上。
+   *
+   * 现在默认 400ms 合并一次（同一窗口内的多次调用只写一次），
+   * 需要立即落盘的路径（面板动作、重建、手动刷新）传 `force = true`。
+   */
+  publishPanel(force = false): void {
+    if (!force) {
+      if (this.panelTimer || this.closed) return
+      this.panelTimer = setTimeout(() => {
+        this.panelTimer = null
+        // 定时器可能在 close() 之后才触发：那时 store 已关，再查就是抛异常。
+        // 这类"关掉之后还在跑的定时器"是测试里最难查的一类失败（进程级 uncaught）。
+        if (this.closed) return
+        try {
+          this.writePanel()
+        } catch {
+          /* 面板写失败不影响主链路 */
+        }
+      }, 400)
+      // 不因为这个定时器把进程吊住（CLI/测试里很重要）
+      ;(this.panelTimer as unknown as { unref?: () => void }).unref?.()
+      return
+    }
+    if (this.panelTimer) {
+      clearTimeout(this.panelTimer)
+      this.panelTimer = null
+    }
+    this.writePanel()
+  }
+
+  private writePanel(): void {
     const snap = this.panelSnapshot()
     for (const fn of this.listeners) {
       try {
@@ -1311,21 +1386,32 @@ const TAG_STOP = new Set([
 ])
 
 /**
- * 标签云：从槽位取值与 digest 里的实词统计频次。
- * 不做 TF-IDF——面板要的是"这库大概在讲什么"，不是词权重排序。
+ * 标签云。
+ *
+ * ── 为什么只取 PATIENT / MANNER / QTY 三个槽 ──────────────────────
+ * 第一版从 digest 里用正则抓 2–6 字的片段，结果抓出来的是
+ * 「别写进代码」「的缓存方案先」「等宽只用在代」这种半截话——
+ * 它看起来像标签，实际上是分词失败的产物。
+ *
+ * 槽位是**已经抽取过的结构化事实**：PATIENT 是客体、MANNER 是话题、
+ * QTY 是数量。这三类才配当标签。AGENT/PRED/POLARITY 是所有记忆共有的结构，
+ * 放进标签云只会让每条记忆都长得一样。
  */
 export function buildTags(cells: PanelCellView[], limit = 24): Array<{ tag: string; count: number }> {
   const counts = new Map<string, number>()
-  const bump = (t: string) => {
-    const s = t.trim()
-    if (s.length < 2 || s.length > 12) return
-    if (TAG_STOP.has(s.toLowerCase())) return
-    if (/^[\d.]+$/.test(s)) return
-    counts.set(s, (counts.get(s) ?? 0) + 1)
-  }
+  const ROLE = { PATIENT: 2, MANNER: 6, QTY: 8 } as const
+  const keep = new Set<number>([ROLE.PATIENT, ROLE.MANNER, ROLE.QTY])
+  const TAG_STOP = new Set(['用户', '助手', '工具', '未知', 'unk'])
   for (const c of cells) {
-    for (const [, v] of c.kv) bump(v)
-    for (const t of c.digest.match(/[\u4e00-\u9fa5]{2,6}|[A-Za-z][A-Za-z0-9_.\-]{1,15}/g) ?? []) bump(t)
+    for (const s of c.slots) {
+      if (!keep.has(s.role) || s.type === 'UNK') continue
+      const t = s.value.trim()
+      if (t.length < 2 || t.length > 12) continue
+      if (TAG_STOP.has(t.toLowerCase())) continue
+      if (/^[\d.]+$/.test(t)) continue
+      if (/^\d{4}-\d{1,2}(-\d{1,2})?$/.test(t)) continue
+      counts.set(t, (counts.get(t) ?? 0) + 1)
+    }
   }
   return [...counts.entries()]
     .map(([tag, count]) => ({ tag, count }))

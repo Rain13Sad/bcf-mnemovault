@@ -277,6 +277,8 @@ export interface DoctorReport {
   ok: boolean
   orphanEdges: number
   danglingSlots: number
+  /** 没有任何 cell 引用的残差（"硬删没删干净"的遗留物） */
+  orphanResiduals?: number
   staleLocks: number
   indexConsistent: boolean
   layoutVersion: number

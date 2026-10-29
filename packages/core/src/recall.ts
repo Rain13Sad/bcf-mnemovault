@@ -16,7 +16,7 @@ import { FLAG, REL, foldEmb } from './cell.js'
 import { retrievabilityFrom } from './forgetting.js'
 import { estimateTokens, assignShortIds, renderAffectLine, renderSurface } from './render.js'
 import type { SdrSpace, Sdr } from './sdr.js'
-import type { Store } from './store.js'
+import { snapshotIdOf, type Store } from './store.js'
 import { extractEntities, parseTimeExpr } from './text.js'
 import type {
   MnemoConfig,
@@ -532,13 +532,16 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   const strategy = dominantStrategy(selected.map((s) => s.cand))
 
   return {
-    queryId: q.queryId ?? `q${now.toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`,
+    // queryId 必须可复现：随机后缀会让"同一 query 两次调用"得到不同 id，
+    // 而 recall_snapshots 是按 id 取内容的，重放审计会对不上。
+    queryId: q.queryId ?? `q${now.toString(36)}${(fnv32(q.text + '|' + now + '|' + store.countCells()) % 46656).toString(36)}`,
     strategy,
     hits,
     rendered: rendered.text,
     tokens: rendered.tokens,
     surfaceMode: config.surfaceMode,
-    snapshotId: '',
+    // 内容寻址：与服务层的 putSnapshot 同源，裸调 runRecall 也能拿到可重放的 id
+    snapshotId: snapshotIdOf(rendered.text),
     breakdowns: selected.map((s) => s.breakdown),
     candidates: pool.length,
     elapsedMs: Date.now() - t0,
@@ -576,7 +579,15 @@ export function scoreCandidate(cand: Candidate, ctx: ScoreCtx, interference = 0)
     sim,
     recency,
     freq,
-    affect: moodW * congruence,
+    /**
+     * 注意：这里**不再乘 moodW**。
+     *
+     * v0.3 之前 rawParts.affect = moodW × congruence，weights.affect = wAffect × moodW，
+     * 两者相乘得到 wAffect × moodW² × congruence——心境的影响被平方放大，
+     * 而 activeW 归一化分母只算一次，于是面板上「0.62 × 1.00」和实际贡献对不上，
+     * 破坏了「显示的就是算的」这条承诺。现在 moodW 只在 weights 里乘一次。
+     */
+    affect: congruence,
     goal: goalRel,
     cue,
     interf: interference,

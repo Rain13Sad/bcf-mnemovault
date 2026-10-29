@@ -135,7 +135,18 @@ export function preferenceFrame(text: string): PreferenceFrame {
   return { topic: okTopic, value: value || undefined }
 }
 
-const SPLIT_RE = /(?<=[。！？；!?;])|\n+/
+/**
+ * 句末切分。
+ *
+ * v0.3 之前只有中日韩标点与 `!?;`，**没有英文句号**——`I use pnpm. I like dark mode.`
+ * 会粘成一条命题，英文用户等于完全没切分。
+ * 现在补上 `.`，但排除三种情况，避免把句子切碎：
+ *   · 小数点：`3.14`
+ *   · 常见缩写：`e.g.` `i.e.` `Mr.` `v1.2.` 里的点由后面的字母/数字挡掉
+ *   · 省略号：`...`（连续点只切一次）
+ */
+const SPLIT_RE = /(?<=[。！？；!?;])|(?<![\dA-Za-z])\.(?=\s|$)|(?<=[!?;])\s+|\n+/
+const SPLIT_RE_LEGACY = /(?<=[。！？；!?;])|\n+/
 const CONJ_RE = /(?:，|,)?\s*(?:但是|但|而且|并且|另外|同时|然后|不过)\s*/g
 
 /**
@@ -215,7 +226,30 @@ export function parseTimeExpr(text: string, now = Date.now()): TimeRange | undef
   return undefined
 }
 
-const SECRET_PATTERNS: Array<{ re: RegExp; kind: string }> = [
+/**
+ * PII / 凭据识别（§7.7 / §19.2）。
+ *
+ * ── v0.3.1 补了什么，为什么 ──────────────────────────────────────
+ * v0.2/v0.3 只覆盖 7 类：sk-/ghp_/AKIA/JWT/邮箱/手机号/身份证。
+ * 审查实测指出：IP、银行卡、PEM 私钥块、Bearer token、URL query 里的 token
+ * 全部漏网，而编码器把**整轮原文**写进残差——"原文不落盘"只在已识别的
+ * secrets 被替换的意义上成立。
+ *
+ * 顺序很重要：PEM 块必须最先（它内部可能包含看起来像其它模式的 base64），
+ * Bearer 与 URL token 在邮箱/手机号之前（避免被拆成碎片后漏判）。
+ * 银行卡用 Luhn 校验兜底，否则任何 16 位数字（时间戳、订单号）都会被误伤。
+ */
+const SECRET_PATTERNS: Array<{ re: RegExp; kind: string; test?: (s: string) => boolean }> = [
+  {
+    re: /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+    kind: 'pem_private_key',
+  },
+  { re: /\bBearer\s+[A-Za-z0-9._\-+/=]{16,}/gi, kind: 'bearer_token' },
+  {
+    // 只替换参数值，保留参数名——否则"这条 URL 里有个 token"这个信息就丢了
+    re: /([?&](?:token|access_token|api_key|apikey|key|secret|sig|signature|password|passwd)=)([^&\s#]{8,})/gi,
+    kind: 'url_token',
+  },
   { re: /\b(sk|pk|rk)-[A-Za-z0-9]{12,}\b/g, kind: 'api_key' },
   { re: /\bgh[pousr]_[A-Za-z0-9]{20,}\b/g, kind: 'github_token' },
   { re: /\bAKIA[0-9A-Z]{16}\b/g, kind: 'aws_key' },
@@ -223,7 +257,37 @@ const SECRET_PATTERNS: Array<{ re: RegExp; kind: string }> = [
   { re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, kind: 'email' },
   { re: /\b1[3-9]\d{9}\b/g, kind: 'phone' },
   { re: /\b\d{17}[\dXx]\b/g, kind: 'id_card' },
+  // 银行卡：13–19 位（允许空格/短横分组），必须过 Luhn 才算
+  {
+    re: /\b(?:\d[ -]?){12,18}\d\b/g,
+    kind: 'bank_card',
+    test: (s) => luhn(s.replace(/[ -]/g, '')),
+  },
+  // IPv4：只认点分四段且每段 ≤255
+  {
+    re: /\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b/g,
+    kind: 'ip',
+    // 版本号（1.2.3.4 这种）经常不是 IP，但误伤一个版本号远好于漏掉一个真实 IP
+    test: () => true,
+  },
 ]
+
+/** Luhn 校验：银行卡号的必要条件。用它把"16 位订单号"从 PII 里排除掉。 */
+function luhn(digits: string): boolean {
+  if (!/^\d{13,19}$/.test(digits)) return false
+  let sum = 0
+  let alt = false
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let n = digits.charCodeAt(i) - 48
+    if (alt) {
+      n *= 2
+      if (n > 9) n -= 9
+    }
+    sum += n
+    alt = !alt
+  }
+  return sum % 10 === 0
+}
 
 export interface RedactResult {
   text: string
@@ -241,13 +305,33 @@ export function redact(text: string): RedactResult {
   const secrets: Array<{ kind: string; index: number }> = []
   let n = 0
   for (const p of SECRET_PATTERNS) {
-    out = out.replace(p.re, () => {
+    out = out.replace(p.re, (...args: unknown[]) => {
+      const whole = String(args[0])
+      if (p.test && !p.test(whole)) return whole
       n++
       secrets.push({ kind: p.kind, index: n })
+      // URL token 保留参数名（捕获组 1），其余整段替换
+      if (p.kind === 'url_token') {
+        const prefix = String(args[1] ?? '')
+        return `${prefix}«SECRET:${n}»`
+      }
       return `«SECRET:${n}»`
     })
   }
   return { text: out, secrets, pii: secrets.length > 0 }
+}
+
+/**
+ * 槽位级兜底：即使上游漏了一次 redact，也不允许明文 PII 落进结构化槽位。
+ *
+ * 为什么单独做一层：审查实测发现 `fillSlots(text, …)` 拿的是**原文**，
+ * 于是 digest 是脱敏的、槽位里却是完整手机号，而槽位会经 `kvPairs()`
+ * 直接渲染进模型上下文。派生字段的脱敏不能只靠调用方记得。
+ */
+export function scrubValue(value: string): { value: string; redacted: boolean } {
+  if (!value) return { value, redacted: false }
+  const r = redact(value)
+  return { value: r.text, redacted: r.pii }
 }
 
 const PLACEHOLDER_RE = /(\*{3,}|«redacted»|<redacted>|\[redacted\]|\[REDACTED\])/

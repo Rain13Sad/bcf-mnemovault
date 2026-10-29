@@ -32,8 +32,13 @@ jobs:
           cache: npm
 
       # 只有 devDependencies；运行期依赖 node:sqlite / node:zlib，无原生模块
-      - name: 安装依赖
+      # 用 ci 而不是 install：lockfile 与 package.json 一旦不同步就直接失败。
+      # v0.3.0 正是因为漏了这一步（改了版本没改兄弟依赖），发布出去不可安装。
+      - name: 安装依赖（严格按 lockfile）
         run: npm ci
+
+      - name: 版本与依赖一致性门禁
+        run: node scripts/ci-check-publish.mjs
 
       - name: 编译 10 个包
         run: npm run build

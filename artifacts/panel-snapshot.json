@@ -1,10 +1,10 @@
 {
   "version": 2,
-  "generatedAt": 1793251583676,
+  "generatedAt": 1793272235567,
   "stats": {
     "cells": 27,
     "edges": 48,
-    "bytes": 10593,
+    "bytes": 10594,
     "byKind": {
       "relational": 1,
       "persona": 1,
@@ -92,8 +92,8 @@
         "tokens": 121
       }
     ],
-    "storageRatio": 7.37160751565762,
-    "recallP95Ms": 8,
+    "storageRatio": 7.372303409881698,
+    "recallP95Ms": 7,
     "turns": 26,
     "evictions": 0
   },
@@ -331,35 +331,35 @@
         "turn": 22,
         "v": 0.5391808600618703,
         "a": 0.6289437270557222,
-        "strength": 0.5391786626624124,
+        "strength": 0.5391797527098431,
         "trigger": "另外我喜欢把日志放在 stderr，stdout 留给数据。"
       },
       {
         "turn": 9,
         "v": 0.5391099278375627,
         "a": 0.6285809323198553,
-        "strength": 0.5391050146267325,
+        "strength": 0.5391075750267893,
         "trigger": "我不喜欢自动生成的 commit message，太啰嗦。"
       },
       {
         "turn": 12,
         "v": -0.5386841738803179,
         "a": 0.6263984133034258,
-        "strength": 0.5386801980104645,
+        "strength": 0.5386822378008975,
         "trigger": "CI 现在跑 6 分钟，主要是 e2e 太慢。"
       },
       {
         "turn": 4,
         "v": 0.5381871129777478,
         "a": 0.6238396715064369,
-        "strength": 0.5381808956323277,
+        "strength": 0.5381839352144482,
         "trigger": "字体我也偏好等宽，读代码更舒服。"
       },
       {
         "turn": 15,
         "v": -0.5379739721818256,
         "a": 0.622738953370601,
-        "strength": 0.5379707956770308,
+        "strength": 0.5379723839270837,
         "trigger": "我现在有点烦，构建又挂了。"
       }
     ]
@@ -371,7 +371,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793345183185,
+      "tFrom": 1793365835287,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -421,7 +421,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793337983185,
+      "tFrom": 1793358635287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -481,7 +481,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793334383185,
+      "tFrom": 1793355035287,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -536,7 +536,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793330783185,
+      "tFrom": 1793351435287,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -596,7 +596,7 @@
       "kind": 6,
       "kindName": "narrative",
       "tier": 1,
-      "tFrom": 1793330783185,
+      "tFrom": 1793351435287,
       "valence": 0.7244094488188977,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -660,7 +660,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793327183185,
+      "tFrom": 1793347835287,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -710,7 +710,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793319983185,
+      "tFrom": 1793340635287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -774,7 +774,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793316383185,
+      "tFrom": 1793337035287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -838,7 +838,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793312783185,
+      "tFrom": 1793333435287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -898,7 +898,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793309183185,
+      "tFrom": 1793329835287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -958,7 +958,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793305583185,
+      "tFrom": 1793326235287,
       "valence": 1,
       "arousal": 0.6220472440944882,
       "salience": 0.8392156862745098,
@@ -1018,7 +1018,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793301983185,
+      "tFrom": 1793322635287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1073,7 +1073,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793298383185,
+      "tFrom": 1793319035287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1137,7 +1137,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793294783185,
+      "tFrom": 1793315435287,
       "valence": 1,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -1201,7 +1201,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793291183185,
+      "tFrom": 1793311835287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1261,7 +1261,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793287583185,
+      "tFrom": 1793308235287,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -1321,7 +1321,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793283983185,
+      "tFrom": 1793304635287,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -1376,7 +1376,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793280383185,
+      "tFrom": 1793301035287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1431,7 +1431,7 @@
       "kind": 0,
       "kindName": "episodic",
       "tier": 1,
-      "tFrom": 1793276783185,
+      "tFrom": 1793297435287,
       "valence": 0,
       "arousal": 0.5511811023622047,
       "salience": 0.7372549019607844,
@@ -1491,7 +1491,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793269583185,
+      "tFrom": 1793290235287,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -1546,7 +1546,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793265983185,
+      "tFrom": 1793286635287,
       "valence": 0.5354330708661418,
       "arousal": 0.6220472440944882,
       "salience": 0.8392156862745098,
@@ -1559,7 +1559,7 @@
       "pinned": false,
       "disputed": true,
       "invalidated": true,
-      "tInvalid": 1793287583185,
+      "tInvalid": 1793308235287,
       "lens": "feeling",
       "emotional": true,
       "digest": "字体我也偏好等宽，读代码更舒服。",
@@ -1606,7 +1606,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793262383185,
+      "tFrom": 1793283035287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1666,7 +1666,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793258783185,
+      "tFrom": 1793279435287,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -1721,7 +1721,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793255183185,
+      "tFrom": 1793275835287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1776,7 +1776,7 @@
       "kind": 4,
       "kindName": "persona",
       "tier": 1,
-      "tFrom": 1793251583563,
+      "tFrom": 1793272235509,
       "valence": 0,
       "arousal": 0,
       "salience": 0.4,
@@ -1835,7 +1835,7 @@
       "kind": 5,
       "kindName": "relational",
       "tier": 1,
-      "tFrom": 1793251583563,
+      "tFrom": 1793272235509,
       "valence": 0,
       "arousal": 0,
       "salience": 0.5019607843137255,
@@ -1899,12 +1899,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "cfc8d49824618803",
-      "shortId": "8803",
+      "cellId": "8a95ec4740c968e6",
+      "shortId": "68e6",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1792063583185,
+      "tFrom": 1792084235287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1932,7 +1932,7 @@
         ],
         [
           "t",
-          "2026-10-15"
+          "2026-10-16"
         ]
       ],
       "slots": [
@@ -1959,7 +1959,7 @@
         {
           "role": 4,
           "type": "LIT",
-          "value": "2026-10-15"
+          "value": "2026-10-16"
         },
         {
           "role": 8,
@@ -2001,7 +2001,7 @@
     },
     {
       "src": "6ded521f53f9302d",
-      "dst": "cfc8d49824618803",
+      "dst": "8a95ec4740c968e6",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
@@ -2316,42 +2316,42 @@
     }
   ],
   "lastRecall": {
-    "queryId": "qmvt3oxi05gt",
-    "at": 1793251583645,
+    "queryId": "qmvtfzkm03vq",
+    "at": 1793272235546,
     "tokens": 121,
     "hits": [
       {
         "cellId": "5e5f5321d0859eeb",
         "shortId": "9eeb",
-        "score": 0.6933092340594478,
+        "score": 0.6933092346826513,
         "slot": 0,
         "channel": "semantic"
       },
       {
         "cellId": "72c7706e804e6264",
         "shortId": "6264",
-        "score": 0.331954882989228,
+        "score": 0.33195488335469614,
         "slot": 0,
         "channel": "semantic"
       },
       {
         "cellId": "7cb7538d1e8efbe3",
         "shortId": "fbe3",
-        "score": 0.32822501014044275,
+        "score": 0.3282250105059108,
         "slot": 1,
         "channel": "semantic"
       },
       {
         "cellId": "27c806305bae3f93",
         "shortId": "3f93",
-        "score": 0.30392635576590366,
+        "score": 0.30392636098687636,
         "slot": 2,
         "channel": "graph"
       },
       {
         "cellId": "6c930a578fbaaedf",
         "shortId": "aedf",
-        "score": 0.32710062468785145,
+        "score": 0.3271006252496081,
         "slot": 3,
         "channel": "graph"
       }
@@ -2361,8 +2361,8 @@
         "cellId": "5e5f5321d0859eeb",
         "parts": {
           "sim": 1,
-          "recency": 0.34999999830318357,
-          "freq": 0.11260401025138062,
+          "recency": 0.34999999925340075,
+          "freq": 0.11260401092149247,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
@@ -2370,8 +2370,8 @@
         },
         "raw": {
           "sim": 1,
-          "recency": 0.9999999951519531,
-          "freq": 0.563020051256903,
+          "recency": 0.9999999978668593,
+          "freq": 0.5630200546074623,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
@@ -2386,9 +2386,9 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 1.8026040085545643,
+        "rawSum": 1.8026040101748935,
         "activeW": 2.6,
-        "score": 0.6933092340594478,
+        "score": 0.6933092346826513,
         "slot": 0,
         "channel": "semantic",
         "notes": []
@@ -2397,7 +2397,7 @@
         "cellId": "72c7706e804e6264",
         "parts": {
           "sim": 0.37132797346940427,
-          "recency": 0.34999999830318357,
+          "recency": 0.34999999925340075,
           "freq": 0.13154195804195806,
           "affect": 0.25,
           "goal": 0,
@@ -2406,7 +2406,7 @@
         },
         "raw": {
           "sim": 0.37132797346940427,
-          "recency": 0.9999999951519531,
+          "recency": 0.9999999978668593,
           "freq": 0.6577097902097903,
           "affect": 1,
           "goal": 0,
@@ -2422,9 +2422,9 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.8630826957719928,
+        "rawSum": 0.86308269672221,
         "activeW": 2.6,
-        "score": 0.331954882989228,
+        "score": 0.33195488335469614,
         "slot": 0,
         "channel": "semantic",
         "notes": [
@@ -2435,7 +2435,7 @@
         "cellId": "7cb7538d1e8efbe3",
         "parts": {
           "sim": 0.27849598010205323,
-          "recency": 0.34999999830318357,
+          "recency": 0.34999999925340075,
           "freq": 0.17,
           "affect": 0.1830708661417323,
           "goal": 0,
@@ -2444,7 +2444,7 @@
         },
         "raw": {
           "sim": 0.27849598010205323,
-          "recency": 0.9999999951519531,
+          "recency": 0.9999999978668593,
           "freq": 0.85,
           "affect": 0.7322834645669292,
           "goal": 0,
@@ -2460,9 +2460,9 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.8533850263651511,
+        "rawSum": 0.8533850273153681,
         "activeW": 2.6,
-        "score": 0.32822501014044275,
+        "score": 0.3282250105059108,
         "slot": 1,
         "channel": "semantic",
         "notes": [
@@ -2473,7 +2473,7 @@
         "cellId": "27c806305bae3f93",
         "parts": {
           "sim": 0.21562499999999998,
-          "recency": 0.3499999738011575,
+          "recency": 0.34999998737568655,
           "freq": 0.03003809664473759,
           "affect": 0.25,
           "goal": 0,
@@ -2482,7 +2482,7 @@
         },
         "raw": {
           "sim": 0.21562499999999998,
-          "recency": 0.9999999251461643,
+          "recency": 0.999999963930533,
           "freq": 0.15019048322368794,
           "affect": 1,
           "goal": 0,
@@ -2498,9 +2498,9 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.7902085249913495,
+        "rawSum": 0.7902085385658786,
         "activeW": 2.6,
-        "score": 0.30392635576590366,
+        "score": 0.30392636098687636,
         "slot": 2,
         "channel": "graph",
         "notes": [
@@ -2511,8 +2511,8 @@
         "cellId": "6c930a578fbaaedf",
         "parts": {
           "sim": 0.1875,
-          "recency": 0.34999999830318357,
-          "freq": 0.11131933117206937,
+          "recency": 0.34999999925340075,
+          "freq": 0.11131933168241948,
           "affect": 0.1830708661417323,
           "goal": 0,
           "cue": 0.09,
@@ -2520,8 +2520,8 @@
         },
         "raw": {
           "sim": 0.1875,
-          "recency": 0.9999999951519531,
-          "freq": 0.5565966558603468,
+          "recency": 0.9999999978668593,
+          "freq": 0.5565966584120974,
           "affect": 0.7322834645669292,
           "goal": 0,
           "cue": 0.3,
@@ -2536,9 +2536,9 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.8504616241884139,
+        "rawSum": 0.8504616256489811,
         "activeW": 2.6,
-        "score": 0.32710062468785145,
+        "score": 0.3271006252496081,
         "slot": 3,
         "channel": "graph",
         "notes": [
@@ -2546,7 +2546,7 @@
         ]
       }
     ],
-    "rendered": "M:9eeb|T:1029|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.81\nM:6264|T:1030|P:u|F:pref|K:配色=更克制的配色|V:0|S:0.77|C:0.81\nM:fbe3|T:1029|P:u|F:pref|K:字体=无衬线字体|V:+0.54|S:0.84|C:0.81\nM:3f93|T:1029|P:u|F:fact|K:叫阿哲=states|V:0|S:0.77|C:0.78\nM:aedf|T:1029|P:u|F:pref|K:dislike=自动生成的_commit_mes|V:+0.54|S:0.84|C:0.78"
+    "rendered": "M:9eeb|T:1029|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.81\nM:6264|T:1030|P:u|F:pref|K:配色=更克制的配色|V:0|S:0.77|C:0.81\nM:fbe3|T:1030|P:u|F:pref|K:字体=无衬线字体|V:+0.54|S:0.84|C:0.81\nM:3f93|T:1029|P:u|F:fact|K:叫阿哲=states|V:0|S:0.77|C:0.78\nM:aedf|T:1030|P:u|F:pref|K:dislike=自动生成的_commit_mes|V:+0.54|S:0.84|C:0.78"
   },
   "evictions": [],
   "proactive": {
@@ -2621,7 +2621,7 @@
     ]
   },
   "index": {
-    "builtAt": 1793251583678,
+    "builtAt": 1793272235569,
     "status": "ok",
     "path": ":memory:",
     "entries": 27,
@@ -2629,99 +2629,99 @@
   },
   "tags": [
     {
-      "tag": "states",
-      "count": 6
+      "tag": "缓存",
+      "count": 3
     },
     {
-      "tag": "is",
-      "count": 5
+      "tag": "构建",
+      "count": 2
+    },
+    {
+      "tag": "字体",
+      "count": 2
+    },
+    {
+      "tag": "ci",
+      "count": 2
+    },
+    {
+      "tag": "#0.3",
+      "count": 1
+    },
+    {
+      "tag": "部署",
+      "count": 1
     },
     {
       "tag": "等宽",
-      "count": 2
+      "count": 1
+    },
+    {
+      "tag": "点烦",
+      "count": 1
+    },
+    {
+      "tag": "更克制的配色",
+      "count": 1
+    },
+    {
+      "tag": "构建挂",
+      "count": 1
+    },
+    {
+      "tag": "叫阿哲",
+      "count": 1
+    },
+    {
+      "tag": "面板首屏",
+      "count": 1
+    },
+    {
+      "tag": "配色",
+      "count": 1
+    },
+    {
+      "tag": "亲近期",
+      "count": 1
+    },
+    {
+      "tag": "日志",
+      "count": 1
+    },
+    {
+      "tag": "日志放在 stderr",
+      "count": 1
+    },
+    {
+      "tag": "三周",
+      "count": 1
+    },
+    {
+      "tag": "深色主题",
+      "count": 1
     },
     {
       "tag": "无衬线字体",
-      "count": 2
+      "count": 1
     },
     {
-      "tag": "API",
-      "count": 2
+      "tag": "主题",
+      "count": 1
     },
     {
-      "tag": "config",
-      "count": 2
-    },
-    {
-      "tag": "decides",
-      "count": 2
-    },
-    {
-      "tag": "dsh",
-      "count": 2
+      "tag": "bug",
+      "count": 1
     },
     {
       "tag": "e2e",
-      "count": 2
+      "count": 1
     },
     {
-      "tag": "key",
-      "count": 2
+      "tag": "package.json",
+      "count": 1
     },
     {
       "tag": "pnpm",
-      "count": 2
-    },
-    {
-      "tag": "Redux",
-      "count": 2
-    },
-    {
-      "tag": "2026-10-15",
-      "count": 1
-    },
-    {
-      "tag": "版本",
-      "count": 1
-    },
-    {
-      "tag": "别写进代码",
-      "count": 1
-    },
-    {
-      "tag": "不要用",
-      "count": 1
-    },
-    {
-      "tag": "部署脚本要用",
-      "count": 1
-    },
-    {
-      "tag": "拆成",
-      "count": 1
-    },
-    {
-      "tag": "冲突",
-      "count": 1
-    },
-    {
-      "tag": "存在",
-      "count": 1
-    },
-    {
-      "tag": "的缓存方案先",
-      "count": 1
-    },
-    {
-      "tag": "的那个虚拟滚",
-      "count": 1
-    },
-    {
-      "tag": "的配色",
-      "count": 1
-    },
-    {
-      "tag": "等宽只用在代",
       "count": 1
     }
   ],
@@ -2774,7 +2774,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793345183185,
+      "tFrom": 1793365835287,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -2824,7 +2824,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793337983185,
+      "tFrom": 1793358635287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -2884,7 +2884,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793334383185,
+      "tFrom": 1793355035287,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -2939,7 +2939,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793330783185,
+      "tFrom": 1793351435287,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -2999,7 +2999,7 @@
       "kind": 6,
       "kindName": "narrative",
       "tier": 1,
-      "tFrom": 1793330783185,
+      "tFrom": 1793351435287,
       "valence": 0.7244094488188977,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -3063,7 +3063,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793327183185,
+      "tFrom": 1793347835287,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -3115,7 +3115,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793287583185,
+      "tFrom": 1793308235287,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -3175,7 +3175,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793283983185,
+      "tFrom": 1793304635287,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -3230,7 +3230,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793262383185,
+      "tFrom": 1793283035287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3290,7 +3290,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793312783185,
+      "tFrom": 1793333435287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3350,7 +3350,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793255183185,
+      "tFrom": 1793275835287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3405,7 +3405,7 @@
       "kind": 6,
       "kindName": "narrative",
       "tier": 1,
-      "tFrom": 1793330783185,
+      "tFrom": 1793351435287,
       "valence": 0.7244094488188977,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -3471,7 +3471,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793265983185,
+      "tFrom": 1793286635287,
       "valence": 0.5354330708661418,
       "arousal": 0.6220472440944882,
       "salience": 0.8392156862745098,
@@ -3484,7 +3484,7 @@
       "pinned": false,
       "disputed": true,
       "invalidated": true,
-      "tInvalid": 1793287583185,
+      "tInvalid": 1793308235287,
       "lens": "feeling",
       "emotional": true,
       "digest": "字体我也偏好等宽，读代码更舒服。",
@@ -3531,7 +3531,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793258783185,
+      "tFrom": 1793279435287,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -3586,7 +3586,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793280383185,
+      "tFrom": 1793301035287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3641,7 +3641,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793337983185,
+      "tFrom": 1793358635287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3701,7 +3701,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793309183185,
+      "tFrom": 1793329835287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3761,7 +3761,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793316383185,
+      "tFrom": 1793337035287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3825,7 +3825,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793291183185,
+      "tFrom": 1793311835287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3885,7 +3885,7 @@
       "kind": 0,
       "kindName": "episodic",
       "tier": 1,
-      "tFrom": 1793276783185,
+      "tFrom": 1793297435287,
       "valence": 0,
       "arousal": 0.5511811023622047,
       "salience": 0.7372549019607844,
@@ -3945,7 +3945,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793301983185,
+      "tFrom": 1793322635287,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3996,11 +3996,11 @@
     }
   ],
   "consolidation": {
-    "at": 1793251583586,
+    "at": 1793272235522,
     "merged": 0,
     "abstracted": 1,
     "pruned": 0,
     "decayed": 1,
-    "elapsedMs": 13
+    "elapsedMs": 8
   }
 }

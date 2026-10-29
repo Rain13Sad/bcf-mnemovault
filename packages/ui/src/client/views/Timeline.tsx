@@ -230,7 +230,7 @@ function row(
         )
       : null,
     props.explain && props.explain.cellId === c.cellId
-      ? h('div', { className: 'mnv-explain', dangerouslySetInnerHTML: { __html: highlight(props.explain.text) } })
+      ? h('div', { className: 'mnv-explain' }, ...highlightNodes(props.explain.text))
       : null,
   )
 }
@@ -250,8 +250,26 @@ function roleName(role: number): string {
   return names[role] ?? String(role)
 }
 
-function highlight(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/(总分 [\d.]+)/g, '<b>$1</b>')
+/**
+ * 高亮「总分 0.71」这类片段，但**不拼 HTML 字符串**。
+ *
+ * v0.3 用的是 `dangerouslySetInnerHTML` + 只转义 `&` 和 `<` 的 `highlight()`：
+ * `>` 与引号没转义，而解释器文本里含记忆内容（用户可控输入）——这是一个 XSS 面。
+ * 现在改成构造 React 节点：转义问题从"记得转义"变成"结构上不可能"。
+ */
+function highlightNodes(text: string): ReactNode[] {
+  const out: ReactNode[] = []
+  const re = /(总分 [\d.]+)/g
+  let last = 0
+  let m: RegExpExecArray | null
+  let i = 0
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index))
+    out.push(h('b', { key: `b${i++}` }, m[1]))
+    last = m.index + m[0].length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
 }
 
 export { Chip }

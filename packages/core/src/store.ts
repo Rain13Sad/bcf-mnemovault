@@ -17,7 +17,7 @@
 
 import { decodeCell, encodeCell, type CellRow, type MemCell, type Edge } from './cell.js'
 import { compress, decompress } from './codec.js'
-import { bytesToHex, toHex } from './hash.js'
+import { bytesToHex, hexToBytes, toHex } from './hash.js'
 import type { SdrSpace } from './sdr.js'
 
 export interface CellFilter {
@@ -86,6 +86,20 @@ export interface Store {
   getResidual(off: number): Uint8Array | null
   residualRefs(sha: Uint8Array): number
   addResidualRef(sha: Uint8Array): void
+  /**
+   * 释放一条残差引用。**没有任何 cell 再引用它时物理删除**。
+   *
+   * 为什么不用 ref_cnt 做判据：残差是**按轮共享**的（一轮 4 条命题共用一个残差），
+   * 而 ref_cnt 在 putResidual 里只置 1、addResidualRef 从未被调用，
+   * 于是"删掉一条 cell 就把还有 3 个引用者的残差删掉"。
+   * 现在的判据是「扫一遍还有没有 cell 引用这个 sha」——O(n) 但永远正确，
+   * 而删除是低频的用户操作，付得起这个代价。
+   */
+  releaseResidualRef(sha: Uint8Array): void
+  /** 孤儿残差（没有任何 cell 引用的残差行），doctor 用来体检与清理。 */
+  orphanResiduals(): Array<{ sha: string; bytes: number; rawLen: number }>
+  /** 物理删除一条孤儿残差（只删真的没人引用的）。 */
+  purgeOrphanResidual(sha: string): boolean
 
   putSource(cellId: bigint, session: string, seq: number): void
   sourcesOf(cellId: bigint): Array<{ session: string; seq: number }>
@@ -120,11 +134,29 @@ export interface Store {
 
 const idKey = (id: bigint) => toHex(id, 16)
 
+/** getCell / forEachCell 共用同一份列清单：blob 与列承载字段一次取回。 */
+const SELECT_COLS = 'blob, confidence, support, topic, digest, t_invalid, scope, session, lens'
+const SELECT_CELL = `SELECT ${SELECT_COLS} FROM cells`
+const SELECT_ALL = SELECT_CELL
+
 /** node:sqlite 是内置模块，但 ESM 里没有 require。getBuiltinModule 是同步且不污染全局的取法。 */
 function builtin<T>(name: string): T {
   const g = (process as unknown as { getBuiltinModule?: (n: string) => unknown }).getBuiltinModule
-  if (typeof g === 'function') return g(name) as T
-  throw new Error(`当前 Node 不支持 process.getBuiltinModule，无法加载 ${name}（需要 Node ≥ 22.3）`)
+  if (typeof g !== 'function') {
+    throw new Error(
+      `当前 Node ${process.version} 不支持 process.getBuiltinModule，无法加载 ${name}。` +
+        `本项目需要 Node ≥ 22.13（node:sqlite 在 22.5–22.12 需要 --experimental-sqlite 标志，` +
+        `按 README 装 22.5 会直接跑不起来）。`,
+    )
+  }
+  try {
+    return g(name) as T
+  } catch (err) {
+    throw new Error(
+      `无法加载 ${name}（Node ${process.version}）：${String((err as Error)?.message ?? err)}。` +
+        `请升级到 Node ≥ 22.13，或用 --experimental-sqlite 启动。`,
+    )
+  }
 }
 
 function rowFromCell(c: MemCell): CellRow {
@@ -195,8 +227,10 @@ export class MemoryStore implements Store {
     return c ? cloneCell(c) : null
   }
   deleteCell(id: bigint): void {
+    const victim = this.cells.get(idKey(id))
     this.cells.delete(idKey(id))
     this.edgeList = this.edgeList.filter((e) => idKey(e.src) !== idKey(id) && idKey(e.dst) !== idKey(id))
+    if (victim?.residual) this.releaseResidualRef(victim.residual.sha)
   }
   listCells(filter: CellFilter = {}): MemCell[] {
     let out = [...this.cells.values()]
@@ -252,9 +286,42 @@ export class MemoryStore implements Store {
     return c ? decompress(c.codec, c.bytes, c.rawLen) : null
   }
   residualRefs(sha: Uint8Array): number {
-    return 1
+    let n = 0
+    for (const c of this.cells.values()) if (c.residual && bytesToHex(c.residual.sha) === bytesToHex(sha)) n++
+    return n
   }
-  addResidualRef(): void {}
+  addResidualRef(): void {
+    /* 引用数由 residualRefs 现算，不再维护计数器（见接口注释） */
+  }
+  releaseResidualRef(sha: Uint8Array): void {
+    if (this.residualRefs(sha) > 0) return
+    const k = bytesToHex(sha)
+    const idx = this.residuals.findIndex((r, i) => this.refs.get(k) === i)
+    if (idx >= 0) {
+      // 下标即 offset：删掉会移动后续下标，因此只把内容清空、保留槽位（读取返回空）
+      this.residuals[idx] = { codec: 'raw', bytes: new Uint8Array(0), rawLen: 0 }
+    }
+    this.refs.delete(k)
+  }
+  orphanResiduals(): Array<{ sha: string; bytes: number; rawLen: number }> {
+    const used = new Set<string>()
+    for (const c of this.cells.values()) if (c.residual) used.add(bytesToHex(c.residual.sha))
+    const out: Array<{ sha: string; bytes: number; rawLen: number }> = []
+    for (const [sha, off] of this.refs) {
+      if (used.has(sha)) continue
+      const r = this.residuals[off]
+      out.push({ sha, bytes: r?.bytes.length ?? 0, rawLen: r?.rawLen ?? 0 })
+    }
+    return out
+  }
+  purgeOrphanResidual(sha: string): boolean {
+    const off = this.refs.get(sha)
+    if (off === undefined) return false
+    const r = this.residuals[off]
+    if (r) this.residuals[off] = { codec: 'raw', bytes: new Uint8Array(0), rawLen: 0 }
+    this.refs.delete(sha)
+    return true
+  }
 
   putSource(cellId: bigint, session: string, seq: number): void {
     const k = idKey(cellId)
@@ -272,7 +339,7 @@ export class MemoryStore implements Store {
   }
 
   putSnapshot(rendered: string, tokens: number): string {
-    const id = toHex(BigInt('0x' + bytesToHex(sha32(rendered))), 16)
+    const id = snapshotIdOf(rendered)
     this.snaps.set(id, { snapId: id, rendered, tokens, created: Date.now() })
     return id
   }
@@ -446,6 +513,9 @@ export class SqliteStore implements Store {
     db.exec('PRAGMA journal_mode = WAL')
     db.exec('PRAGMA synchronous = NORMAL')
     db.exec('PRAGMA foreign_keys = ON')
+    // WAL 下多会话并发写会直接抛 SQLITE_BUSY 而不是排队等待。
+    // 没有这一行，两个进程同时写就是随机失败——而这在"宿主 + 面板 + 巩固"三处并发时很常见。
+    db.exec('PRAGMA busy_timeout = 5000')
     db.exec(DDL)
     this.db = db
   }
@@ -460,6 +530,24 @@ export class SqliteStore implements Store {
   private get conn(): SqliteDb {
     if (!this.db) throw new Error('store 未打开（open() 未调用或被 close()）')
     return this.db
+  }
+
+  /**
+   * prepared statement 缓存。
+   *
+   * node:sqlite 每次 `prepare()` 都会重新编译 SQL。v0.3 之前有 38 处 `prepare()`
+   * 全部无缓存，而 `forEachCell` 里的 `hydrate` 更是**每行**再 prepare 一次——
+   * 2000 cell 的一次召回实测 317 ms / 6003 条 SQL，其中绝大部分是重复编译。
+   * 语句本身是无状态的（参数化），缓存键就是 SQL 文本。
+   */
+  private readonly stmts = new Map<string, ReturnType<SqliteDb['prepare']>>()
+
+  private prep(sql: string): ReturnType<SqliteDb['prepare']> {
+    const hit = this.stmts.get(sql)
+    if (hit) return hit
+    const stmt = this.conn.prepare(sql)
+    this.stmts.set(sql, stmt)
+    return stmt
   }
 
   putCell(cell: MemCell): void {
@@ -493,36 +581,40 @@ export class SqliteStore implements Store {
       )
   }
 
+  /** 读一条 cell：**一次** SQL 同时取 blob 与列承载字段（v0.3 是两趟）。 */
   getCell(id: bigint): MemCell | null {
-    const row = this.conn.prepare('SELECT blob FROM cells WHERE cell_id = ?').get(idKey(id))
+    const row = this.prep(`${SELECT_CELL} WHERE cell_id = ?`).get(idKey(id)) as Record<string, unknown> | undefined
     if (!row) return null
-    return this.hydrate(row.blob as Uint8Array, id)
+    return this.hydrate(row)
   }
 
-  private hydrate(blob: Uint8Array, id: bigint): MemCell {
-    const cell = decodeCell(new Uint8Array(blob), this.space)
-    const extra = this.conn
-      .prepare('SELECT confidence, support, topic, digest, t_invalid, scope, session, lens FROM cells WHERE cell_id = ?')
-      .get(idKey(id)) as Record<string, unknown> | undefined
-    if (extra) {
-      cell.confidence = Number(extra.confidence ?? 0.5)
-      cell.support = Number(extra.support ?? 1)
-      cell.topic = String(extra.topic ?? cell.topic)
-      cell.digest = String(extra.digest ?? '')
-      // 双时态的"事务时间"一侧：这一行什么时候不再为真（0 = 仍然有效）
-      cell.tInvalid = BigInt(Number(extra.t_invalid ?? 0))
-      cell.scope = String(extra.scope ?? 'user:local')
-      cell.session = String(extra.session ?? '')
-      cell.lens = String(extra.lens ?? 'fact') as MemCell['lens']
-    }
+  /**
+   * blob 是布局的唯一事实，列是它的派生投影。
+   * 一次查询把两者一起取回来，避免"N 次遍历 = N 次额外点查"。
+   */
+  private hydrate(row: Record<string, unknown>): MemCell {
+    const cell = decodeCell(new Uint8Array(row.blob as Uint8Array), this.space)
+    cell.confidence = Number(row.confidence ?? 0.5)
+    cell.support = Number(row.support ?? 1)
+    cell.topic = String(row.topic ?? cell.topic)
+    cell.digest = String(row.digest ?? '')
+    // 双时态的"事务时间"一侧：这一行什么时候不再为真（0 = 仍然有效）
+    cell.tInvalid = BigInt(Number(row.t_invalid ?? 0))
+    cell.scope = String(row.scope ?? 'user:local')
+    cell.session = String(row.session ?? '')
+    cell.lens = String(row.lens ?? 'fact') as MemCell['lens']
     return cell
   }
 
   deleteCell(id: bigint): void {
     const k = idKey(id)
-    this.conn.prepare('DELETE FROM cells WHERE cell_id = ?').run(k)
-    this.conn.prepare('DELETE FROM edges WHERE src = ? OR dst = ?').run(k, k)
-    this.conn.prepare('DELETE FROM cell_sources WHERE cell_id = ?').run(k)
+    const row = this.prep('SELECT residual_sha FROM cells WHERE cell_id = ?').get(k)
+    this.prep('DELETE FROM cells WHERE cell_id = ?').run(k)
+    this.prep('DELETE FROM edges WHERE src = ? OR dst = ?').run(k, k)
+    this.prep('DELETE FROM cell_sources WHERE cell_id = ?').run(k)
+    // 硬删必须真的删掉原文：否则"已物理删除"是句假话，GDPR 的删除权在这条路径上失效
+    const sha = row?.residual_sha
+    if (sha) this.releaseResidualRef(new Uint8Array(sha as Uint8Array))
   }
 
   listCells(filter: CellFilter = {}): MemCell[] {
@@ -553,24 +645,30 @@ export class SqliteStore implements Store {
       args.push(filter.until)
     }
     const order = filter.order === 'oldest' ? 'ASC' : 'DESC'
-    const sql = `SELECT cell_id, blob FROM cells ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY t_from ${order} ${
+    const sql = `${SELECT_CELL} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY t_from ${order} ${
       filter.limit ? 'LIMIT ' + Math.max(1, Math.floor(filter.limit)) : ''
     }`
-    return this.conn
-      .prepare(sql)
+    return this.prep(sql)
       .all(...args)
-      .map((r) => this.hydrate(new Uint8Array(r.blob as Uint8Array), BigInt('0x' + String(r.cell_id))))
+      .map((r) => this.hydrate(r))
   }
 
   countCells(): number {
-    const r = this.conn.prepare('SELECT COUNT(*) AS n FROM cells').get()
+    const r = this.prep('SELECT COUNT(*) AS n FROM cells').get()
     return Number(r?.n ?? 0)
   }
 
+  /**
+   * 全量遍历：一次查询取全列，优先走 `.iterate()` 流式。
+   *
+   * v0.3 之前是 `SELECT cell_id, blob` + 每行一次 `hydrate` 点查，
+   * 即一次遍历 N+1 条 SQL；2000 cell 实测 111 ms。现在是一条 SQL，
+   * 且 `.iterate()` 可用时不会先把 N 行物化成数组。
+   */
   forEachCell(fn: (c: MemCell) => void): void {
-    for (const r of this.conn.prepare('SELECT cell_id, blob FROM cells').all()) {
-      fn(this.hydrate(new Uint8Array(r.blob as Uint8Array), BigInt('0x' + String(r.cell_id))))
-    }
+    const stmt = this.prep(SELECT_ALL) as unknown as { iterate?: () => Iterable<Record<string, unknown>>; all(): Array<Record<string, unknown>> }
+    const rows = typeof stmt.iterate === 'function' ? stmt.iterate() : stmt.all()
+    for (const r of rows) fn(this.hydrate(r))
   }
 
   putEdge(e: EdgeRecord): void {
@@ -597,16 +695,16 @@ export class SqliteStore implements Store {
       .map((r) => ({ src: BigInt('0x' + String(r.src)), dst: BigInt('0x' + String(r.dst)), rel: Number(r.rel), weight: Number(r.weight) }))
   }
   setEdgeWeight(src: bigint, dst: bigint, rel: number, weight: number): void {
-    this.conn.prepare('UPDATE edges SET weight = ? WHERE src = ? AND dst = ? AND rel = ?').run(weight, idKey(src), idKey(dst), rel)
+    this.prep('UPDATE edges SET weight = ? WHERE src = ? AND dst = ? AND rel = ?').run(weight, idKey(src), idKey(dst), rel)
   }
   deleteEdge(src: bigint, dst: bigint, rel: number): void {
-    this.conn.prepare('DELETE FROM edges WHERE src = ? AND dst = ? AND rel = ?').run(idKey(src), idKey(dst), rel)
+    this.prep('DELETE FROM edges WHERE src = ? AND dst = ? AND rel = ?').run(idKey(src), idKey(dst), rel)
   }
 
   putResidual(sha: Uint8Array, raw: Uint8Array): number {
-    const known = this.conn.prepare('SELECT offset FROM residuals WHERE sha = ?').get(sha)
+    const known = this.prep('SELECT offset FROM residuals WHERE sha = ?').get(sha)
     if (known) return Number(known.offset)
-    const max = this.conn.prepare('SELECT COALESCE(MAX(offset), -1) AS m FROM residuals').get()
+    const max = this.prep('SELECT COALESCE(MAX(offset), -1) AS m FROM residuals').get()
     const off = Number(max?.m ?? -1) + 1
     const c = compress(raw)
     this.conn
@@ -616,16 +714,41 @@ export class SqliteStore implements Store {
   }
   /** 残差正文与索引同库（冷层可外迁到对象存储，接口不变）。 */
   getResidual(off: number): Uint8Array | null {
-    const r = this.conn.prepare('SELECT data,codec,raw_len FROM residuals WHERE offset = ?').get(off)
+    const r = this.prep('SELECT data,codec,raw_len FROM residuals WHERE offset = ?').get(off)
     if (!r) return null
     return decompress(String(r.codec), new Uint8Array(r.data as Uint8Array), Number(r.raw_len))
   }
   residualRefs(sha: Uint8Array): number {
-    const r = this.conn.prepare('SELECT ref_cnt FROM residuals WHERE sha = ?').get(sha)
+    const r = this.prep('SELECT ref_cnt FROM residuals WHERE sha = ?').get(sha)
     return Number(r?.ref_cnt ?? 0)
   }
   addResidualRef(sha: Uint8Array): void {
-    this.conn.prepare('UPDATE residuals SET ref_cnt = ref_cnt + 1 WHERE sha = ?').run(sha)
+    this.prep('UPDATE residuals SET ref_cnt = ref_cnt + 1 WHERE sha = ?').run(sha)
+  }
+
+  releaseResidualRef(sha: Uint8Array): void {
+    // 判据是"还有没有 cell 引用"，不是 ref_cnt（见接口注释）
+    const used = this.prep('SELECT COUNT(*) AS n FROM cells WHERE residual_sha = ?').get(sha)
+    if (Number(used?.n ?? 0) > 0) return
+    this.prep('DELETE FROM residuals WHERE sha = ?').run(sha)
+  }
+
+  orphanResiduals(): Array<{ sha: string; bytes: number; rawLen: number }> {
+    const rows = this.conn
+      .prepare(
+        `SELECT r.sha AS sha, r.comp_len AS b, r.raw_len AS raw FROM residuals r
+         WHERE NOT EXISTS (SELECT 1 FROM cells c WHERE c.residual_sha = r.sha)`,
+      )
+      .all()
+    return rows.map((r) => ({ sha: bytesToHex(new Uint8Array(r.sha as Uint8Array)), bytes: Number(r.b ?? 0), rawLen: Number(r.raw ?? 0) }))
+  }
+
+  purgeOrphanResidual(sha: string): boolean {
+    const bytes = hexToBytes(sha)
+    const used = this.prep('SELECT COUNT(*) AS n FROM cells WHERE residual_sha = ?').get(bytes)
+    if (Number(used?.n ?? 0) > 0) return false
+    this.prep('DELETE FROM residuals WHERE sha = ?').run(bytes)
+    return true
   }
 
   putSource(cellId: bigint, session: string, seq: number): void {
@@ -647,24 +770,24 @@ export class SqliteStore implements Store {
   }
 
   putSnapshot(rendered: string, tokens: number): string {
-    const id = toHex(BigInt('0x' + bytesToHex(sha32(rendered))), 16)
+    const id = snapshotIdOf(rendered)
     this.conn
       .prepare('INSERT INTO recall_snapshots (snap_id,rendered,tokens,created) VALUES (?,?,?,?) ON CONFLICT DO NOTHING')
       .run(id, rendered, tokens, Date.now())
     return id
   }
   getSnapshot(snapId: string): SnapshotRecord | null {
-    const r = this.conn.prepare('SELECT * FROM recall_snapshots WHERE snap_id = ?').get(snapId)
+    const r = this.prep('SELECT * FROM recall_snapshots WHERE snap_id = ?').get(snapId)
     if (!r) return null
     return { snapId: String(r.snap_id), rendered: String(r.rendered), tokens: Number(r.tokens), created: Number(r.created) }
   }
 
   shadowSeqs(session: string, seqs: number[]): void {
-    const st = this.conn.prepare('INSERT INTO shadow_map (session,seq) VALUES (?,?) ON CONFLICT DO NOTHING')
+    const st = this.prep('INSERT INTO shadow_map (session,seq) VALUES (?,?) ON CONFLICT DO NOTHING')
     for (const s of seqs) st.run(session, s)
   }
   isShadowed(session: string, seq: number): boolean {
-    return !!this.conn.prepare('SELECT 1 FROM shadow_map WHERE session = ? AND seq = ?').get(session, seq)
+    return !!this.prep('SELECT 1 FROM shadow_map WHERE session = ? AND seq = ?').get(session, seq)
   }
 
   appendEvict(rec: EvictRecord): void {
@@ -686,11 +809,11 @@ export class SqliteStore implements Store {
   }
 
   meta(key: string): string | null {
-    const r = this.conn.prepare('SELECT v FROM meta WHERE k = ?').get(key)
+    const r = this.prep('SELECT v FROM meta WHERE k = ?').get(key)
     return r ? String(r.v) : null
   }
   setMeta(key: string, value: string): void {
-    this.conn.prepare('INSERT INTO meta (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').run(key, value)
+    this.prep('INSERT INTO meta (k,v) VALUES (?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').run(key, value)
   }
 
   appendLog(e: LogEntry): void {
@@ -700,8 +823,8 @@ export class SqliteStore implements Store {
   }
   listLog(session?: string): LogEntry[] {
     const rows = session
-      ? this.conn.prepare('SELECT * FROM session_log WHERE session = ? ORDER BY seq').all(session)
-      : this.conn.prepare('SELECT * FROM session_log ORDER BY session, seq').all()
+      ? this.prep('SELECT * FROM session_log WHERE session = ? ORDER BY seq').all(session)
+      : this.prep('SELECT * FROM session_log ORDER BY session, seq').all()
     return rows.map((r) => ({
       session: String(r.session),
       seq: Number(r.seq),
@@ -749,8 +872,8 @@ export class SqliteStore implements Store {
   }
 
   stats() {
-    const c = this.conn.prepare('SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(blob)),0) AS b FROM cells').get()
-    const e = this.conn.prepare('SELECT COUNT(*) AS n FROM edges').get()
+    const c = this.prep('SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(blob)),0) AS b FROM cells').get()
+    const e = this.prep('SELECT COUNT(*) AS n FROM edges').get()
     const r = this.conn
       .prepare('SELECT COUNT(*) AS n, COALESCE(SUM(comp_len),0) AS b, COALESCE(SUM(raw_len),0) AS raw FROM residuals')
       .get()
@@ -776,6 +899,18 @@ function cloneCell(c: MemCell): MemCell {
     edges: c.edges.map((e) => ({ ...e })),
     residual: c.residual ? { ...c.residual, sha: c.residual.sha.slice() } : null,
   }
+}
+
+/**
+ * 快照 id：**内容寻址**（渲染文本的哈希），不是自增也不是随机。
+ *
+ * 导出它的理由：`runRecall` 之前返回 `snapshotId: ''`（硬编码空串），
+ * 只有经 `service.recall()` 才会被填上——于是直接调 `runRecall` 的人拿不到可重放的 id，
+ * 而 README 承诺"任何一次召回都能按 snapshot 逐字节重放"。
+ * 现在两侧用同一个函数算，谁调都一致。
+ */
+export function snapshotIdOf(rendered: string): string {
+  return toHex(BigInt('0x' + bytesToHex(sha32(rendered))), 16)
 }
 
 function sha32(text: string): Uint8Array {

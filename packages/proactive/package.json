@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-proactive",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "主动开口：情感/记忆由头 + 频率与静默预算",
   "keywords": [
     "dsh",
@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "@rain13sad/dsh-mnemo-core": "^0.2.0"
+    "@rain13sad/dsh-mnemo-core": "^0.3.1"
   },
   "publishConfig": {
     "access": "public"

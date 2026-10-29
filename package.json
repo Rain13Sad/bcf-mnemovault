@@ -1,6 +1,6 @@
 {
   "name": "bcf-mnemovault",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "MnemoVault — DeepSeek Harness 的记忆与情感插件包族：稀疏码记忆晶格、四路召回、双相巩固、情感内核与侧栏面板",
@@ -30,7 +30,7 @@
   "packageManager": "npm@10.9.7",
   "engines": {
     "dsh": ">=0.2.1-rc.3 <0.3.0",
-    "node": ">=22.5.0",
+    "node": ">=22.13.0",
     "npm": ">=10"
   },
   "workspaces": [
@@ -50,7 +50,8 @@
     "preview": "node scripts/demo.mjs && node scripts/panel-dev.mjs 5178",
     "bench:eval": "node scripts/bench-eval.mjs",
     "readmes": "node scripts/pkg-readme.mjs",
-    "publish:all": "npm publish --workspaces --access public",
+    "check:publish": "node scripts/ci-check-publish.mjs",
+    "publish:all": "node scripts/ci-check-publish.mjs && npm publish --workspaces --access public",
     "verify": "npm run build && npm test && npm run check && npm run bench:eval"
   },
   "devDependencies": {

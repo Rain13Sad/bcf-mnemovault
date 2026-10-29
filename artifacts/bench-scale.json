@@ -1,0 +1,23 @@
+{
+  "generatedAt": "2026-10-29T09:49:58.945Z",
+  "rows": [
+    {
+      "cells": 202,
+      "driver": "sqlite",
+      "loadSec": 1.4,
+      "writeMsPerCell": 7.1,
+      "recallP50Ms": 15,
+      "recallP95Ms": 20,
+      "forEachCellMs": 5
+    },
+    {
+      "cells": 502,
+      "driver": "sqlite",
+      "loadSec": 6.3,
+      "writeMsPerCell": 12.6,
+      "recallP50Ms": 26,
+      "recallP95Ms": 35,
+      "forEachCellMs": 8
+    }
+  ]
+}

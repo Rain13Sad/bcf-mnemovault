@@ -48,6 +48,8 @@ export interface Config {
   idleMin: number
   /** 是否需要情感/记忆由头（false = 允许单纯"好久没聊了"） */
   requireReason: boolean
+  /** tick 的最低紧迫度 */
+  minUrgency: number
 }
 
 export const Config: z<Config> = z.object({
@@ -58,6 +60,12 @@ export const Config: z<Config> = z.object({
   quietEnd: z.number().min(0).max(23).default(8).description('静默结束（小时）'),
   idleMin: z.number().min(5).max(1440).default(90).description('用户空闲多久后才考虑开口'),
   requireReason: z.boolean().default(true).description('必须有情感/记忆由头，否则只允许"好久没聊"'),
+  minUrgency: z
+    .number()
+    .min(0.1)
+    .max(0.9)
+    .default(0.3)
+    .description('tick 的最低紧迫度。低于 0.3 会让 pickMemory(0.42)/pickSilence(0.3) 永远走不到'),
 })
 
 export type ProactiveKind = 'emotion' | 'milestone' | 'associate' | 'memory' | 'silence'
@@ -88,6 +96,15 @@ export interface ProactiveState {
 
 const DAY = 86_400_000
 
+/** 用户明确拒绝主动开口的说法。只认"别找我/别打扰"这类直白表达，不做情感猜测。 */
+const BOUNDARY_RE = /别(再)?(主动)?(找我|说话|打扰|烦我)|不要(主动)?(找我|打扰)|安静点|shut up|don'?t (disturb|message me)/i
+
+function hash32(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0
+  return h >>> 0
+}
+
 export class ProactiveService {
   config: Config
   private state: ProactiveState = {
@@ -100,32 +117,62 @@ export class ProactiveService {
     skipped: [],
   }
 
+  /** 可注入的时钟：与 MemoryService 保持同一个约定，测试才能构造跨日场景 */
+  private readonly now: () => number
+
   constructor(
     private readonly ctx: Context,
     private readonly memory: MemoryService,
     config: Config,
+    now?: () => number,
   ) {
     this.config = config
+    this.now = now ?? (() => Date.now())
+    this.restore()
   }
 
   /** 记一次用户发言：空闲时长与"刚聊完别插嘴"都靠它 */
-  noteUserActivity(now = Date.now()): void {
+  noteUserActivity(now = this.now()): void {
     this.state.lastUserAt = now
+    this.save()
   }
 
   /** 用户划的边界命中静音词 → 立即静音（需手动解除，符合"boundaries 只增不减"） */
-  muteFor(ms: number, now = Date.now()): void {
+  muteFor(ms: number, now = this.now()): void {
     this.state.mutedUntil = now + ms
+    this.save()
   }
   unmute(): void {
     this.state.mutedUntil = 0
+    this.save()
   }
 
+  /**
+   * 日期键用**本地日期**。
+   * 原先用 `toISOString()`（UTC），而静默时段判定用的是本地小时——
+   * 在 UTC+8 的凌晨，两者会指向不同的"今天"，日限重置时点因此错乱。
+   */
   private dayKey(now: number): string {
-    return new Date(now).toISOString().slice(0, 10)
+    const d = new Date(now)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   }
 
-  /** 现在能不能说话。返回 null 表示可以，否则返回原因。 */
+  /**
+   * 跨日滚动：**只在写路径调用**（fire / tick）。
+   *
+   * 这是一个曾经真实存在的生产 bug：`blockedBy()` 在只读的 `snapshot()` 里被调用，
+   * 而它顺手把 `todayCount` 清零——于是"用户打开面板看一眼，当日配额就没了"。
+   * 现在读路径完全无副作用：`blockedBy` 只**比较**日期，不修改状态。
+   */
+  private rollDay(now: number): void {
+    const k = this.dayKey(now)
+    if (this.state.lastDay === k) return
+    this.state.lastDay = k
+    this.state.todayCount = 0
+    this.save()
+  }
+
+  /** 现在能不能说话。返回 null 表示可以，否则返回原因。**纯函数，无副作用。** */
   private blockedBy(now: number): string | null {
     if (!this.config.enabled) return '总开关关闭'
     if (now < this.state.mutedUntil) return `已静音至 ${new Date(this.state.mutedUntil).toLocaleTimeString()}`
@@ -133,11 +180,9 @@ export class ProactiveService {
     const { quietStart: qs, quietEnd: qe } = this.config
     const inQuiet = qs <= qe ? h >= qs && h < qe : h >= qs || h < qe
     if (inQuiet) return `静默时段 ${qs}:00–${qe}:00`
-    if (this.state.lastDay !== this.dayKey(now)) {
-      this.state.lastDay = this.dayKey(now)
-      this.state.todayCount = 0
-    }
-    if (this.state.todayCount >= this.config.maxPerDay) return `今日已达上限 ${this.config.maxPerDay} 次`
+    // 跨日时按"今天还没说过"判断，但**不改状态**——清零发生在 rollDay()
+    const todayCount = this.state.lastDay === this.dayKey(now) ? this.state.todayCount : 0
+    if (todayCount >= this.config.maxPerDay) return `今日已达上限 ${this.config.maxPerDay} 次`
     if (this.state.lastAt && now - this.state.lastAt < this.config.minIntervalMin * 60_000) {
       const left = Math.ceil((this.config.minIntervalMin * 60_000 - (now - this.state.lastAt)) / 60_000)
       return `距上次主动还有 ${left} 分钟`
@@ -153,7 +198,7 @@ export class ProactiveService {
    * 挑一个由头。优先级：未平复的情绪 > 里程碑 > 联想链 > 高显著度旧记忆 > 单纯问候。
    * 每条都带"具体的锚点"——泛泛的"最近怎么样"是骚扰，提到具体的事才是关心。
    */
-  candidate(now = Date.now(), opts: { ignoreSchedule?: boolean } = {}): ProactiveCandidate | null {
+  candidate(now = this.now(), opts: { ignoreSchedule?: boolean } = {}): ProactiveCandidate | null {
     const block = opts.ignoreSchedule ? null : this.blockedBy(now)
     if (block) {
       this.state.skipped.push({ at: now, reason: block })
@@ -180,11 +225,25 @@ export class ProactiveService {
     return final
   }
 
-  /** 真正"说出口"：记账 + 发事件。宿主负责把 text 变成一次模型开口。 */
-  fire(c: ProactiveCandidate, now = Date.now()): void {
+  /**
+   * 真正"说出口"：记账 + 发事件。宿主负责把 text 变成一次模型开口。
+   *
+   * 两道以前没有的保险：
+   *   ① 先 rollDay（跨日清零发生在这里，而不是读路径）
+   *   ② 再判 blockedBy——任何调用方都不能绕过频率/静音/上限直接开口
+   */
+  fire(c: ProactiveCandidate, now = this.now()): boolean {
+    this.rollDay(now)
+    const block = this.blockedBy(now)
+    if (block) {
+      this.state.skipped.push({ at: now, reason: `被拒绝：${block}` })
+      if (this.state.skipped.length > 20) this.state.skipped.shift()
+      return false
+    }
     this.state.lastAt = now
     this.state.todayCount++
     this.state.lastCandidate = c
+    this.save()
     this.memory.emit('mnemo/proactive', {
       kind: c.kind,
       text: c.text,
@@ -193,25 +252,73 @@ export class ProactiveService {
       urgency: c.urgency,
       at: now,
     })
+    return true
   }
 
-  /** 定时器每分钟问一次"现在能不能说"；能说就发事件（由宿主决定是否真的开口）。 */
-  tick(now = Date.now()): ProactiveCandidate | null {
+  /**
+   * 定时器每分钟问一次"现在能不能说"；能说就发事件（由宿主决定是否真的开口）。
+   *
+   * 门槛从 0.45 降到 0.3：`pickMemory` 的 urgency 是 0.42、`pickSilence` 是 0.3，
+   * 0.45 的门槛让这两条路径**永远走不到**——写了但从没生效过。
+   * 现在门槛与最低产出对齐，并暴露成配置。
+   */
+  tick(now = this.now()): ProactiveCandidate | null {
+    this.rollDay(now)
     const c = this.candidate(now)
-    if (c && c.urgency >= 0.45) {
-      this.fire(c, now)
-      return c
+    if (c && c.urgency >= this.config.minUrgency) {
+      return this.fire(c, now) ? c : null
     }
     return null
   }
 
-  snapshot(): ProactiveState & { blocked: string | null; nextEligibleAt: number } {
-    const now = Date.now()
+  /** 只读快照。**不允许修改任何状态**（面板每次打开都会调它）。 */
+  snapshot(now = this.now()): ProactiveState & { blocked: string | null; nextEligibleAt: number } {
     const block = this.blockedBy(now)
     return {
       ...this.state,
+      // 跨日但还没发生任何写操作时，对外显示"今天 0 次"而不是昨天的数
+      todayCount: this.state.lastDay === this.dayKey(now) ? this.state.todayCount : 0,
       blocked: block,
       nextEligibleAt: Math.max(this.state.lastAt + this.config.minIntervalMin * 60_000, this.state.mutedUntil),
+    }
+  }
+
+  // ── 状态持久化（重启不清零） ─────────────────────────────────────
+
+  /**
+   * 限流状态必须落盘。
+   * 之前它只在内存里，重启一次 `todayCount` / `lastAt` / `mutedUntil` 全部归零——
+   * 换句话说"重启即绕过每日上限与静音"。
+   */
+  private save(): void {
+    try {
+      this.memory.store.setMeta(
+        'proactive:state',
+        JSON.stringify({
+          lastAt: this.state.lastAt,
+          lastDay: this.state.lastDay,
+          todayCount: this.state.todayCount,
+          mutedUntil: this.state.mutedUntil,
+          lastUserAt: this.state.lastUserAt,
+        }),
+      )
+    } catch {
+      /* 落盘失败不影响主动逻辑本身 */
+    }
+  }
+
+  private restore(): void {
+    try {
+      const raw = this.memory.store.meta('proactive:state')
+      if (!raw) return
+      const v = JSON.parse(raw) as Partial<ProactiveState>
+      this.state.lastAt = Number(v.lastAt ?? 0)
+      this.state.lastDay = String(v.lastDay ?? '')
+      this.state.todayCount = Number(v.todayCount ?? 0)
+      this.state.mutedUntil = Number(v.mutedUntil ?? 0)
+      this.state.lastUserAt = Number(v.lastUserAt ?? 0)
+    } catch {
+      /* 坏数据就当没存过 */
     }
   }
 
@@ -275,7 +382,10 @@ export class ProactiveService {
       .listCells({ limit: 40, order: 'recent' })
       .filter((c) => c.kind !== KIND.narrative && c.salience >= 0.6 && now - Number(c.tFrom) > 3 * DAY)
     if (cells.length === 0) return null
-    const pick = cells[Math.floor(Math.random() * Math.min(3, cells.length))]
+    // 确定性采样：同一个 now 永远挑同一条。随机采样会让"同一段日志跑两遍"得到不同结果，
+    // 与项目"写入/召回可复现"的硬约束冲突。
+    const n = Math.min(3, cells.length)
+    const pick = cells[Math.abs(hash32(`proactive:${now}:${cells.length}`)) % n]
     return {
       text: `（主动）有一件旧事你可能还记得：「${pick.digest ?? ''}」。可以问问后来怎么样了，或者提一句你一直记着。`,
       reason: '高显著度旧记忆',
@@ -301,14 +411,24 @@ export class ProactiveService {
 export function apply(ctx: Context, config: Config) {
   const memory = ctx.get('memory') as MemoryService | undefined
   if (!memory) throw new Error('[mnemo-proactive] 需要 ctx.memory')
-  const service = new ProactiveService(ctx, memory, config)
+  // 与 MemoryService 共用同一个时钟：否则"记忆用注入时钟、主动用真实时钟"，
+  // 测试里构造的跨日场景永远测不到真问题。
+  const service = new ProactiveService(ctx, memory, config, () => memory.nowMs())
   ;(ctx as unknown as { provide(n: string, v: unknown): unknown }).provide?.('mnemoProactive', service)
 
-  // 记录用户活动（空闲判定）
+  // 记录用户活动（空闲判定）+ 边界静音
   ctx.effect(() => {
     const off = ctx.on('session/event', (_session, event) => {
-      const type = String((event as { type?: string })?.type ?? '')
-      if (type === 'user/message') service.noteUserActivity()
+      const e = event as { type?: string; content?: unknown }
+      if (String(e?.type ?? '') !== 'user/message') return
+      const text = typeof e.content === 'string' ? e.content : JSON.stringify(e.content ?? '')
+      service.noteUserActivity()
+      // 头注释承诺过"boundaries 命中静音词 → 静音"，但一直没实现。
+      // 这里用一个保守的、只认明确拒绝的判据：宁可多静音一次，也不要踩边界。
+      if (BOUNDARY_RE.test(text)) {
+        service.muteFor(7 * 24 * 3600_000)
+        ctx.logger('mnemo-proactive').info('用户明确要求别主动开口，静音 7 天')
+      }
     })
     return () => off()
   }, 'mnemo-proactive: activity tracking')

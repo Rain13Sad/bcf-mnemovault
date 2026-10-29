@@ -26,6 +26,7 @@ import {
   isNegated,
   parseTimeExpr,
   redact,
+  scrubValue,
   segmentPropositions,
   detectPredicate,
   extractEntities,
@@ -109,6 +110,8 @@ export interface EncodeResult {
   conflicts: number
   skipped: number
 }
+
+const PLACEHOLDER_G = new RegExp('\u00abSECRET:[0-9]+\u00bb', 'g')
 
 const PROPOSITION_KIND: Array<{ re: RegExp; kind: number }> = [
   { re: /不要|别|禁止|永远|must|never/i, kind: KIND.procedure },
@@ -303,12 +306,22 @@ export class Encoder {
       const key = p.text.trim().toLowerCase()
       if (!key || seen.has(key)) continue
       seen.add(key)
-      const cell = this.buildCell({ ...input, at }, p.text, 0, seq++, turnRef)
+      /**
+       * 先取值再自增，**同一个 s 同时用于 cellId 与 cell_sources**。
+       *
+       * v0.3 之前写的是 `buildCell(..., seq++)` 配 `ingest(..., { seq })`：
+       * cellId 用自增前的值、来源记录用自增后的值，两者永远差 1。
+       * 而 `deriveCellId(sessionId, seqs, sdr)` 的输入正是 seq——
+       * 于是从 session_log 重放会算出**不同的 cellId**，
+       * 直接违反"写入可复现"这条硬约束。
+       */
+      const s = seq++
+      const cell = this.buildCell({ ...input, at }, p.text, 0, s, turnRef)
       if (!cell) {
         out.skipped++
         continue
       }
-      const r = this.memory.ingest(cell, [{ session: input.sessionId, seq }])
+      const r = this.memory.ingest(cell, [{ session: input.sessionId, seq: s }])
       out.cells.push(r.cell)
       if (r.action === 'created') out.created++
       else if (r.action === 'merged') out.merged++
@@ -331,16 +344,28 @@ export class Encoder {
     const red = redact(text)
     if (red.pii && !red.text.replace(/«SECRET:\d+»/g, '').trim()) return null
 
-    const ents = extractEntities(text)
-    const pred = detectPredicate(text)
-    const neg = isNegated(text)
-    const timeRange = parseTimeExpr(text, at)
-    const slots = fillSlots(text, { ents, pred, neg, timeRange, provenance })
+    /**
+     * 从这里往下，**一律用 `red.text`**，不再碰原文。
+     *
+     * v0.2/v0.3 的 bug：digest 用了脱敏文本，但实体抽取、槽位填充、向量、话题指纹
+     * 全都读原文。结果是「摘要里是 «SECRET:1»，旁边的槽位里是完整手机号」——
+     * 而槽位会经 kvPairs() 直接渲染进模型上下文。审查用一个注入探针就复现了。
+     *
+     * 规则很简单：**脱敏是入口，不是收尾**。原文在这个函数里只允许出现在
+     * `red.text` 这一个变量里。
+     */
+    const safe = red.text
+
+    const ents = extractEntities(safe)
+    const pred = detectPredicate(safe)
+    const neg = isNegated(safe)
+    const timeRange = parseTimeExpr(safe, at)
+    const slots = scrubSlots(fillSlots(safe, { ents, pred, neg, timeRange, provenance }))
     if (slots.length === 0) return null
 
     const sdr = this.buildSdr(slots)
-    const emb = hashEmbedding(text, this.memory.config.embDim)
-    const kind = pickKind(text, pred)
+    const emb = hashEmbedding(safe, this.memory.config.embDim)
+    const kind = pickKind(safe, pred)
     const trust = TRUST_BY_PROVENANCE[provenance]
     const pad = input.pad ?? { v: 0, a: 0.2, d: 0.5, s: 0.3 }
 
@@ -386,7 +411,7 @@ export class Encoder {
       residual: residualRef,
       confidence,
       support: 1,
-      topic: topicFingerprint(text),
+      topic: topicFingerprint(safe),
       digest: red.text.slice(0, 120),
       // 作用域与会话归属（§14.10）：情景记忆靠 session 隔离，语义记忆靠 scope 共享
       scope: this.memory.scopeKey,
@@ -417,9 +442,23 @@ export class Encoder {
   }
 }
 
+/**
+ * 槽位兜底脱敏。
+ *
+ * 为什么需要单独一层：`fillSlots` 是规则函数，它不知道哪些值是凭据；
+ * 而槽位值会进 SDR、进 MRS 渲染、进面板、进导出。只要有一处漏了脱敏，
+ * 明文就会沿着三条链路同时扩散。所以出口统一过一遍，命中就换成 «SECRET:n»。
+ */
+export function scrubSlots(slots: readonly Slot[]): Slot[] {
+  return slots.map((s) => {
+    if (s.type !== 'LIT' || !s.value) return s
+    const r = scrubValue(s.value)
+    return r.redacted ? { ...s, value: r.value } : s
+  })
+}
+
 /** 槽位填充：规则版。8 个语义槽 + POLARITY（§7.3 / §7.6）。 */
-export function fillSlots(
-  text: string,
+export function fillSlots(  text: string,
   ctx: { ents: string[]; pred: string; neg: boolean; timeRange?: { from: number; to: number }; provenance: number },
 ): Slot[] {
   const slots: Slot[] = []
@@ -452,7 +491,8 @@ export function fillSlots(
     const d = new Date(ctx.timeRange.from)
     slots.push(lit(SLOT_ROLE.TIME, `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`))
   }
-  const qty = text.match(/(\d+(?:\.\d+)?)\s*(个|次|天|周|月|年|行|条|%|ms|s|kb|mb)?/i)
+  // 数量槽不能从脱敏占位符里取数字：「SECRET:1» 里的 1 不是数量。
+  const qty = text.replace(PLACEHOLDER_G, ' ').match(/(\d+(?:\.\d+)?)\s*(个|次|天|周|月|年|行|条|%|ms|s|kb|mb)?/i)
   if (qty && qty[1]) slots.push(lit(SLOT_ROLE.QTY, `${qty[1]}${qty[2] ?? ''}`))
   slots.push(lit(SLOT_ROLE.POLARITY, ctx.neg ? 'neg' : 'pos'))
 
@@ -477,14 +517,6 @@ function clamp01(x: number): number {
   return Math.min(1, Math.max(0, x))
 }
 
-function hash64Local(s: string): bigint {
-  let h = 0xcbf29ce484222325n
-  for (let i = 0; i < s.length; i++) {
-    h ^= BigInt(s.charCodeAt(i))
-    h = (h * 0x100000001b3n) & 0xffffffffffffffffn
-  }
-  return h
-}
 
 interface PendingTurn {
   sessionId: string
@@ -689,13 +721,16 @@ export function apply(ctx: Context, config: Config) {
       if (!role) return
       const text = textOf(e.content)
       if (!text.trim()) return
+      // 影子日志也要脱敏：它是重建晶格的唯一依据，而重建用的编码器读的是脱敏文本，
+      // 所以存脱敏版本既等价、又不把明文凭据落第二份盘（审查实测过这一处泄漏）。
+      const safe = redact(text).text
       try {
         memory.store.appendLog({
           session: sid,
           seq: Number(e.seq ?? 0),
           turn: Number(e.turn ?? 0),
           role: role as 'user' | 'assistant' | 'tool',
-          text,
+          text: safe,
           at: Number(e.time ?? Date.now()),
         })
       } catch {

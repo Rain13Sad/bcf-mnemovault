@@ -59,6 +59,16 @@ export interface PassResult {
   narrated: number
 }
 
+/** 确定性伪随机：同一 key 永远得到同一 (0,1) 值。 */
+function unitHash(key: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 0x01000193) >>> 0
+  h ^= h >>> 15
+  h = Math.imul(h, 0x2545f491) >>> 0
+  h ^= h >>> 13
+  return h / 4294967296
+}
+
 export function derivePassId(sessionId: string, seq: number): string {
   let h = 0x811c9dc5
   const s = `${sessionId}|${seq}`
@@ -192,7 +202,7 @@ export class Consolidator {
         sdr,
         emb: base.emb,
         slots,
-        edges: cells.slice(0, 12).map((c) => ({ targetPrefix: Number(c.cellId & 0xffffffffn), rel: REL.PART_OF, weight: 64 })),
+        edges: cells.slice(0, 12).map((c) => ({ targetPrefix: Number(c.cellId & 0xffffffffn), dst: c.cellId, rel: REL.PART_OF, weight: 64 })),
         residual: shortest.residual,
         confidence: avg(cells.map((c) => c.confidence)),
         support,
@@ -239,8 +249,12 @@ export class Consolidator {
             linked++
           }
         }
-        // 弱关联：按温度采样，控制总量
-        if (Math.random() < 1 / (1 + Math.exp(-(j - 0.15) / this.config.divergenceTemp)) && linked < budget) {
+        // 弱关联：按温度采样，控制总量。
+        // 采样必须**确定性**：用 (passId, seed, target) 的哈希代替 Math.random，
+        // 否则同一段日志跑两遍 rebuild 会得到不同的联想边集合——
+        // 而"重放可复现"是这个项目对文本摘要方案的核心差异化承诺。
+        const p = 1 / (1 + Math.exp(-(j - 0.15) / this.config.divergenceTemp))
+        if (unitHash(`${passId}|${seed.cellId}|${target.cellId}`) < p && linked < budget) {
           const exists = mem.store.edgesFrom(seed.cellId).some((x) => x.dst === target.cellId && x.rel === REL.ASSOC)
           if (!exists) {
             mem.store.putEdge({ src: seed.cellId, dst: target.cellId, rel: REL.ASSOC, weight: 38 })
@@ -339,7 +353,7 @@ export class Consolidator {
       sdr,
       emb: null,
       slots,
-      edges: anchors.map((c) => ({ targetPrefix: Number(c.cellId & 0xffffffffn), rel: REL.EVIDENCE, weight: 72 })),
+      edges: anchors.map((c) => ({ targetPrefix: Number(c.cellId & 0xffffffffn), dst: c.cellId, rel: REL.EVIDENCE, weight: 72 })),
       residual: null,
       confidence: 0.7,
       support: anchors.length,
