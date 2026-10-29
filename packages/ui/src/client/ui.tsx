@@ -97,3 +97,39 @@ export function Sparkline(props: { data: number[]; width?: number; height?: numb
 export function Empty(props: { title: string; hint?: string }): ReactNode {
   return h('div', { className: 'mnv-empty' }, h('div', null, props.title), props.hint ? h('div', null, props.hint) : null)
 }
+
+/** 绝对时间（面板"索引构建时间"这类字段要的是可核对的时间点，不是"3 天前"）。 */
+export function fmtTime(ms: number): string {
+  if (!ms) return '—'
+  const d = new Date(ms)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+export function pct(x: number, digits = 0): string {
+  return `${(x * 100).toFixed(digits)}%`
+}
+
+/** 小标题：`标题 ────────── 右侧说明` */
+export function SubHead(props: { title: string; hint?: string; right?: ReactNode }): ReactNode {
+  return h(
+    'div',
+    { className: 'mnv-subhead' },
+    h('b', null, props.title),
+    props.hint ? h('span', null, props.hint) : null,
+    props.right ? h('span', { style: { marginLeft: 'auto' } }, props.right) : null,
+  )
+}
+
+export function Status(props: { ok: boolean; text: string }): ReactNode {
+  return h('span', { className: 'mnv-status', 'data-ok': props.ok }, props.text)
+}
+
+export function Stat(props: { label: string; value: ReactNode; tone?: 'warn' | 'danger' | 'accent'; title?: string }): ReactNode {
+  return h(
+    'div',
+    { className: 'mnv-stat', 'data-tone': props.tone, title: props.title },
+    h('b', null, props.value),
+    h('span', null, props.label),
+  )
+}

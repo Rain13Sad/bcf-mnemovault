@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-recall",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "读侧：agent/pre-step 四路召回 + 4±1 槽位注入",
   "keywords": [
     "dsh",

@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-consolidator",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "离线巩固：NREM / REM pass + 锁 + 遗忘",
   "keywords": [
     "dsh",

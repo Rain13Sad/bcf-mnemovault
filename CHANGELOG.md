@@ -6,6 +6,73 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [0.3.0] — 2026-10-29
+
+处理 v0.2 遗留的六个问题（存储比 / L1 端口 / embedding / HNSW / `ctx.remote` / 命令面），
+并按 DSH 记忆插件的版式重做侧栏面板。**存储布局升到 MC03，旧库需 `/mnemo rebuild --from-log`。**
+
+### 存储：MC03 与存储比
+
+- **存储布局 MC03**（`cell.ts`）：头 192 → 112 B（时间戳 i64 → u48、浮点按量纲降位、
+  槽位/边计数 u8）；SDR 从定长位图（256 B）改为稀疏索引 + 差分变长整数（无损，且不再随
+  `sdrDim` 膨胀）；向量落盘维度 256 → 128（`embStoreDim`，计算仍在 256 维哈希空间后折叠）。
+  单条 cell 从 844 B 降到 **341 B**。`decodeCell` 仍可读 MC02。
+- **冷层 PQ 修复**：`pq32` 改为先按最大绝对值归一化再取 4 bit。此前哈希向量的分量只有
+  ±4…±8，`avg/16` 全部取整为 0，冷层向量变成零向量——冷记忆在语义路上永远拿 0 分。
+- **`cosine` 支持不等长向量**：短的一侧按 PQ 语义展开后比较（同样是"冷层零分"的根因）。
+- **元数据 cell 改 upsert**：人格锚 / 关系模型 / 图式走 `memory.upsertMeta(key, cell)`，
+  按稳定 key 覆盖。此前它们走 `ingest`，每轮都判出"冲突"并新增一行。
+- **残差压缩档 5 → 9**：2.4 KB 上 2 ms，压缩率 0.525 → 0.468。
+- **长度感知的切分预算**：`encoder.cellsPerTurnChars`（默认 600），
+  一轮 800 字最多 2 条 cell；设为 0 退回纯 `maxCellsPerTurn`。
+- **bench 修复两处测量错误**：存储场景的分母只有 311 字（注释写的是 800 字），
+  `bytesPerCell` 把残差摊进了 cell。新增 `storageRatioCoarse` / `bytesPerCell` /
+  `residualShare` / `storageBreakEvenChars` 四项分解指标。
+- **存储比进 CI 门槛**：`storageRatioRealistic ≤ 0.90`、`storageRatioCoarse ≤ 0.72`。
+  实测 0.839 / 0.678（v0.2 为 2.50×）。
+
+### 检索
+
+- **HNSW 实现**（`core/src/ann.ts`）：确定性层高（id 哈希，重建得到同一张图）、
+  墓碑删除 + 20% 阈值重建、`BruteIndex` 同接口。`cell < 2000` 仍走精确扫描。
+- **语义路接入索引**：`runRecall` 通过 `deps.ann` 取候选，多取一倍以抵消作用域过滤；
+  `memory.annOverlap(k)` 可抽样比对 ANN 与精确扫描的重合度。
+- **embedding v2**：字符 bigram 骨架 + 24 组同义词族桥接 + 标识符整体成词 + sublinear TF。
+  Recall@8 保持 0.941，MRR 0.686 → 0.681（128 维落盘）。
+- 新增 `EmbeddingPort` 与 `quantize()`（宿主 embedding 服务的接口，尚未接线）。
+
+### 编码与接线
+
+- **`fromHostLlm` 扩到 8 种入口 × 4 个嵌套路径**，返回结构支持字符串 / `{text}` /
+  `{content}` / `{choices[0].message.content}` / 异步迭代器；新增 `probeLlmPort()` 启动自检。
+- **`turn/end` 走 `encodeTurnAsync`**：端口可用时用模型切分，异常自动回退同步路径。
+- **`ctx.remote` 接线**：host 侧 `ctx.provide('mnemoRemote', …)` + 四种注册表形状探测；
+  新增 `mnemoSnapshot`（只读兜底）与 `mnemoCommands`（面板按钮命令桥）。
+- **命令面探测四种形状**，全不中才降级为 `mnemo_command` 工具。
+- **`RuntimeStatus`**（`ctx.provide('mnemoRuntime')`）：L1 / ANN / 命令面 / remote / 工具清单
+  集中登记，面板与 doctor 读同一份。
+
+### 面板
+
+- **重做为六个页签**：记忆总览 / 记忆检索 / 记忆整理 / 收件箱 / 情感状态 / 设置。
+  总览页含存储路径卡、8 个指标格、8 类分类统计、索引状态、标签云、四列最近列表、
+  后端能力与已注册工具；收件箱支持确认 / 忽略 / 矛盾裁决；设置页标注每项的生效时机。
+- **`PanelSnapshot` 新增** `runtime` / `index` / `tags` / `categories` / `recentNew` /
+  `recentUpdated` / `pending` / `consolidation`（全部可选，旧快照仍能渲染）。
+- **`PanelAction` 新增** `consolidate` / `rebuild` / `doctor` / `confirm` / `dismiss`。
+- **修复侧栏宽度 bug**：`.mnv-root` 作为 flex 子项时 `min-width` 默认是 `min-content`，
+  会把 320–420 px 的侧栏顶宽、右边被裁掉。
+- 面板预览支持 `#overview` / `#search` / … 直接定位页签。
+
+### 测试与工具
+
+- 测试 93 → **109**：新增 `test/ann.test.mjs`（6 条：HNSW 重合度 / 可复现 / 删除 / 空索引 /
+  PQ 余弦 / 折叠保序）、`test/bridge.test.mjs`（9 条：L1 形状 / 自检 / remote 面 / 命令面），
+  面板 SSR 冒烟覆盖全部新视图。
+- 修复 `test/companion.test.mjs` 的日期炸弹：`at()` 写死 `2026-10-28`，跨过午夜后
+  `snapshot()` 会因 `lastDay` 变化把 `todayCount` 归零，该用例必挂。
+- 新增 `devkit` 的 `encoder` 配置覆盖，供 bench 做切分粒度对照实验。
+
 ## [Unreleased]
 
 ### 新增

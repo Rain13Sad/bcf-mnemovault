@@ -138,26 +138,45 @@ Measured on Node 22.22 / Windows; reproducible from `artifacts/bench.json` (`npm
 | Dedupe precision | **0.90** | ≥ 0.90 | restating a fact should merge |
 | Dedupe recall | **1.00** | — | same topic, different value should not merge |
 | Temporal reasoning | **1.00** | ≥ 0.75 | `pnpm → npm → bun` across three versions |
-| tokens / turn | **116.0** | ≤ 240 | legend amortised |
-| Recall p95 | **30 ms** | ≤ 40 ms @1M | 100 cells locally, not a million |
-| Storage ratio (short propositions) | 24.1× | ≤ 0.60 | **known miss — see below** |
-| Storage ratio (800-char turn) | 2.50× | ≤ 0.60 | same |
+| tokens / turn | **106.9** | ≤ 240 | legend amortised |
+| Recall p95 | **32 ms** | ≤ 40 ms @1M | 100 cells locally, not a million |
+| Bytes per cell | **341 B** | — | MC03: 112 B header + sparse SDR + 128-dim vector (844 B in v0.2) |
+| Storage ratio (short-proposition DB) | 5.32× | diagnostic only | ~100 B turns, fixed base dominates |
+| Storage ratio (800-char turn, default split) | **0.84×** | ≤ 0.90 | 762 chars/turn, 2.25 cells/turn |
+| Storage ratio (800-char turn, one cell) | **0.68×** | ≤ 0.72 | coarse control, shows split-granularity sensitivity |
 
 CI turns these into failing assertions via [`scripts/ci-assert-bench.mjs`](scripts/ci-assert-bench.mjs)
-(Recall@8 ≥ 0.80 / MRR ≥ 0.60 / tokens ≤ 240). The storage ratio is a known miss and is only printed,
-never gated — a CI that stays red stops being read.
+(Recall@8 ≥ 0.80 / MRR ≥ 0.60 / tokens ≤ 240 / both storage profiles). Since v0.3 the storage ratio
+**is gated** — but against the measured, reachable target, not the arithmetically impossible 0.60.
 
 <details>
-<summary><b>Why the storage ratio misses, and what would fix it</b></summary>
+<summary><b>Why 0.45–0.60× was unreachable, and what v0.3 actually fixed</b></summary>
 
-Every cell has a fixed base of 192 B (header) + 256 B (sparse code) + 256 B (vector) = **704 B**,
-plus a brotli residual of roughly `0.42 × raw`. So `ratio ≈ (nCells × 750 + 0.42 × L) / L`.
-The design estimate assumed *one cell per turn*; the encoder splits per **proposition** (which is what
-the design asks for), so a turn yields 2–4 cells and the fixed base is amplified 2–4×.
+Two measurement errors came first, and they were the bulk of the 2.50×:
 
-That is a gap in the design doc, not an implementation bug. Mitigations, none implemented yet:
-coarser splitting (`maxCellsPerTurn`), product quantisation in the cold tier (256 → 32 B),
-moving the embedding from proposition cells to turn level.
+1. **The denominator was off by 2.7×.** The script claimed an "800-char turn" but built a 311-char
+   (≈885 B) one, while the 0.45–0.60× estimate assumed ≈2.4 KB per turn. Fixed to 762 chars / 2072 B,
+   and the fixture no longer repeats identical sentences (verbatim repeats compress to 0.10 and
+   produce a number that only holds inside the fixture).
+2. **The numerator mixed residuals into cells.** `bytesPerCell` divided total bytes by cell count,
+   reporting 824 B when a cell is really 341 B.
+
+Then three real encodings were replaced (704 B → 341 B per cell): 192 → 112 B header, 256 B SDR bitmap
+→ sparse delta-varint indices, 256-dim int8 vector → 128-dim folded. Cold-tier PQ is now normalised
+before 4-bit quantisation (it used to round every nibble to zero, making cold memories unretrievable).
+Persona/relational cells are upserted instead of appended per revision.
+
+The arithmetic that remains:
+
+```
+ratio = residual compression + (nCells × 341) / L ≈ 0.47 + (n × 341) / 2072
+```
+
+Residual compression (0.47) is a hard floor. At 2.25 cells/turn → 0.84; at 1.25 → 0.68; the theoretical
+single-cell limit is 0.63. **0.45–0.60× only holds below one cell per turn**, i.e. by giving up
+proposition-level splitting. The doc put two contradictory requirements into one number; v0.3 replaces
+it with the derived targets above and keeps `storageBreakEvenChars = 1443` — "below ~1.4 KB per turn,
+structured memory costs more than the raw text" — which is the number users actually need.
 
 </details>
 
@@ -193,10 +212,24 @@ ctx.slots.register({ name: 'main', key: 'mnemo' }, MnemoPanel)
 ctx.slots.register({ name: 'sidebar.panellist', id: 'mnemo', order: 60, label: () => '记忆' }, PanelIcon)
 ```
 
-Four views: **Timeline** (grouped by day, virtualised, invalidated versions marked, inline edits),
-**Graph** (two-hop concentric layout, deterministic), **Affect** (PAD scatter, six homeostatic
-variables, persona anchor, user schema), **Diagnostics** (hit rate, token curve, contradictions,
-tuning wizard, forgetting audit).
+Six tabs, laid out like the DSH memory plugin:
+
+![Memory panel · overview](docs/assets/panel-overview.png)
+
+
+| Tab | Question it answers |
+| :--- | :--- |
+| **Overview** | Where is the store, what state is it in — path + actions, 8 metrics, 8 categories, index status, tag cloud, four recent columns, backend capabilities |
+| **Search** | Is the memory I want in there — filters, per-hit channel and score, inline "why" from the same `ScoreBreakdown` |
+| **Organize** | How to make it better — run a consolidation pass, association/version-chain stats, graph, invalidated versions, forgetting audit |
+| **Inbox** | What is waiting on me — disputed or isolated single-evidence memories, contradiction adjudication |
+| **Affect** | What state it is in — PAD scatter, six variables, persona anchor, user schema |
+| **Settings** | How to tune it — preset/surface/ignition, real L1 and index shape, maintenance actions |
+
+Counters live in the header, not inside a tab: "how many are waiting on me" is a decision input.
+And backend capabilities are runtime facts written by the host into `RuntimeStatus` — whether L1 uses a
+model port or rule-based lite, whether the semantic channel is HNSW or exact scan, where the command
+surface landed — so the panel can never claim a capability the host is silently degrading.
 
 "Why was this recalled?" is rendered from the same `ScoreBreakdown` the scorer produces; the host and
 client implementations are cross-checked by `test/panel-ssr.test.mjs`.
@@ -209,13 +242,19 @@ The point is that **the preview runs the same compiled output the host loads**.
 
 ## Known limitations
 
-1. Only the rule-enhanced L1 path runs; `LlmPort` / `encodeTurnAsync` are ready but the host's `ctx.llm` shape is unverified.
-2. Embeddings are character n-gram hashes — stable, but not semantic. Synonyms are covered by a lexicon.
-3. No HNSW. Exact cosine scan is faster below 100k cells; the `annTopK` seam is reserved.
-4. `ctx.remote` is not wired; the panel's remote adapter follows the shape documented in `docs/API-CONTRACT.md`.
-5. The command surface depends on `ctx.cmdline`; it degrades to a `mnemo_command` tool.
+1. Embeddings are still not a semantic model. v0.3 rewrote them (bigram backbone + 24 synonym families
+   + whole-identifier tokens) but there are no word vectors and no context. Real semantics needs the
+   host's embedding service (`EmbeddingPort` is defined, not wired).
+2. The L1 port is recognised but has never run against a real host. `fromHostLlm` now covers 8 entries
+   × nested paths, plus a startup probe; the panel shows "lite rule split" until a probe passes.
+3. HNSW is implemented but off by default below 2000 cells (exact scan is faster and has no
+   approximation error). No million-cell benchmark exists, only overlap tests (≥0.85).
+4. `ctx.remote` is wired via `ctx.provide('mnemoRemote', …)` plus four registry shapes; the host
+   registry itself is still unverified, and the panel falls back to the local service.
+5. The command surface probes four shapes and only degrades to `mnemo_command` when none match.
 6. No phenomenal consciousness, by design.
 7. No encryption at rest — the database holds real conversations. See [SECURITY.md](SECURITY.md).
+8. MC03 changed the on-disk layout: existing vaults need `/mnemo rebuild --from-log`.
 
 ---
 

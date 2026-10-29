@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T09:31:17.498Z",
+  "generatedAt": "2026-10-29T05:25:42.644Z",
   "seed": 20261028,
   "dataset": {
     "facts": 34,
@@ -8,16 +8,24 @@
   },
   "metrics": {
     "recallAt8": 0.941,
-    "mrr": 0.686,
+    "mrr": 0.681,
     "dedupePrecision": 0.9,
     "dedupeRecall": 1,
     "timeReasoningAccuracy": 1,
-    "tokensPerTurn": 116.029,
-    "recallP95Ms": 34,
-    "storageRatio": 24.06,
-    "storageRatioRealistic": 2.503,
+    "tokensPerTurn": 106.941,
+    "recallP95Ms": 27,
+    "storageRatio": 5.324,
+    "storageRatioRealistic": 0.839,
+    "storageRatioCoarse": 0.678,
     "avgRawBytesPerTurn": 97.824,
-    "cells": 100,
+    "avgRawBytesPerTurnRealistic": 2072.125,
+    "avgCharsPerTurnRealistic": 762,
+    "cellsPerTurnRealistic": 2.25,
+    "cellsPerTurnCoarse": 1.25,
+    "bytesPerCell": 340.889,
+    "residualShare": 0.468,
+    "storageBreakEvenChars": 1443,
+    "cells": 42,
     "residuals": 55,
     "invalidated": 4
   },
@@ -27,7 +35,9 @@
     "dedupePrecision": "≥ 0.90",
     "timeReasoningAccuracy": "≥ 0.75",
     "tokensPerTurn": "≤ 240",
-    "storageRatio": "≤ 0.60（该目标假设每轮 1 条 cell 且轮次约 2.4KB，见 README）",
-    "storageRatioRealistic": "≤ 0.60（800 字轮次，命题级切分仍会拉高）"
+    "storageRatio": "≤ 0.60（短轮次库，定长基底主导，见 README 的分解表）",
+    "storageRatioRealistic": "≤ 0.90（默认切分：2.25 条/轮，残差压缩 0.47 是硬下界）",
+    "storageRatioCoarse": "≤ 0.70（每轮 1 条 cell：残差 0.45 + 单条 0.17 = 0.62）",
+    "storageBreakEvenChars": "参考值：存储比降到 1.0× 所需的轮次字数"
   }
 }

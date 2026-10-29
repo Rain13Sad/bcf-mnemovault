@@ -350,11 +350,10 @@ export class AffectService extends Service {
       this.personaRev += 1
       this.personaHistory.push({ rev: this.personaRev, vector: [...this.persona] })
       if (this.personaHistory.length > 50) this.personaHistory.shift()
-      memory.ingest(relationalCell(memory, this.relationalSnapshot(), { rev: this.personaRev, vector: this.persona }, now))
-      memory.ingest(personaCell(memory, { rev: this.personaRev, vector: this.persona }, now))
-      // 版本链不是日志：只留最近 12 版，更早的软删（可回溯，不物理删）
-      const olds = memory.store.listCells({ kind: 5, limit: 50, order: 'recent' }).slice(12)
-      for (const c of olds) memory.forget(c.cellId.toString(16).padStart(16, '0'), 'soft', 'policy', 'persona 版本链截断')
+      // 元数据用 upsert 而不是 ingest：人格锚/关系模型是可变状态，
+      // 每轮数值在变但"用户是谁"没有第二个版本，不该产出 CONTRADICTS 边或新行。
+      memory.upsertMeta('relational', relationalCell(memory, this.relationalSnapshot(), { rev: this.personaRev, vector: this.persona }, now))
+      memory.upsertMeta('persona', personaCell(memory, { rev: this.personaRev, vector: this.persona }, now))
     } catch {
       // 落盘失败不能影响本轮情感输出：这是"降级"而不是"故障"
     }
@@ -368,7 +367,7 @@ export class AffectService extends Service {
     if (!memory) return patterns
     for (const p of patterns) {
       try {
-        memory.ingest(schemaCell(memory, p, Date.now()))
+        memory.upsertMeta('schema:' + p.topic, schemaCell(memory, p, Date.now()))
       } catch {
         /* 单条失败不影响其它 */
       }

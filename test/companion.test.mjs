@@ -163,8 +163,17 @@ test('再评估：用当前心境重估效价，但不动 support（证据数不
 
 // ── 主动开口 ────────────────────────────────────────────────────────
 
+/**
+ * 构造"当天某个时刻"。
+ *
+ * 曾经写死成 new Date(2026, 9, 28, …)：跨过午夜之后，`snapshot()` 里
+ * `blockedBy(Date.now())` 会发现 lastDay 与"今天"不同，把 todayCount 归零，
+ * 于是这个用例在 10 月 29 日 00:00 之后必挂——**测试自己带了个定时炸弹**。
+ * 现在从 harness 时钟取当天日期，只覆盖时分。
+ */
 const at = (h, hour, min = 0) => {
-  const d = new Date(2026, 9, 28, hour, min, 0, 0)
+  const d = new Date(h.now())
+  d.setHours(hour, min, 0, 0)
   return d.getTime()
 }
 

@@ -8,6 +8,8 @@ lib/
 
 # ── 面板预览（npm run panel 生成）──────────────────────
 artifacts/panel/
+# 临时截图（要长期保留的放 docs/assets/）
+artifacts/*.png
 
 # ── 本地记忆库与残差块（含真实对话内容，绝不入库）────────
 *.db

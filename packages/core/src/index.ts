@@ -9,6 +9,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { applyPreset, PRESETS, EFFECT_MATRIX, estimateTokensPerTurn } from './preset.js'
 import { MemoryService } from './service.js'
+import { RuntimeStatus } from './runtime.js'
 import type { MnemoConfig } from './types.js'
 
 export const name = 'mnemo-core'
@@ -29,7 +30,13 @@ export const Config = z.object({
     .default(2048)
     .description('SDR 维度。改后必须 /mnemo rebuild（容量与噪声底的折中，§6.5）'),
   sdrK: z.number().min(4).max(16).default(8).description('激活位数。k/D 决定噪声底，改后必须重建'),
-  embDim: z.number().min(64).max(1024).default(256).description('语义向量维度。改后必须重建'),
+  embDim: z.number().min(64).max(1024).default(256).description('计算用语义向量维度。改后必须重建'),
+  embStoreDim: z
+    .number()
+    .min(32)
+    .max(256)
+    .default(64)
+    .description('落盘向量维度（MC03）。每条 cell 的向量字节数，64 维 = 64 B；改后必须重建'),
   preset: z
     .union([z.const('lean'), z.const('balanced'), z.const('fidelity'), z.const('custom')])
     .default('balanced')
@@ -56,6 +63,10 @@ export const Config = z.object({
     wInterf: z.number().min(0).max(1).default(0.5).description('冗余惩罚'),
     ignition: z.number().min(0).max(1).default(0.42).description('空槽阈值。↑ 省 token（降低阈值会更贵，§13.2）'),
     annTopK: z.number().min(16).max(256).default(64).description('语义路候选数'),
+    annEnabled: z.boolean().default(true).description('启用 HNSW 索引（cell 数低于阈值时仍走精确扫描）'),
+    annThreshold: z.number().min(200).max(200_000).default(2000).description('触发 ANN 的最小 cell 数'),
+    annM: z.number().min(4).max(64).default(16).description('HNSW 每层最大邻居数'),
+    annEf: z.number().min(8).max(400).default(64).description('HNSW 查询宽度。↑ 更准更慢'),
     graphHops: z.number().min(1).max(3).default(2).description('多跳深度'),
     graphDecay: z.number().min(0.3).max(0.9).default(0.6).description('跳衰减'),
   }),
@@ -84,6 +95,7 @@ export function defaultConfig(overrides: Partial<MnemoConfig> = {}): MnemoConfig
     sdrDim: 2048,
     sdrK: 8,
     embDim: 256,
+    embStoreDim: 128,
     preset: 'balanced',
     maxSlots: 4,
     maxEntriesPerTurn: 8,
@@ -101,6 +113,10 @@ export function defaultConfig(overrides: Partial<MnemoConfig> = {}): MnemoConfig
       wInterf: 0.5,
       ignition: 0.42,
       annTopK: 64,
+      annEnabled: true,
+      annThreshold: 2000,
+      annM: 16,
+      annEf: 64,
       graphHops: 2,
       graphDecay: 0.6,
     },
@@ -122,10 +138,19 @@ export type ConfigShape = MnemoConfig
 
 export function apply(ctx: Context, raw: MnemoConfig) {
   const config = applyPreset(raw)
+  const runtime = new RuntimeStatus()
+  // 登记处本身也是一个服务：encoder（L1 状态）与 tools（命令面/remote/工具清单）
+  // 都往这里写，面板与 doctor 从 memory.panelSnapshot() 读同一份。
+  try {
+    ctx.provide('mnemoRuntime', runtime)
+  } catch {
+    /* 已存在（热重载）就复用旧的 */
+  }
   const memory = new MemoryService(ctx, {
     config,
     scopeKey: config.scopeKey,
     panelPath: config.residualDir ? `${config.residualDir}/panel-snapshot.json` : undefined,
+    runtime,
   })
 
   ctx.effect(() => {
@@ -166,14 +191,16 @@ export function apply(ctx: Context, raw: MnemoConfig) {
   )
 }
 
-export { MemoryService, cellIdFor, slotValue, pq32, deriveLens } from './service.js'
+export { MemoryService, cellIdFor, slotValue, pq32, deriveLens, buildTags, buildCategories } from './service.js'
+export { RuntimeStatus, type L1Status, type CommandFace, type L1Mode } from './runtime.js'
 export { applyPreset, PRESETS, EFFECT_MATRIX, REBUILD_KEYS, estimateTokensPerTurn, timingOf, type EffectRow, type EffectTiming } from './preset.js'
 export * from './types.js'
 export * from './cell.js'
 export * from './sdr.js'
 export * from './forgetting.js'
 export * from './render.js'
-export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr } from './recall.js'
+export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr, canonicalToken, quantize } from './recall.js'
+export { HnswIndex, BruteIndex, type VectorIndex, type VectorHit } from './ann.js'
 export { createStore, MemoryStore, SqliteStore, type Store } from './store.js'
 export * from './text.js'
 export { SensoryRing, WorkingSet } from './working.js'

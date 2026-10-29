@@ -1,8 +1,12 @@
 /**
  * 记忆面板外壳（§12.1 / §12.4）
  *
- * 四个视图共用一条数据流：一次 load() → 一份 PanelSnapshot → 各视图纯渲染。
- * 这样"时间线里删掉一条"与"诊断页的数字"永远同时更新，不会出现两个真相。
+ * 六页共用一条数据流：一次 load() → 一份 PanelSnapshot → 各页纯渲染。
+ * 这样"收件箱里确认一条"与"总览页的待确认计数"永远同时更新，不会出现两个真相。
+ *
+ * 版式对齐 DSH 记忆插件的惯例：顶部一行是"库在哪 + 三个计数 + 刷新"，
+ * 下面是分页签，内容区按页签各自组织。计数放在最外层，是因为它们是**决策依据**
+ * （有几条在等我处理），不该埋在某一页里。
  *
  * 生命周期（§12.10 最后一条）：关闭即释放所有订阅——这是热重载与卸载的前提。
  */
@@ -11,14 +15,16 @@ import type { PanelAction, PanelCellView, PanelSnapshot, Preset, SurfaceMode } f
 import type { MnemoDataSource } from './data.js'
 import { formatBreakdownClient } from './explain.js'
 import { CSS, STYLE_ID } from './style.js'
-import { Timeline } from './views/Timeline.js'
-import { Graph } from './views/Graph.js'
+import { Overview } from './views/Overview.js'
+import { Search } from './views/Search.js'
+import { Organize } from './views/Organize.js'
+import { Inbox } from './views/Inbox.js'
 import { Affect } from './views/Affect.js'
-import { Diagnostics } from './views/Diagnostics.js'
-import { Proactive } from './views/Proactive.js'
-import { Empty } from './ui.js'
+import { Settings } from './views/Settings.js'
+import { Timeline } from './views/Timeline.js'
+import { Status } from './ui.js'
 
-export type TabKey = 'timeline' | 'graph' | 'affect' | 'proactive' | 'diagnostics'
+export type TabKey = 'overview' | 'search' | 'organize' | 'inbox' | 'affect' | 'settings'
 
 export interface PanelProps {
   source: MnemoDataSource
@@ -28,7 +34,7 @@ export interface PanelProps {
   /** 初始选中（从对话流卡片跳进来时用） */
   initialCellId?: string
   /** 初始视图 */
-  initialTab?: TabKey
+  initialTab?: TabKey | 'timeline' | 'graph' | 'diagnostics'
   /** 阈值，用于解释器显示 */
   ignition?: number
   /** 命令桥：无 remote 时，面板上的按钮走这里（host 侧命令面） */
@@ -38,16 +44,25 @@ export interface PanelProps {
 }
 
 const TABS: Array<{ key: TabKey; label: string }> = [
-  { key: 'timeline', label: '时间线' },
-  { key: 'graph', label: '图谱' },
-  { key: 'affect', label: '情感' },
-  { key: 'proactive', label: '主动' },
-  { key: 'diagnostics', label: '诊断' },
+  { key: 'overview', label: '记忆总览' },
+  { key: 'search', label: '记忆检索' },
+  { key: 'organize', label: '记忆整理' },
+  { key: 'inbox', label: '收件箱' },
+  { key: 'affect', label: '情感状态' },
+  { key: 'settings', label: '设置' },
 ]
+
+/** 旧版页签名 → 新版（避免宿主里存的偏好直接失效） */
+function normalizeTab(t?: PanelProps['initialTab']): TabKey {
+  if (!t) return 'overview'
+  if (t === 'timeline' || t === 'graph') return 'organize'
+  if (t === 'diagnostics') return 'settings'
+  return t as TabKey
+}
 
 export function MnemoPanel(props: PanelProps): ReactNode {
   const [snapshot, setSnapshot] = useState<PanelSnapshot | null>(null)
-  const [tab, setTab] = useState<TabKey>(props.initialTab ?? 'timeline')
+  const [tab, setTab] = useState<TabKey>(normalizeTab(props.initialTab))
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<string>('all')
   const [lens, setLens] = useState<string>('all')
@@ -104,7 +119,7 @@ export function MnemoPanel(props: PanelProps): ReactNode {
         setToast(String((err as Error)?.message ?? err))
       } finally {
         setBusy(false)
-        setTimeout(() => setToast(null), 2600)
+        setTimeout(() => setToast(null), 2800)
       }
     },
     [props.source, load],
@@ -119,12 +134,13 @@ export function MnemoPanel(props: PanelProps): ReactNode {
       setBusy(true)
       try {
         const out = await props.runCommand(line)
-        setToast(out.split('\n')[0] || '完成')
+        setToast(String(out).split('\n')[0] || '完成')
         await load()
       } catch (err) {
         setToast(String((err as Error)?.message ?? err))
       } finally {
         setBusy(false)
+        setTimeout(() => setToast(null), 2800)
       }
     },
     [props.runCommand, load],
@@ -145,36 +161,88 @@ export function MnemoPanel(props: PanelProps): ReactNode {
       }
       setExplain({
         cellId,
-        text: `cell ${cellId.slice(-4)} 不在最近一次召回的候选池里。\n可能原因：本轮未触发注入、低于 ignition 阈值、或被 provenance 隔离。\n在诊断页看「命中率」与「tokens/轮」可以判断是哪一种。`,
+        text: `cell ${cellId.slice(-4)} 不在最近一次召回的候选池里。\n可能原因：本轮未触发注入、低于 ignition 阈值、或被 provenance 隔离。\n在总览页看「注入量」与「召回 p95」可以判断是哪一种。`,
       })
     },
     [explain, snapshot, props.ignition],
   )
 
+  const openCell = useCallback((cellId: string, target: TabKey) => {
+    setSelected(cellId)
+    setTab(target)
+    if (target === 'search') setQuery('')
+  }, [])
+
   if (error) {
-    return h('div', { className: 'mnv-root' }, h('div', { className: 'mnv-header' }, h('span', { className: 'mnv-title' }, '记忆')), h('div', { className: 'mnv-error' }, '加载失败：' + error))
+    return h(
+      'div',
+      { className: 'mnv-root' },
+      h('div', { className: 'mnv-header' }, h('span', { className: 'mnv-title' }, '长期记忆')),
+      h('div', { className: 'mnv-error' }, '加载失败：' + error),
+      h('div', { className: 'mnv-actions' }, h('button', { className: 'mnv-btn', onClick: () => void load() }, '重试')),
+    )
   }
 
   if (!snapshot) {
-    return h('div', { className: 'mnv-root' }, h('div', { className: 'mnv-header' }, h('span', { className: 'mnv-title' }, '记忆')), h(Empty, { title: '正在读取记忆库…' }))
+    return h(
+      'div',
+      { className: 'mnv-root' },
+      h('div', { className: 'mnv-header' }, h('span', { className: 'mnv-title' }, '长期记忆')),
+      h(
+        'div',
+        { className: 'mnv-body' },
+        h('div', { className: 'mnv-loading' }, '正在读取记忆库…'),
+        h('div', { className: 'mnv-skeleton', style: { width: '70%' } }),
+        h('div', { className: 'mnv-skeleton', style: { width: '88%' } }),
+        h('div', { className: 'mnv-skeleton', style: { width: '54%' } }),
+      ),
+    )
   }
 
-  const total = snapshot.stats.cells
-  const tokens = Math.round(snapshot.stats.tokensPerTurn)
+  const s = snapshot.stats
+  const rt = snapshot.runtime
+  const pendingN = (snapshot.pending ?? []).length
+  const conflicts = s.contradictions + s.disputed
 
   return h(
     'div',
     { className: 'mnv-root' },
+
+    // ── 顶栏：库在哪 + 三个计数 + 刷新 ────────────────────────────
+    // 两行而不是一行：侧栏面板只有 300–420 px，把标题、路径、三个计数塞进一行
+    // 的结果就是每个字都换行（实测第一版就是这样，标题竖排成了"长/期/记/忆"）。
     h(
       'div',
       { className: 'mnv-header' },
-      h('span', { className: 'mnv-title' }, '记忆'),
-      h('span', { className: 'mnv-badge' }, `${total} 条`),
-      h('span', { className: 'mnv-badge', title: '最近一轮 surface 注入量' }, `${tokens} tok/轮`),
-      h('span', { className: 'mnv-spacer' }),
-      h('span', { className: 'mnv-badge', title: props.source.kind }, sourceLabel(props.source.kind)),
-      h('button', { className: 'mnv-btn', 'data-tone': 'ghost', disabled: busy, onClick: () => void load() }, '刷新'),
+      h(
+        'div',
+        { className: 'mnv-header-row' },
+        h('span', { className: 'mnv-title' }, '长期记忆'),
+        h('span', { className: 'mnv-badge', title: '当前数据源' }, sourceLabel(props.source.kind)),
+        h('span', { className: 'mnv-spacer' }),
+        h('button', { className: 'mnv-btn', 'data-tone': 'ghost', disabled: busy, onClick: () => void load() }, '刷新'),
+      ),
+      h(
+        'div',
+        { className: 'mnv-header-row' },
+        h(
+          'span',
+          { className: 'mnv-muted', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: rt?.dbPath },
+          rt?.storeKind === 'sqlite' ? 'SQLite 晶格 · ' : '内存晶格 · ',
+          rt?.dbPath ?? '（未配置）',
+        ),
+      ),
+      h(
+        'div',
+        { className: 'mnv-header-row', style: { flexWrap: 'wrap' } },
+        h('span', { className: 'mnv-badge', title: '全部 cell' }, `记忆总数 ${s.cells}`),
+        h('span', { className: 'mnv-badge', title: 'support=1 且重要性不低，或存在争议', style: pendingN ? { color: 'var(--mnv-warn)' } : undefined }, `待确认 ${pendingN}`),
+        h('span', { className: 'mnv-badge', title: '矛盾边 + 争议 cell', style: conflicts ? { color: 'var(--mnv-danger)' } : undefined }, `冲突/异常 ${conflicts}`),
+        h(Status, { ok: conflicts === 0, text: conflicts === 0 ? '正常' : '需处理' }),
+      ),
     ),
+
+    // ── 页签 ────────────────────────────────────────────────────
     h(
       'div',
       { className: 'mnv-tabs' },
@@ -183,87 +251,104 @@ export function MnemoPanel(props: PanelProps): ReactNode {
           'button',
           { key: t.key, className: 'mnv-tab', 'data-active': tab === t.key, onClick: () => setTab(t.key) },
           t.label,
-          t.key === 'diagnostics' && snapshot.stats.disputed > 0 ? h('span', { className: 'mnv-flag' }, ` ${snapshot.stats.disputed}`) : null,
+          t.key === 'inbox' && pendingN > 0 ? h('span', { className: 'mnv-flag' }, ` ${pendingN}`) : null,
         ),
       ),
     ),
-    tab === 'timeline' || tab === 'graph'
-      ? h(
-          'div',
-          { className: 'mnv-toolbar' },
-          h('input', {
-            className: 'mnv-input',
-            placeholder: '搜索记忆（实体、键值、原文片段）',
-            value: query,
-            onInput: (e: { currentTarget: HTMLInputElement }) => setQuery(e.currentTarget.value),
-          }),
-          h(
-            'select',
-            { className: 'mnv-select', value: kind, onChange: (e: { currentTarget: HTMLSelectElement }) => setKind(e.currentTarget.value) },
-            h('option', { value: 'all' }, '全部类型'),
-            h('option', { value: '1' }, '语义'),
-            h('option', { value: '0' }, '情景'),
-            h('option', { value: '2' }, '程序'),
-            h('option', { value: '3' }, '图式'),
-            h('option', { value: '5' }, '关系'),
-            h('option', { value: '6' }, '叙事'),
-          ),
-          h(
-            'select',
-            { className: 'mnv-select', value: lens, onChange: (e: { currentTarget: HTMLSelectElement }) => setLens(e.currentTarget.value) },
-            h('option', { value: 'all' }, '全部视角'),
-            h('option', { value: 'fact' }, '事实'),
-            h('option', { value: 'feeling' }, '感受'),
-            h('option', { value: 'bond' }, '关系'),
-            h('option', { value: 'story' }, '故事'),
-          ),
-        )
-      : null,
+
+    // ── 内容 ────────────────────────────────────────────────────
     h(
       'div',
       { className: 'mnv-body' },
-      tab === 'timeline'
-        ? h(Timeline, {
-            cells,
-            pageSize: props.pageSize ?? 50,
-            selectedId: selected,
-            onSelect: (id) => setSelected(id),
+      tab === 'overview'
+        ? h(Overview, {
+            snapshot,
             onAct: (a) => void act(a),
-            onExplain,
-            explain,
+            onCommand: (line) => void command(line),
+            onOpen: (id, target) => openCell(id, target === 'inbox' ? 'inbox' : 'search'),
             busy,
           })
         : null,
-      tab === 'graph'
-        ? h(Graph, {
-            cells: snapshot.cells,
-            edges: snapshot.edges,
-            selectedId: selected,
-            maxNodes: props.graphMaxNodes ?? 200,
-            onSelect: (id) => {
-              setSelected(id)
-              setExplain(null)
-            },
+      tab === 'search'
+        ? h(
+            'div',
+            null,
+            h(Search, {
+              snapshot,
+              cells,
+              query,
+              onQuery: setQuery,
+              kind,
+              onKind: setKind,
+              lens,
+              onLens: setLens,
+              selectedId: selected,
+              onSelect: setSelected,
+              onExplain,
+              onAct: (a) => void act(a),
+              onCommand: (line) => void command(line),
+              explain,
+              busy,
+            }),
+            // 无查询词时把时间线接在下面：检索页同时承担"翻一翻"的用途
+            query.trim()
+              ? null
+              : h(
+                  'div',
+                  { style: { marginTop: 12 } },
+                  h('div', { className: 'mnv-subhead' }, h('b', null, '全部记忆（时间线）')),
+                  h(Timeline, {
+                    cells,
+                    pageSize: props.pageSize ?? 50,
+                    selectedId: selected,
+                    onSelect: setSelected,
+                    onAct: (a) => void act(a),
+                    onExplain,
+                    explain,
+                    busy,
+                  }),
+                ),
+          )
+        : null,
+      tab === 'organize'
+        ? h(Organize, {
+            snapshot,
+            onAct: (a) => void act(a),
+            onCommand: (line) => void command(line),
+            onOpen: (id) => openCell(id, 'search'),
+            busy,
+            graphMaxNodes: props.graphMaxNodes ?? 200,
+          })
+        : null,
+      tab === 'inbox'
+        ? h(Inbox, {
+            snapshot,
+            onAct: (a) => void act(a),
+            onCommand: (line) => void command(line),
+            onOpen: (id) => openCell(id, 'search'),
+            busy,
           })
         : null,
       tab === 'affect'
         ? h(Affect, {
             snapshot,
             cells: snapshot.cells,
-            onSelect: (id) => {
-              setSelected(id)
-              setTab('timeline')
-            },
+            onSelect: (id) => openCell(id, 'search'),
             enabled: props.affectEnabled ?? snapshot.affect?.enabled ?? false,
           })
         : null,
-      tab === 'proactive'
-        ? h(Proactive, { snapshot, onAct: (a) => void act(a), busy })
-        : null,
-      tab === 'diagnostics'
-        ? h(Diagnostics, { snapshot, onAct: (a) => void act(a), onCommand: (line) => void command(line), busy })
+      tab === 'settings'
+        ? h(Settings, {
+            snapshot,
+            onAct: (a) => void act(a),
+            onCommand: (line) => void command(line),
+            onPresetChange: props.onPresetChange,
+            onSurfaceModeChange: props.onSurfaceModeChange,
+            busy,
+          })
         : null,
     ),
+
     toast ? h('div', { className: 'mnv-toast', style: toastStyle }, toast) : null,
   )
 }

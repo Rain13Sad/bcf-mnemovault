@@ -87,6 +87,7 @@ export class Consolidator {
     const open = mem.store.meta('consolidate:open')
     if (open) throw new Error(`存在未完成的巩固锁 ${open}，先 /mnemo doctor --unlock`)
 
+    const t0 = Date.now()
     mem.store.setMeta('consolidate:open', passId)
     mem.emit('memory/consolidate/start', { passId, phase: 'nrem' })
     try {
@@ -115,6 +116,15 @@ export class Consolidator {
       })
       mem.emit('memory/consolidate/end', { passId, ok: true })
       mem.store.setMeta('consolidate:open', '')
+      // 把结果回填给面板：`记忆整理` 页要显示"最近一次整理做了什么"，
+      // 否则用户只能看到"还没有跑过"，明明刚跑过。
+      mem.noteConsolidation({
+        merged: result.merged,
+        abstracted: result.narrated,
+        pruned: result.pruned,
+        decayed: result.revalenced,
+        elapsedMs: Date.now() - t0,
+      })
       return result
     } catch (err) {
       // 不写 end：留下可检测的遗留锁，阻塞后续 pass（§15.8 的理由）

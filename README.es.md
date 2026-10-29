@@ -7,7 +7,7 @@
 **Memoria a largo plazo y afecto para DeepSeek Harness.**
 Las memorias se guardan como **celdas de tamaño fijo** — códigos dispersos (identidad), vectores int8
 (semántica), hiperaristas tipadas (relaciones) y residuales comprimidos (texto original) —, no como texto.
-La inyección rinde **~116 tokens por turno**.
+La inyección rinde **~107 tokens por turno**.
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -115,14 +115,16 @@ Medido en Node 22.22 / Windows; reproducible desde `artifacts/bench.json` (`npm 
 | Métrica | Medido | Objetivo | Nota |
 | :--- | ---: | :--- | :--- |
 | Recall@8 | **0.941** | ≥ 0.80 | 34 hechos sintéticos con verdad de referencia |
-| MRR | **0.686** | ≥ 0.65 | ídem |
+| MRR | **0.681** | ≥ 0.65 | ídem |
 | Precisión de deduplicación | **0.90** | ≥ 0.90 | repetir un hecho debe fusionarse |
 | Exhaustividad de deduplicación | **1.00** | — | mismo tema con otro valor no debe fusionarse |
 | Razonamiento temporal | **1.00** | ≥ 0.75 | `pnpm → npm → bun` en tres versiones |
-| tokens / turno | **116.0** | ≤ 240 | leyenda amortizada |
+| tokens / turno | **106.9** | ≤ 240 | leyenda amortizada |
 | p95 de recuperación | **30 ms** | ≤ 40 ms @1M | 100 celdas en local, no un millón |
-| Ratio de almacenamiento (proposiciones cortas) | 24.1× | ≤ 0.60 | **no cumplido — ver abajo** |
-| Ratio de almacenamiento (turno de 800 caracteres) | 2.50× | ≤ 0.60 | ídem |
+| Bytes por celda | **341 B** | — | MC03 (844 B en v0.2) |
+| Ratio de almacenamiento (BD de proposiciones cortas) | 5.32× | solo diagnóstico | domina la base fija |
+| Ratio de almacenamiento (turno de 800 caracteres, split por defecto) | **0.84×** | ≤ 0.90 | 762 car./turno, 2.25 celdas/turno |
+| Ratio de almacenamiento (turno de 800 caracteres, una celda) | **0.68×** | ≤ 0.72 | control de granularidad |
 
 <details>
 <summary><b>Por qué falla el ratio de almacenamiento</b></summary>

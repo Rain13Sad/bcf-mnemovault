@@ -1,6 +1,6 @@
 {
   "name": "bcf-mnemovault",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "MnemoVault — DeepSeek Harness 的记忆与情感插件包族：稀疏码记忆晶格、四路召回、双相巩固、情感内核与侧栏面板",

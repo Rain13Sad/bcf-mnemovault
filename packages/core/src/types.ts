@@ -94,6 +94,17 @@ export interface RecallWeights {
   wInterf: number
   ignition: number
   annTopK: number
+  /**
+   * HNSW 开关。cell 数 < annThreshold 时仍然走精确余弦扫描——
+   * 小库上全扫更快、且没有近似误差，"有索引"不等于"必须用索引"。
+   */
+  annEnabled: boolean
+  /** 触发 ANN 的最小 cell 数（默认 2000） */
+  annThreshold: number
+  /** HNSW 每层最大邻居数 */
+  annM: number
+  /** 查询期搜索宽度 */
+  annEf: number
   graphHops: number
   graphDecay: number
 }
@@ -121,7 +132,14 @@ export interface MnemoConfig {
   residualDir: string
   sdrDim: number
   sdrK: number
+  /** 计算向量的维度（哈希桶数） */
   embDim: number
+  /**
+   * 落盘向量的维度（MC03）。计算仍在 embDim 上做，写入前折叠到这一维，
+   * 每条 cell 因此从 256 B 降到 64 B——这是存储比能达标的主因之一。
+   * 改它必须 rebuild。
+   */
+  embStoreDim: number
   preset: Preset
   maxSlots: number
   maxEntriesPerTurn: number
@@ -310,6 +328,48 @@ export interface PanelEdgeView {
   weight: number
 }
 
+/**
+ * 运行时自检信息（§12.4 的"后端能力"区块）。
+ *
+ * 这一块存在的理由很具体：文档里所有"未实机验证"的能力（L1 端口、ANN、remote 面、
+ * 命令面）都必须有一个**运行时可读**的状态，而不是靠 README 里的一句话。
+ * 面板直接展示它，doctor 也读它——"未经测量的能力不该被说成已有"。
+ */
+export interface PanelRuntimeInfo {
+  /** 面板数据源：remote / event / demo */
+  source: string
+  dbPath: string
+  storeKind: string
+  preset: string
+  surfaceMode: string
+  ignition: number
+  embDim: number
+  embStoreDim: number
+  layoutVersion: number
+  /** 语义路当前形态 */
+  ann: { enabled: boolean; mode: 'exact' | 'hnsw'; size: number; threshold: number }
+  /** L1 切分当前形态 */
+  l1: { enabled: boolean; mode: 'port' | 'lite' | 'l0'; entry: string | null; ok: boolean; lastMs: number; note: string }
+  /** 命令面形态 */
+  commandFace: 'cmdline' | 'tool' | 'none'
+  /** 是否已提供 remote 面 */
+  remoteFace: boolean
+  /** 已注册的模型可见工具 */
+  tools: string[]
+  /** 能力标签（面板显示成 chip） */
+  capabilities: string[]
+  /** 限制说明（诚实清单） */
+  limits: string[]
+}
+
+export interface PanelIndexInfo {
+  builtAt: number
+  status: 'ok' | 'stale' | 'rebuild'
+  path: string
+  entries: number
+  lastRebuildAt: number
+}
+
 export interface PanelSnapshot {
   version: 2
   generatedAt: number
@@ -345,6 +405,21 @@ export interface PanelSnapshot {
     rendered: string
   } | null
   evictions: Array<{ cellId: string; mode: string; reason: string; actor: string; at: number }>
+  /** 运行时自检（L1 / ANN / 命令面 / remote 面） */
+  runtime?: PanelRuntimeInfo
+  /** 索引状态（面板"索引状态"区块） */
+  index?: PanelIndexInfo
+  /** 标签云（由 topic 指纹投影而来） */
+  tags?: Array<{ tag: string; count: number }>
+  /** 分类统计（用户档案 / 长期偏好 / 项目 / 决策 / 知识 / 经验教训 / 任务） */
+  categories?: Array<{ key: string; label: string; count: number }>
+  /** 最近新增 / 最近更新（面板四列） */
+  recentNew?: PanelCellView[]
+  recentUpdated?: PanelCellView[]
+  /** 待确认（support=1 且高重要性 / 有争议） */
+  pending?: PanelCellView[]
+  /** 最近一次巩固 pass 的结果 */
+  consolidation?: { at: number; merged: number; abstracted: number; pruned: number; decayed: number; elapsedMs: number } | null
   /** 主动开口的状态（未装 proactive 包时为 null） */
   proactive: {
     enabled: boolean
@@ -378,4 +453,13 @@ export type PanelAction =
   | { kind: 'proactive'; action: 'now' | 'mute' | 'unmute' | 'config'; minutes?: number; patch?: Record<string, number | boolean> }
   /** 情感再评估：用当前心境重估一条记忆的效价 */
   | { kind: 'reappraise'; cellId: string }
+  /** 立即跑一次双相巩固 */
+  | { kind: 'consolidate' }
+  /** 从会话日志重建晶格（危险操作，需 confirm='rebuild'） */
+  | { kind: 'rebuild'; confirm?: string }
+  /** 体检 / 修孤儿边 / 清遗留锁 */
+  | { kind: 'doctor'; fix?: boolean; unlock?: boolean }
+  /** 收件箱：把一条待确认记忆标记为"已确认"（提升 support）或"忽略"（降重要性） */
+  | { kind: 'confirm'; cellId: string }
+  | { kind: 'dismiss'; cellId: string; reason?: string }
   | { kind: 'refresh' }

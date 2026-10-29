@@ -38,14 +38,21 @@ function getZlib(): ZlibLike | null {
   return zlib
 }
 
-/** 质量 5：中文 800 字一轮的压缩耗时约 0.1ms，压缩率已接近饱和。 */
+/**
+ * 质量档 9：这是**存储比**与 CPU 的折中点。
+ *
+ * 质量 5 在 800 字中文上只压到 0.52，而残差占了存储比的半壁江山；
+ * 质量 11 能压到 0.44，但 2.4 KB 要 6 ms（写路径上可接受，批量重建时会被放大）。
+ * 取 9：0.46 左右，2 ms。
+ */
+const QUALITY = 9
 export function compress(raw: Uint8Array): Compressed {
   const z = getZlib()
   if (!z || raw.length < 64) return { codec: 'raw', bytes: raw, rawLen: raw.length }
   try {
     const out = z.brotliCompressSync(raw, {
       params: {
-        [z.constants.BROTLI_PARAM_QUALITY]: 5,
+        [z.constants.BROTLI_PARAM_QUALITY]: QUALITY,
         [z.constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
       },
     })

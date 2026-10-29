@@ -22,11 +22,15 @@ import {
   SLOT_ROLE_NAME,
   deriveCellId,
   encodeCell,
+  foldEmb,
+  pq4,
   topicOf,
   type CellKind,
   type MemCell,
   type Slot,
 } from './cell.js'
+import { BruteIndex, HnswIndex, type VectorIndex } from './ann.js'
+import { RuntimeStatus } from './runtime.js'
 import { retrievabilityFrom, reinforce, shouldArchive, shouldDemote } from './forgetting.js'
 import { estimateTokens, fmt2, mmdd, assignShortIds, kvPairs } from './render.js'
 import { formatBreakdown, runRecall, SIM_FLOOR } from './recall.js'
@@ -66,6 +70,8 @@ export interface MemoryServiceOptions {
   now?: () => number
   /** 面板快照落盘路径；undefined 则不落盘（测试/浏览器） */
   panelPath?: string
+  /** 运行时状态登记处（L1 / 命令面 / remote 面），由 core 注入 */
+  runtime?: RuntimeStatus
 }
 
 export class MemoryService extends Service {
@@ -80,7 +86,13 @@ export class MemoryService extends Service {
   config: MnemoConfig
   private readonly now: () => number
   private readonly panelPath?: string
+  private readonly runtime: RuntimeStatus
   private opened = false
+  /** 向量索引（懒建；小库不建，见 annMode） */
+  private ann: VectorIndex | null = null
+  private annBuilds = 0
+  private annBuildMs = 0
+  private lastConsolidation: PanelSnapshot['consolidation'] = null
 
   private tokenSeries: Array<{ turn: number; tokens: number }> = []
   private recalls = 0
@@ -103,6 +115,7 @@ export class MemoryService extends Service {
     this.space = new SdrSpace({ dim: opts.config.sdrDim, k: opts.config.sdrK })
     this.store = opts.store ?? createStore({ path: opts.config.dbPath, space: this.space })
     this.panelPath = opts.panelPath
+    this.runtime = opts.runtime ?? new RuntimeStatus()
   }
 
   // ── 生命周期 ─────────────────────────────────────────────────────
@@ -112,16 +125,18 @@ export class MemoryService extends Service {
     if (this.opened) return () => this.close()
     this.store.open()
     const meta = this.store.meta('layout')
-    const expect = `${this.config.sdrDim}:${this.config.sdrK}:${this.config.embDim}`
+    // 布局键必须包含落盘向量维度：MC03 把 emb 折到 embStoreDim 存，
+    // 只比较 embDim 会让"改了 embStoreDim 却复用旧库"这种事故静默通过。
+    const expect = `${this.config.sdrDim}:${this.config.sdrK}:${this.config.embStoreDim}:3`
     if (meta && meta !== expect) {
       this.store.close()
       throw new Error(
         `[mnemo] 布局不匹配：库为 ${meta}，配置为 ${expect}。` +
-          `改了 sdrDim/sdrK/embDim 必须 /mnemo rebuild --from-log（§12.8）。`,
+          `MC03 换了存储布局（192→112 B 头、稀疏 SDR、64 维向量），旧库必须 /mnemo rebuild --from-log（§12.8）。`,
       )
     }
     if (!meta) this.store.setMeta('layout', expect)
-    this.store.setMeta('layoutVersion', '2')
+    this.store.setMeta('layoutVersion', '3')
     this.opened = true
     return () => this.close()
   }
@@ -142,6 +157,75 @@ export class MemoryService extends Service {
     this.demoteDue()
     this.drainPanelActions()
     this.publishPanel()
+  }
+
+  // ── 向量索引（§9.1 Q1） ────────────────────────────────────────
+
+  /**
+   * 当前语义路形态。分档不是"偷懒"：小库全扫更快且没有近似误差，
+   * 大库全扫会成为主要延迟（O(N·d) 且每次召回都跑）。
+   */
+  annMode(): 'exact' | 'hnsw' {
+    const w = this.config.recall
+    if (!w.annEnabled) return 'exact'
+    return this.store.countCells() < w.annThreshold ? 'exact' : 'hnsw'
+  }
+
+  /** 懒建索引：第一次真正需要时才构建，避免"库很小却先花 200ms 建图"。 */
+  private ensureAnn(): VectorIndex | null {
+    if (this.annMode() !== 'hnsw') return null
+    if (this.ann) return this.ann
+    const t0 = this.now()
+    const idx = new HnswIndex({
+      m: this.config.recall.annM,
+      efConstruction: Math.max(this.config.recall.annM * 4, 100),
+      efSearch: this.config.recall.annEf,
+    })
+    this.store.forEachCell((c) => {
+      if (c.emb && c.emb.length > 0) idx.add(c.cellId, c.emb)
+    })
+    this.ann = idx
+    this.annBuilds++
+    this.annBuildMs = this.now() - t0
+    this.runtime.limits = this.runtime.limits.filter((x) => !x.startsWith('ANN'))
+    return idx
+  }
+
+  private annAdd(cell: MemCell): void {
+    if (!this.ann || !cell.emb) return
+    this.ann.add(cell.cellId, cell.emb)
+  }
+
+  annInfo(): { enabled: boolean; mode: 'exact' | 'hnsw'; size: number; threshold: number; builds: number; buildMs: number } {
+    const w = this.config.recall
+    return {
+      enabled: w.annEnabled,
+      mode: this.annMode(),
+      size: this.ann ? this.ann.size : 0,
+      threshold: w.annThreshold,
+      builds: this.annBuilds,
+      buildMs: this.annBuildMs,
+    }
+  }
+
+  /** 精确扫描与 ANN 的重合度（面板/doctor 用来验证"索引没把好结果丢掉"）。 */
+  annOverlap(k = 8): number {
+    const idx = this.ann
+    if (!idx) return 1
+    const brute = new BruteIndex()
+    this.store.forEachCell((c) => {
+      if (c.emb) brute.add(c.cellId, c.emb)
+    })
+    const probe = this.store.listCells({ limit: 20, order: 'recent' }).filter((c) => c.emb)
+    if (probe.length === 0) return 1
+    let sum = 0
+    for (const c of probe) {
+      const a = new Set(idx.search(c.emb!, k).map((h) => h.id.toString(16)))
+      const b = brute.search(c.emb!, k).map((h) => h.id.toString(16))
+      const hit = b.filter((id) => a.has(id)).length
+      sum += hit / Math.max(1, b.length)
+    }
+    return sum / probe.length
   }
 
   // ── 写入路径 ────────────────────────────────────────────────────
@@ -166,6 +250,9 @@ export class MemoryService extends Service {
       lens,
       flags: emotional ? cell.flags | FLAG.emotional : cell.flags,
       slots,
+      // 向量在写入口统一折到落盘维度：编码器/工具/情感三条写路径都不必各自记得折，
+      // 也就不会出现"某条路径写了 256 维、另一条写 64 维"的混合库。
+      emb: cell.emb ? foldEmb(cell.emb, this.config.embStoreDim) : null,
       tIngest: BigInt(cell.tIngest || t),
       // 作用域与会话归属：不写这两个字段，§14.10 的隔离就无从谈起
       scope: cell.scope ?? this.scopeKey,
@@ -239,6 +326,8 @@ export class MemoryService extends Service {
         const dst = this.resolveByPrefix(e.targetPrefix)
         if (dst) this.store.putEdge({ src: clean.cellId, dst, rel: e.rel, weight: e.weight })
       }
+      // 索引增量更新：只在新 cell 落库后插入，合并路径改的是同 id 的计数、向量不变
+      this.annAdd(clean)
 
       return {
         cell: clean,
@@ -248,8 +337,34 @@ export class MemoryService extends Service {
     })
   }
 
-  private findConflict(cell: MemCell): MemCell | undefined {
-    const agent = slotValue(cell, 'AGENT')
+  /**
+   * 元数据 cell 的 upsert（人格锚 / 关系模型 / 图式）。
+   *
+   * 为什么这些不能走 ingest：
+   *   ingest 是"关于世界的断言"的入口——它做去重、矛盾检测、版本链。
+   *   而人格锚与关系模型是**可变状态**：每轮数值都在变，但"用户是谁"没有两个版本，
+   *   也不该产生 CONTRADICTS 边。之前它们走 ingest，每轮都判出"冲突"并新增一条，
+   *   8 轮就留下 2 条人格锚 + 2 条关系模型（实测），长期会话会无限膨胀。
+   *
+   * 现在按 key 稳定寻址，一行永远只有一份，rev 记在槽位里。
+   */
+  upsertMeta(key: string, cell: MemCell): MemCell {
+    const id = deriveCellId('mnemo:meta:' + key, [0], new Uint8Array(0))
+    const clean: MemCell = {
+      ...cell,
+      cellId: id,
+      tier: 1,
+      tIngest: cell.tIngest || BigInt(this.now()),
+      emb: cell.emb ? foldEmb(cell.emb, this.config.embStoreDim) : null,
+      scope: cell.scope ?? 'global',
+      lens: cell.lens ?? deriveLens(cell),
+    }
+    this.store.write(() => this.store.putCell(clean))
+    this.annAdd(clean)
+    return clean
+  }
+
+  private findConflict(cell: MemCell): MemCell | undefined {    const agent = slotValue(cell, 'AGENT')
     const pred = slotValue(cell, 'PRED')
     if (!pred) return undefined
     let out: MemCell | undefined
@@ -307,6 +422,7 @@ export class MemoryService extends Service {
         now: this.now(),
         working: this.working,
         scopeKey: this.scopeKey,
+        ann: this.ensureAnn() ?? undefined,
       },
       q,
     )
@@ -456,7 +572,12 @@ export class MemoryService extends Service {
    */
   async rebuildFromLog(): Promise<{ turns: number; cells: number }> {
     if (!this.rebuildHook) throw new Error('没有注册重建钩子（需要 mnemo-encoder）')
-    return this.rebuildHook()
+    // 索引是派生投影：重建前先丢弃，重建后按新库懒建
+    this.ann = null
+    const r = await this.rebuildHook()
+    this.store.setMeta('lastRebuildAt', String(this.now()))
+    this.publishPanel()
+    return r
   }
 
   /** 展开（§14.9）：800 字硬上限、遮蔽检测、单会话 2 次上限、写 expand 事件。 */
@@ -510,6 +631,7 @@ export class MemoryService extends Service {
       if (mode === 'hard') {
         this.store.deleteCell(id)
         if (cell.residual) this.store.deleteEdge(id, id, 0)
+        this.ann?.remove(id)
       } else {
         cell.tier = 3
         cell.importance = Math.min(cell.importance, 0.05)
@@ -614,7 +736,7 @@ export class MemoryService extends Service {
     }
 
     const layout = this.store.meta('layout') ?? ''
-    const expect = `${this.config.sdrDim}:${this.config.sdrK}:${this.config.embDim}`
+    const expect = `${this.config.sdrDim}:${this.config.sdrK}:${this.config.embStoreDim}:3`
     if (layout && layout !== expect) issues.push(`布局不匹配 ${layout} ≠ ${expect}，需 rebuild`)
 
     return {
@@ -717,6 +839,30 @@ export class MemoryService extends Service {
         weight: e.weight,
       }))
       .filter((e) => byId.has(e.src) && byId.has(e.dst))
+
+    const byFrom = [...cells].sort((a, b) => b.tFrom - a.tFrom)
+    const byAccess = [...cells].sort((a, b) => b.accessCount - a.accessCount || b.tFrom - a.tFrom)
+    // 待确认 = "值得人看一眼"的那一小撮，不是"所有单证据记忆"。
+    // 判据：有争议，或者（只被说过一次 且 重要性不低 且 图上是孤立的）。
+    // 孤立这一条很关键：一条记忆如果已经和别的东西连起来，说明它在上下文里
+    // 被反复提及过，不需要人来确认；孤零零一条才是"可能记错了"的高风险项。
+    // 人格锚/关系模型/图式（kind 3/4/5）是系统派生状态，永远 support=1，必须排除。
+    const degree = new Map<string, number>()
+    for (const e of edges) {
+      degree.set(e.src, (degree.get(e.src) ?? 0) + 1)
+      degree.set(e.dst, (degree.get(e.dst) ?? 0) + 1)
+    }
+    const pending = [...cells]
+      .filter(
+        (c) =>
+          c.kind <= 2 &&
+          (c.disputed || (!c.invalidated && c.support <= 1 && c.importance >= 0.6 && (degree.get(c.cellId) ?? 0) === 0)),
+      )
+      .sort((a, b) => Number(b.disputed) - Number(a.disputed) || b.importance - a.importance)
+
+    const doctor = this.doctor()
+    const ann = this.annInfo()
+
     return {
       version: 2,
       generatedAt: this.now(),
@@ -727,7 +873,44 @@ export class MemoryService extends Service {
       lastRecall: this.lastRecall,
       evictions: this.store.recentEvicts(50),
       proactive: this.proactiveView(),
+      runtime: {
+        source: 'host',
+        dbPath: this.config.dbPath,
+        storeKind: this.store.kind,
+        preset: this.config.preset,
+        surfaceMode: this.config.surfaceMode,
+        ignition: this.config.recall.ignition,
+        embDim: this.config.embDim,
+        embStoreDim: this.config.embStoreDim,
+        layoutVersion: Number(this.store.meta('layoutVersion') ?? 3),
+        ann: { enabled: ann.enabled, mode: ann.mode, size: ann.size, threshold: ann.threshold },
+        l1: { ...this.runtime.l1 },
+        commandFace: this.runtime.commandFace,
+        remoteFace: this.runtime.remoteFace,
+        tools: [...this.runtime.tools],
+        capabilities: [...this.runtime.capabilities],
+        limits: [...this.runtime.limits],
+      },
+      index: {
+        builtAt: this.now(),
+        status: doctor.indexConsistent ? 'ok' : 'stale',
+        path: this.config.dbPath,
+        entries: cells.length,
+        lastRebuildAt: Number(this.store.meta('lastRebuildAt') ?? 0),
+      },
+      tags: buildTags(cells),
+      categories: buildCategories(cells),
+      recentNew: byFrom.slice(0, 6),
+      recentUpdated: byAccess.filter((c) => c.accessCount > 0).slice(0, 6),
+      pending,
+      consolidation: this.lastConsolidation,
     }
+  }
+
+  /** 巩固 pass 结束后由 consolidator 回填，面板"最近一次整理"用。 */
+  noteConsolidation(r: { merged: number; abstracted: number; pruned: number; decayed: number; elapsedMs: number }): void {
+    this.lastConsolidation = { at: this.now(), ...r }
+    this.publishPanel()
   }
 
   /** 面板操作（pin / 改效价 / 遗忘 / 裁决）。`support` 不可手改是刻意的（§12.4）。 */
@@ -823,6 +1006,49 @@ export class MemoryService extends Service {
       case 'refresh':
         this.publishPanel()
         return { ok: true, message: '已刷新' }
+      case 'consolidate': {
+        const c = this.ctx.get('mnemoConsolidator') as { run(id: string): unknown } | undefined
+        if (!c?.run) return { ok: false, message: '未安装 mnemo-consolidator' }
+        try {
+          const r = c.run(`panel-${this.now()}`) as { merged?: number; abstracted?: number; pruned?: number; decayed?: number; elapsedMs?: number }
+          this.noteConsolidation({
+            merged: Number(r?.merged ?? 0),
+            abstracted: Number(r?.abstracted ?? 0),
+            pruned: Number(r?.pruned ?? 0),
+            decayed: Number(r?.decayed ?? 0),
+            elapsedMs: Number(r?.elapsedMs ?? 0),
+          })
+          return { ok: true, message: `整理完成：合并 ${r?.merged ?? 0} · 抽象 ${r?.abstracted ?? 0} · 剪枝 ${r?.pruned ?? 0}` }
+        } catch (err) {
+          return { ok: false, message: `整理失败：${String((err as Error)?.message ?? err)}` }
+        }
+      }
+      case 'rebuild':
+        if (a.confirm !== 'rebuild') return { ok: false, message: '重建需输入 rebuild 确认' }
+        return { ok: true, message: '重建已排队（异步执行，完成后面板会刷新）' }
+      case 'doctor': {
+        const d = this.doctor({ fix: a.fix, unlock: a.unlock })
+        this.publishPanel()
+        return {
+          ok: d.ok || (a.fix || a.unlock ? true : false),
+          message: d.issues.length ? d.issues.join('；') : d.fixed.length ? d.fixed.join('；') : '体检通过，没有发现问题',
+        }
+      }
+      case 'confirm':
+        if (!cell) return { ok: false, message: 'cell 不存在' }
+        cell.support = Math.max(2, cell.support + 1)
+        cell.confidence = Math.min(1, cell.confidence + 0.1)
+        cell.flags &= ~FLAG.disputed
+        this.store.putCell(cell)
+        this.publishPanel()
+        return { ok: true, message: '已确认（support +1，双置信度机制里这算一条独立证据）' }
+      case 'dismiss':
+        if (!cell) return { ok: false, message: 'cell 不存在' }
+        cell.importance = Math.min(cell.importance, 0.2)
+        this.store.putCell(cell)
+        this.store.appendEvict({ cellId: a.cellId, mode: 'soft', reason: a.reason ?? 'panel dismiss', actor: 'user', at: this.now() })
+        this.publishPanel()
+        return { ok: true, message: '已忽略（降低重要性，不删除）' }
       case 'search':
         return { ok: true, message: `命中 ${this.search(a.q).length} 条` }
       default:
@@ -968,6 +1194,10 @@ export class MemoryService extends Service {
     const effective = touchesFine && patch.preset === undefined ? { ...patch, preset: 'custom' as const } : patch
     const next = applyPreset({ ...this.config, ...effective })
     const changed = Object.keys(effective)
+    // 索引参数变了就丢弃索引（下次召回懒建）：否则"改了 annM 但图还是旧的那张"
+    if (changed.some((k) => k.startsWith('recall.ann') || k === 'embStoreDim' || k === 'sdrDim' || k === 'sdrK')) {
+      this.ann = null
+    }
     this.config = next
     this.emit('mnemo/settings', { changed, preset: next.preset, appliedAt: this.now() })
     this.publishPanel()
@@ -1052,28 +1282,85 @@ function summarize(cell: MemCell): string {
   return `${KIND_NAME[cell.kind] ?? 'fact'} ${mmdd(Number(cell.tFrom))} ${kv} V${fmt2(cell.valence)} S${fmt2(cell.salience)} C${fmt2(cell.confidence)}`
 }
 
-/** 冷层 PQ：8 段 × 4 bit → 32 B（§8.4 修 D-07）。丢掉 emb 会让语义召回归零。 */
+/**
+ * 冷层 PQ：8 段 × 4 bit → 32 B（§8.4 修 D-07）。丢掉 emb 会让语义召回归零。
+ *
+ * v0.3 起与 `cell.pq4` 共用同一套量化：先按最大绝对值归一化，再取 4 bit。
+ * 不归一化的话，哈希 embedding 的分量只有 ±4…±8，`avg/16` 会全部取整成 0，
+ * 冷层向量变成零向量——冷记忆在语义路上永远拿 0 分（实测就是这个结果）。
+ */
 export function pq32(emb: Int8Array | null): Int8Array | null {
   if (!emb) return null
   if (emb.length <= 32) return emb
-  const seg = Math.floor(emb.length / 8)
+  const packed = pq4(emb)
   const out = new Int8Array(32)
-  for (let s = 0; s < 8; s++) {
-    for (let b = 0; b < 4; b++) {
-      let acc = 0
-      const from = s * seg + b * Math.floor(seg / 4)
-      const to = from + Math.floor(seg / 4)
-      for (let i = from; i < to; i++) acc += emb[i]
-      const avg = acc / Math.max(1, to - from)
-      out[s * 4 + b] = Math.max(-8, Math.min(7, Math.round(avg / 16)))
-    }
-  }
+  for (let i = 0; i < 32; i++) out[i] = (packed[i] << 28) >> 28
   return out
 }
 
 /** 派生 cell id（供编码器用，保证重放幂等）。 */
 export function cellIdFor(sessionId: string, seqs: number[], sdr: Uint32Array): bigint {
   return deriveCellId(sessionId, seqs, new Uint8Array(new Uint32Array(sdr).buffer))
+}
+
+// ── 面板派生统计 ────────────────────────────────────────────────────
+
+const TAG_STOP = new Set([
+  '我们', '他们', '这个', '那个', '一个', '什么', '怎么', '可以', '还是', '就是', '因为', '所以',
+  '但是', '现在', '然后', '这样', '那样', '一下', '已经', '需要', '应该', 'the', 'and', 'for',
+])
+
+/**
+ * 标签云：从槽位取值与 digest 里的实词统计频次。
+ * 不做 TF-IDF——面板要的是"这库大概在讲什么"，不是词权重排序。
+ */
+export function buildTags(cells: PanelCellView[], limit = 24): Array<{ tag: string; count: number }> {
+  const counts = new Map<string, number>()
+  const bump = (t: string) => {
+    const s = t.trim()
+    if (s.length < 2 || s.length > 12) return
+    if (TAG_STOP.has(s.toLowerCase())) return
+    if (/^[\d.]+$/.test(s)) return
+    counts.set(s, (counts.get(s) ?? 0) + 1)
+  }
+  for (const c of cells) {
+    for (const [, v] of c.kv) bump(v)
+    for (const t of c.digest.match(/[\u4e00-\u9fa5]{2,6}|[A-Za-z][A-Za-z0-9_.\-]{1,15}/g) ?? []) bump(t)
+  }
+  return [...counts.entries()]
+    .map(([tag, count]) => ({ tag, count }))
+    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
+    .slice(0, limit)
+}
+
+/**
+ * 分类统计。这一层是**视图投影**，不是新的存储结构——
+ * 一条 cell 可以同时进"长期偏好"和"项目"，因为分类问题本来就允许重叠。
+ */
+export function buildCategories(cells: PanelCellView[]): Array<{ key: string; label: string; count: number }> {
+  const cat: Record<string, { label: string; count: number }> = {
+    profile: { label: '用户档案', count: 0 },
+    preference: { label: '长期偏好', count: 0 },
+    project: { label: '项目', count: 0 },
+    progress: { label: '项目进展', count: 0 },
+    decision: { label: '决策', count: 0 },
+    knowledge: { label: '知识', count: 0 },
+    lesson: { label: '经验教训', count: 0 },
+    task: { label: '任务', count: 0 },
+  }
+  for (const c of cells) {
+    const text = `${c.digest} ${c.slots.map((s) => s.value).join(' ')}`.toLowerCase()
+    const pred = (c.slots.find((s) => s.role === 3)?.value ?? '').toLowerCase()
+    if (c.kind === 4 || c.kind === 5 || c.lens === 'bond') cat.profile.count++
+    if (pred === 'prefers' || pred === 'dislikes' || /喜欢|偏好|习惯|prefer/.test(text)) cat.preference.count++
+    if (/项目|仓库|工程|repo|project|模块|服务/.test(text)) cat.project.count++
+    if (/进度|进展|里程碑|完成|上线|发布|progress|milestone/.test(text)) cat.progress.count++
+    if (pred === 'decides' || /决定|定了|方案|采用|选定|decide/.test(text)) cat.decision.count++
+    if (c.kind === 1 || c.kind === 2 || c.kind === 3) cat.knowledge.count++
+    if (/教训|踩坑|下次|避免|注意|坑|lesson|pitfall/.test(text)) cat.lesson.count++
+    if (/待办|任务|todo|要做|跟进|task/.test(text)) cat.task.count++
+  }
+  return Object.entries(cat).map(([key, v]) => ({ key, label: v.label, count: v.count }))
 }
 
 export { SIM_FLOOR, encodeCell, topicOf, hash64 }

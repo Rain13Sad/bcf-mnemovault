@@ -27,6 +27,8 @@ export interface HarnessOptions {
   sessionId?: string
   /** 固定时钟，便于测试（默认 Date.now） */
   now?: () => number
+  /** 覆盖 encoder 的配置（bench 用不同切分预算做对照实验） */
+  encoder?: Record<string, unknown>
   quiet?: boolean
 }
 
@@ -120,7 +122,16 @@ export async function createHarness(opts: HarnessOptions = {}): Promise<Harness>
   // ── 装载插件（真实 Cordis fiber，effect 生效） ──────────────────
   if (want.has('core')) await load(core, config)
   if (want.has('affect')) await load(affectPkg, { moodTau: 20, personaDriftEpsilon: 0.25, negativeWeight: 3, enabled: true })
-  if (want.has('encoder')) await load(encoderPkg, { encodeAssistant: true, encodeTools: true, maxCellsPerTurn: 8, maxResidualBytes: 8192, l1: { enabled: false } })
+  if (want.has('encoder'))
+    await load(encoderPkg, {
+      encodeAssistant: true,
+      encodeTools: true,
+      maxCellsPerTurn: 8,
+      cellsPerTurnChars: 600,
+      maxResidualBytes: 8192,
+      l1: { enabled: false, probe: false, timeoutMs: 4000 },
+      ...(opts.encoder ?? {}),
+    })
   if (want.has('recall')) await load(recallPkg, { enabled: true, injectOnFirstTurn: true, topicDriftThreshold: 0.6, minTurnsBetweenInjections: 1, budgetGuard: 0.8, applyTemperature: false })
   if (want.has('proactive')) await load(proactivePkg, { enabled: true, minIntervalMin: 45, maxPerDay: 3, quietStart: 23, quietEnd: 8, idleMin: 90, requireReason: true })
   if (want.has('consolidator')) await load(consolidatorPkg, { enabled: true, gamma: 0.95, pruneBelow: 8, pruneAfterDays: 90, divergenceTemp: 0.7, maxSeeds: 60 })

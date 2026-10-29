@@ -28,6 +28,8 @@ import {
 } from '@rain13sad/dsh-mnemo-core'
 import { buildGuard, isEgressTool, type EgressGuard } from './guard.js'
 import { runCommand, type CommandDeps } from './commands.js'
+import { attachCommandFace, registerCommandBridge, registerRemoteFace, registerSnapshotBridge } from './bridge.js'
+import type { RuntimeStatus } from '@rain13sad/dsh-mnemo-core'
 
 export const name = 'mnemo-tools'
 export const inject = ['memory', 'tools', 'sessions']
@@ -68,6 +70,19 @@ export function apply(ctx: Context, config: Config) {
     | undefined
 
   const disposers: Array<() => void> = []
+  const runtime = ctx.get('mnemoRuntime') as RuntimeStatus | undefined
+
+  /** 注册工具并登记到运行时状态：面板"已注册工具"读的就是这一份。 */
+  const register = (def: unknown): (() => void) => {
+    const off = tools.register(def)
+    const nm = (def as { name?: string }).name
+    if (nm) runtime?.addTool(nm)
+    return () => {
+      off()
+      if (nm) runtime?.removeTool(nm)
+    }
+  }
+
   /** 每个会话最后一条用户消息：memory_assert 的"用户是否明说要记住"判据（§17.1） */
   const lastUser = new Map<string, string>()
 
@@ -96,7 +111,7 @@ export function apply(ctx: Context, config: Config) {
 
   // ── 1. memory_recall ────────────────────────────────────────────
   disposers.push(
-    tools.register({
+    register({
       name: 'memory_recall',
       description:
         '主动检索长期记忆。**不要滥用**：自动注入已覆盖大部分场景，只在"需要查证"或"用户明确指向过去"时调用。返回 MRS 行式结果与命中的 cell id。',
@@ -188,7 +203,7 @@ export function apply(ctx: Context, config: Config) {
 
   // ── 2. memory_expand ────────────────────────────────────────────
   disposers.push(
-    tools.register({
+    register({
       name: 'memory_expand',
       description:
         '展开一条记忆。level 0=摘要 / 1=全部槽位 / 2=原文残差（受 800 字上限与遮蔽检测约束）。只在确实需要细节时调用——展开会花 token。',
@@ -231,7 +246,7 @@ export function apply(ctx: Context, config: Config) {
 
   // ── 3. memory_assert ────────────────────────────────────────────
   disposers.push(
-    tools.register({
+    register({
       name: 'memory_assert',
       description:
         '写入一条记忆断言。用户明说"记住 X"时直接调用；模型主动记录时需用户确认。返回是否新建/合并/与既有记忆冲突。',
@@ -342,7 +357,7 @@ export function apply(ctx: Context, config: Config) {
 
   // ── 4. memory_forget ────────────────────────────────────────────
   disposers.push(
-    tools.register({
+    register({
       name: 'memory_forget',
       description:
         '删除记忆。默认软删（可唤醒），mode="hard" 为物理删除且**不可撤销**。调用前必须先向用户确认，并说明将删除什么。',
@@ -375,7 +390,7 @@ export function apply(ctx: Context, config: Config) {
 
   // ── 5. affect_report ────────────────────────────────────────────
   disposers.push(
-    tools.register({
+    register({
       name: 'affect_report',
       description:
         '返回内部状态**数值**（负荷/不确定性/冲突/张力/进度/预算）与 PAD。这些不是主观体验，也不代表拥有情绪——不要把它们描述成"感受"。',
@@ -401,7 +416,7 @@ export function apply(ctx: Context, config: Config) {
 
   // ── 6. memory_stats ─────────────────────────────────────────────
   disposers.push(
-    tools.register({
+    register({
       name: 'memory_stats',
       description: '返回记忆库统计：cell 数、分层、命中率、token 账、存储比。只读，用于回答"你现在记得多少"这类问题。',
       parameters: { type: 'object', properties: {}, additionalProperties: false },
@@ -449,44 +464,61 @@ export function apply(ctx: Context, config: Config) {
     openPanel: () => (ctx as unknown as { emit(n: string, p: unknown): void }).emit('mnemo/open-panel', { panel: 'mnemo' }),
   }
 
-  const cmdline = ctx.get('cmdline') as
-    | { command(name: string): { command(spec: string): { description(d: string): { action(fn: (...a: never[]) => unknown): unknown } } } }
-    | undefined
+  // ── 数据面与命令面接线（§12.6 / §20.2） ──────────────────────────
+  // 顺序有讲究：先把 remote / snapshot / 命令桥提供给面板，再尝试挂命令面。
+  // 这样即使宿主既没有 remote 也没有 cmdline，面板仍然能读写与执行命令。
+  const remoteNotes = registerRemoteFace(ctx, memory, runtime).notes
+  registerSnapshotBridge(ctx, memory)
+  registerCommandBridge(ctx, (argv) => runCommand(argv, deps), runtime)
 
-  if (cmdline?.command) {
-    ctx.effect(() => {
-      const root = cmdline.command('mnemo')
-      const sub = root.command('<command> [args...]')
-      const withDesc = sub.description('记忆与情感管理（/mnemo help 查看全部）')
-      withDesc.action(((...a: unknown[]) => runCommand(a.map(String), deps)) as never)
-      return () => {
-        /* cordis 的命令注册随 fiber 卸载，无需手工反注册 */
-      }
-    }, 'mnemo-tools: /mnemo command')
-  } else if (config.commandToolFallback) {
-    // 降级：宿主没有 cmdline 时，把同一套命令做成工具，保证功能不丢（§20.2 的策略）
-    disposers.push(
-      tools.register({
-        name: 'mnemo_command',
-        description: '运行 /mnemo 命令（宿主未提供命令面时的降级入口）。等价于 /mnemo <command> <args...>。',
-        parameters: {
-          type: 'object',
-          properties: { line: { type: 'string', description: '命令与参数，如 "stats" 或 "forget 7f3a --hard --yes"' } },
-          required: ['line'],
-          additionalProperties: false,
-        },
-        output: {
-          schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
-          render: (_a: unknown, v: Record<string, unknown>) => text(String(v.text)),
-        },
-        async execute(args: unknown) {
-          const line = String((args as { line: string }).line ?? '')
-          const argv = line.trim().split(/\s+/).filter(Boolean)
-          return { text: await runCommand(argv, deps) }
-        },
-      }),
-    )
-    ctx.logger('mnemo-tools').warn('未找到 ctx.cmdline，命令面降级为 mnemo_command 工具')
+  const face = attachCommandFace(ctx, (argv) => runCommand(argv, deps), runtime)
+  if (face === 'none') {
+    if (config.commandToolFallback) {
+      // 降级：宿主没有命令面时，把同一套命令做成工具，保证功能不丢
+      disposers.push(
+        register({
+          name: 'mnemo_command',
+          description: '运行 /mnemo 命令（宿主未提供命令面时的降级入口）。等价于 /mnemo <command> <args...>。',
+          parameters: {
+            type: 'object',
+            properties: { line: { type: 'string', description: '命令与参数，如 "stats" 或 "forget 7f3a --hard --yes"' } },
+            required: ['line'],
+            additionalProperties: false,
+          },
+          output: {
+            schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+            render: (_a: unknown, v: Record<string, unknown>) => text(String(v.text)),
+          },
+          async execute(args: unknown) {
+            const line = String((args as { line: string }).line ?? '')
+            const argv = line.trim().split(/\s+/).filter(Boolean)
+            return { text: await runCommand(argv, deps) }
+          },
+        }),
+      )
+      if (runtime) runtime.commandFace = 'tool'
+      ctx.logger('mnemo-tools').warn('未识别到命令面，命令面降级为 mnemo_command 工具')
+    } else if (runtime) {
+      runtime.commandFace = 'none'
+    }
+  }
+
+  // 能力清单：面板"后端能力"区块的 chip 来源。写在这里是因为只有 tools 知道
+  // "模型可见工具到底注册了哪几个"。
+  if (runtime) {
+    runtime.capabilities = [
+      ...runtime.capabilities.filter((c) => c.startsWith('L1') || c.startsWith('remote') || c.startsWith('命令')),
+      '文件系统',
+      'HTTP 服务',
+      '模型工具',
+      '主动事件',
+      '面板事件',
+    ]
+    runtime.limits = [
+      ...runtime.limits.filter((x) => !x.startsWith('embedding')),
+      'embedding：默认走本地哈希 + 同义词族（不是语义模型），接宿主 embedding 服务需实现 EmbeddingPort',
+    ]
+    ctx.logger('mnemo-tools').info(`bridges ready（${remoteNotes.join('；')}）`)
   }
 
   ctx.effect(() => () => {

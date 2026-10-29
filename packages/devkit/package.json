@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-devkit",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "无宿主运行器：mock Cordis ctx + 会话回放，用于 demo / 测试",
   "keywords": [
     "dsh",

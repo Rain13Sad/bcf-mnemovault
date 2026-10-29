@@ -114,9 +114,9 @@ export default { jsx, jsxs, Fragment }
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MnemoVault · 记忆面板预览</title>
 <style>
-  html, body { margin: 0; height: 100%; background: #0f1115; }
+  html, body { margin: 0; height: 100%; background: #0f1115; overflow: hidden; }
   body { display: grid; place-items: center; font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  .frame { width: min(420px, 100vw); height: min(780px, 100vh); background: #fff; border-radius: 12px; overflow: hidden;
+  .frame { width: min(420px, 100vw); min-width: 0; max-width: 100vw; height: min(780px, 100vh); background: #fff; border-radius: 12px; overflow: hidden;
            box-shadow: 0 20px 60px rgba(0,0,0,.45); display: flex; flex-direction: column; position: relative; }
   #root { flex: 1; min-height: 0; display: flex; }
   #root > .mnv-root { flex: 1; }
@@ -137,7 +137,7 @@ export default { jsx, jsxs, Fragment }
       source: createDemoSource(window.__MNEMO_SNAPSHOT__),
       pageSize: 50,
       graphMaxNodes: 200,
-      initialTab: 'timeline',
+      initialTab: (location.hash || '#overview').slice(1),
       affectEnabled: true,
       ignition: 0.42,
       runCommand: (line) => '（预览模式）已执行 /mnemo ' + line + '；真实命令面在宿主内生效。',

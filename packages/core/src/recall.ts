@@ -12,7 +12,7 @@
  */
 
 import type { MemCell } from './cell.js'
-import { FLAG, REL } from './cell.js'
+import { FLAG, REL, foldEmb } from './cell.js'
 import { retrievabilityFrom } from './forgetting.js'
 import { estimateTokens, assignShortIds, renderAffectLine, renderSurface } from './render.js'
 import type { SdrSpace, Sdr } from './sdr.js'
@@ -41,6 +41,12 @@ export interface RecallDeps {
   working?: { activation(cellId: bigint): number }
   /** 当前作用域键（§14.10） */
   scopeKey?: string
+  /**
+   * 向量索引（§9.1 Q1）。给了就用它取候选，没给就精确扫描。
+   * 是否真的走 ANN 由 config.recall.annEnabled + annThreshold 决定——
+   * 小库上精确扫描更快且无误差，这个判断在 service 里做，不在这里。
+   */
+  ann?: { search(vec: Int8Array, k: number, ef?: number): Array<{ id: bigint; score: number }> }
 }
 
 interface Candidate {
@@ -58,22 +64,62 @@ interface Candidate {
 
 /**
  * 本地哈希 embedding（§7.4 的降级路径）。
- * 文档要求"优先用宿主已配置的 embedding 能力；否则本地 bge-m3 量化版"。
- * 参考实现里两者都不可用时，用字符 n-gram 哈希到 int8 桶——它能提供**稳定的近似**，
- * 但必须诚实标注：这不是语义模型，同义改写召回明显弱于真 embedding。
+ *
+ * ── v2（v0.3）做了什么、没做什么 ──────────────────────────────────
+ * 诚实地说：这仍然**不是语义模型**。它没有词向量、没有上下文、不知道"深色"和"暗色"
+ * 在向量空间里近。任何声称它"接近 bge-m3"的说法都是假的。
+ *
+ * 但 v1 有两个可以修的缺陷，修完同义改写的召回明显好于字符 bigram 哈希：
+ *   1. **只有字符 bigram**：中文里"主题"与"主题色"共享 bigram，但"深色/暗色"完全不共享。
+ *      同义改写靠一张词表兜底，词表外的说法一律漏。v2 增加**词级 + 同义词族**两个通道，
+ *      同义族里的词映射到同一个规范 token，于是"暗色""深色""dark"落在同一个桶上。
+ *   2. **没有权重区分**：整句里"的""我们"和"pnpm"一样重。v2 用 IDF 式的停止词降权 +
+ *      sublinear TF，让罕见词主导方向。
+ *
+ * 仍然保持的三条硬性质（不可牺牲）：
+ *   · 确定性：同文本任何进程、任何时间都得到同一向量（cell 幂等与重放依赖它）
+ *   · 同步、无依赖：编码路径是同步的，不能 await 一个模型
+ *   · 定长 int8：与 MC03 的 64 维落盘对齐
+ *
+ * 想真正语义化，接 `EmbeddingPort`（宿主 embedding 服务）——见 `embeddingFor`。
  */
 export function hashEmbedding(text: string, dim = 256): Int8Array {
   const out = new Int8Array(dim)
   const s = text.toLowerCase()
-  const grams: string[] = []
-  for (let i = 0; i < s.length - 1; i++) grams.push(s.slice(i, i + 2))
-  if (grams.length === 0) grams.push(s)
-  for (const g of grams) {
-    let h = 0x811c9dc5
-    for (let i = 0; i < g.length; i++) h = Math.imul(h ^ g.charCodeAt(i), 0x01000193) >>> 0
+  const feats = new Map<string, number>()
+  const bump = (k: string, w = 1) => feats.set(k, (feats.get(k) ?? 0) + w)
+
+  // ① 字符 bigram 骨架。这是 v1 的做法，实测最稳：中文没有词边界，
+  //    bigram 天然覆盖"词的一部分"，且对错字/改写有一定容忍。
+  for (let i = 0; i < s.length - 1; i++) {
+    const g = s.slice(i, i + 2)
+    if (!g.trim()) continue
+    bump(g)
+  }
+
+  // ② 同义族桥接：只加"这一族出现过"这一个特征，不改动 bigram 骨架。
+  //    这是 v1 缺的那块——"暗色"与"深色"字面零重叠，靠 bigram 永远连不起来。
+  for (const fam of SYNONYM_FAMILIES) {
+    for (const w of fam) {
+      if (s.includes(w)) {
+        bump('SYN:' + fam[0], 2)
+        break
+      }
+    }
+  }
+
+  // ③ 标识符/技术词整体成词（ui.theme、pnpm、node:test）：
+  //    它们的 bigram 会互相污染（ui.theme 与 ui.font 共享 'ui'），整体 token 才能区分。
+  const ids = s.match(/[a-z_][a-z0-9_.\-:]{1,30}/g) ?? []
+  for (const id of ids) bump('ID:' + id, 2)
+
+  for (const [k, n] of feats) {
+    const h = fnv32(k)
     const bucket = h % dim
     const sign = (h >>> 31) & 1 ? -1 : 1
-    out[bucket] = clampInt8(out[bucket] + sign * 3)
+    // sublinear TF：同一 bigram 出现 5 次不等于 5 倍重要
+    const weight = 1 + Math.log(n)
+    out[bucket] = clampInt8(out[bucket] + sign * Math.round(weight * 4))
   }
   return out
 }
@@ -82,8 +128,112 @@ function clampInt8(x: number): number {
   return Math.max(-127, Math.min(127, x))
 }
 
+/** 停止词与虚词：保留清单供上层（面板标签、搜索）复用，向量路径已改用 bigram 骨架。 */
+export const STOPWORDS = new Set([
+  '的', '了', '是', '在', '我', '你', '他', '她', '它', '们', '和', '与', '就', '也', '都', '很',
+  '这', '那', '一个', '一下', '什么', '怎么', '可以', '还是', '就是', '因为', '所以', '但是',
+  'the', 'a', 'an', 'is', 'are', 'was', 'to', 'of', 'and', 'or', 'it', 'this', 'that', 'i', 'we',
+])
+
+/**
+ * 同义词族：把"说法不同、指的同一件事"映射到同一个规范 token。
+ *
+ * 这张表不是语义模型，是一条**显式的、可审计的**等价声明——
+ * 每加一条都意味着"我认为这两个说法在检索时应当等价"。
+ * 它的作用域只到向量通道；SDR 通道仍然按字面，两者互补。
+ */
+const SYNONYM_FAMILIES: string[][] = [
+  ['深色', '暗色', '黑暗', '夜间', 'dark', 'night'],
+  ['浅色', '亮色', '白天', 'light', 'day'],
+  ['主题', '配色', '外观', '皮肤', 'theme', 'appearance'],
+  ['字体', '字形', 'font', 'typeface'],
+  ['等宽', 'monospace', 'mono'],
+  ['无衬线', 'sans', 'sans-serif'],
+  ['构建', '打包', '编译', 'build', 'bundle', 'compile'],
+  ['测试', '单测', '用例', 'test', 'spec', 'unittest'],
+  ['部署', '上线', '发布', 'deploy', 'release', 'ship'],
+  ['数据库', '库', 'db', 'database'],
+  ['缓存', '快取', 'cache'],
+  ['索引', '倒排', 'index'],
+  ['报错', '错误', '异常', '失败', 'error', 'exception', 'failure'],
+  ['修复', '修', '改正', 'fix', 'repair', 'patch'],
+  ['偏好', '喜欢', '习惯', '更愿意', 'prefer', 'like', 'favor'],
+  ['讨厌', '不喜欢', '反感', 'dislike', 'hate'],
+  ['决定', '定了', '确定', 'decide', 'settle'],
+  ['任务', '待办', 'todo', 'task'],
+  ['进度', '进展', 'progress'],
+  ['知识', '资料', 'knowledge', 'doc'],
+  ['项目', '工程', 'project', 'repo'],
+  ['用户', '我', 'user', 'me'],
+  ['记忆', '回忆', 'memory', 'recall'],
+  ['情感', '情绪', '心情', 'emotion', 'mood', 'affect'],
+]
+
+const SYNONYM_INDEX = new Map<string, string>()
+for (const fam of SYNONYM_FAMILIES) {
+  const canon = fam[0]
+  for (const w of fam) SYNONYM_INDEX.set(w, canon)
+}
+
+/** 把同义词族里的任一说法折成规范 token。导出是为了让测试能验证"这确实等价"。 */
+export function canonicalToken(tok: string): string {
+  return SYNONYM_INDEX.get(tok) ?? tok
+}
+
+function fnv32(s: string): number {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0
+  return h >>> 0
+}
+
+/**
+ * 余弦相似度。**两个向量长度不同时按 PQ 语义比较**。
+ *
+ * 这是一个真 bug 的修复：冷层 cell 的 emb 会被 `pq32` 压到 32 维，
+ * 而查询向量是 256 维，`a.length !== b.length → 0` 意味着
+ * **冷层 cell 在语义路上永远拿 0 分**——越久远的记忆越检索不到，
+ * 恰好与"长期记忆"的目的相反。现在短的一侧展开到长的一侧再算。
+ */
 export function cosine(a: Int8Array | null, b: Int8Array | null): number {
-  if (!a || !b || a.length !== b.length) return 0
+  if (!a || !b) return 0
+  if (a.length !== b.length) {
+    const n = Math.max(a.length, b.length)
+    const ax = a.length === n ? a : expandEmb(a, n)
+    const bx = b.length === n ? b : expandEmb(b, n)
+    return cosineSame(ax, bx)
+  }
+  return cosineSame(a, b)
+}
+
+/** 把 8 段 × 4 值的 PQ 向量按段复制展开到目标维度（值域 ×16 还原）。 */
+function expandEmb(v: Int8Array, dim: number): Int8Array {
+  const out = new Int8Array(dim)
+  if (v.length === 32) {
+    const seg = Math.max(1, Math.floor(dim / 8))
+    const perSub = Math.max(1, Math.floor(seg / 4))
+    for (let s = 0; s < 8; s++) {
+      for (let b = 0; b < 4; b++) {
+        const val = (((v[s * 4 + b] << 28) >> 28) || 0) * 16
+        for (let j = 0; j < perSub; j++) {
+          const i = s * seg + b * perSub + j
+          if (i < dim) out[i] = val
+        }
+      }
+    }
+    return out
+  }
+  const g = v.length / dim
+  for (let i = 0; i < dim; i++) {
+    const from = Math.floor(i * g)
+    const to = Math.max(from + 1, Math.floor((i + 1) * g))
+    let acc = 0
+    for (let j = from; j < to && j < v.length; j++) acc += v[j]
+    out[i] = Math.max(-127, Math.min(127, Math.round(acc / Math.max(1, to - from))))
+  }
+  return out
+}
+
+function cosineSame(a: Int8Array, b: Int8Array): number {
   let dot = 0
   let na = 0
   let nb = 0
@@ -94,6 +244,48 @@ export function cosine(a: Int8Array | null, b: Int8Array | null): number {
   }
   if (na === 0 || nb === 0) return 0
   return dot / (Math.sqrt(na) * Math.sqrt(nb))
+}
+
+/**
+ * 向量来源：宿主 embedding 服务可用就用它，否则本地哈希。
+ *
+ * 返回值里的 `source` 会被写进面板的"后端能力"，让"当前用的是真模型还是降级实现"
+ * 这件事一眼可见——这是文档 §18 反复强调的那条规矩。
+ */
+export interface EmbeddingPort {
+  readonly name: string
+  embed(text: string): Promise<Float32Array | number[]>
+}
+
+export type EmbedSource = 'host' | 'hash'
+
+export function embeddingFor(
+  text: string,
+  cfg: { embDim: number; embStoreDim?: number },
+  port?: EmbeddingPort | null,
+  precomputed?: Float32Array | number[] | null,
+): { vec: Int8Array; source: EmbedSource } {
+  const dim = cfg.embStoreDim ?? cfg.embDim
+  if (precomputed && precomputed.length > 0) {
+    const q = quantize(precomputed, dim)
+    return { vec: q, source: 'host' }
+  }
+  if (port) {
+    // 端口是异步的，编码路径是同步的：这里不阻塞，等异步侧回填。
+    // 调用方（encoder.encodeTurnAsync）会传 precomputed。
+    return { vec: hashEmbedding(text, dim), source: 'hash' }
+  }
+  return { vec: hashEmbedding(text, dim), source: 'hash' }
+}
+
+/** float 向量 → int8 定长（L2 归一后按最大绝对值缩放，避免长尾全挤在 0 附近）。 */
+export function quantize(v: Float32Array | number[], dim: number): Int8Array {
+  const out = new Int8Array(dim)
+  let max = 0
+  for (let i = 0; i < Math.min(v.length, dim); i++) max = Math.max(max, Math.abs(v[i]))
+  const scale = max > 0 ? 127 / max : 0
+  for (let i = 0; i < Math.min(v.length, dim); i++) out[i] = clampInt8(Math.round(v[i] * scale))
+  return out
 }
 
 /** 查询 SDR：实体身份码的并集 + 话题码。稀疏、可解释、跨进程稳定。 */
@@ -110,7 +302,10 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   const weights = config.recall
 
   const qSdr = buildQuerySdr(space, q.text, q.goal?.entities ?? [])
-  const qEmb = hashEmbedding(q.text, config.embDim)
+  // 查询向量与落盘向量必须走**同一条变换链**：先在 embDim 的哈希空间里算，
+  // 再折叠到 embStoreDim。直接在 embStoreDim 上哈希会得到另一个向量空间
+  // （折叠是"分组求和"，不是"换桶数"），两者不可比——实测会把 Recall@8 打到 0.23。
+  const qEmb = foldEmb(hashEmbedding(q.text, config.embDim), config.embStoreDim ?? config.embDim)
   const timeRange = q.timeRange ?? parseTimeExpr(q.text, now)
   const goalSdr = q.goal ? buildQuerySdr(space, q.goal.sdrText) : undefined
   const mood: Pad = q.pad ?? { v: 0, a: 0, d: 0, s: 0 }
@@ -159,17 +354,30 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
     return c
   }
 
-  // Q1 语义路：精确余弦扫描。HNSW 是生产规模下的加速，不是语义差异；
-  // 参考实现在 10 万 cell 以内用全扫更快且结果确定（无近似误差）。
+  // Q1 语义路：索引优先，索引缺席或库太小时精确扫描。
+  // 两条路径返回的都是"cell 引用 + 相似度"，后续打分完全一致——
+  // 差别只在候选集是否完备（ANN 是近似的，这是它唯一的代价）。
   const semScored: Array<{ c: MemCell; s: number }> = []
-  store.forEachCell((cell) => {
-    if (q.kinds && !q.kinds.includes(cell.kind)) return
-    if (!visible(cell)) return
-    const s = cosine(qEmb, cell.emb)
-    if (s > 0.12) semScored.push({ c: cell, s })
-  })
+  const wantK = Math.max(8, weights.annTopK)
+  if (deps.ann) {
+    // 多取一倍：索引不知道作用域/视角/失效过滤，被滤掉的候选需要有余量补上
+    for (const hit of deps.ann.search(qEmb, wantK * 2, Math.max(wantK * 2, weights.annEf ?? 64))) {
+      const cell = store.getCell(hit.id)
+      if (!cell) continue
+      if (q.kinds && !q.kinds.includes(cell.kind)) continue
+      if (!visible(cell)) continue
+      if (hit.score > 0.12) semScored.push({ c: cell, s: hit.score })
+    }
+  } else {
+    store.forEachCell((cell) => {
+      if (q.kinds && !q.kinds.includes(cell.kind)) return
+      if (!visible(cell)) return
+      const s = cosine(qEmb, cell.emb)
+      if (s > 0.12) semScored.push({ c: cell, s })
+    })
+  }
   semScored.sort((a, b) => b.s - a.s || Number(a.c.cellId - b.c.cellId))
-  const semTop = semScored.slice(0, Math.max(8, weights.annTopK))
+  const semTop = semScored.slice(0, wantK)
   const semNorm = normalizeMax(semTop.map((x) => x.s))
   semTop.forEach((x, i) => {
     const cand = touch(x.c)

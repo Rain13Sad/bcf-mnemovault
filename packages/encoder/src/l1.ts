@@ -125,32 +125,138 @@ export function segmentLite(text: string): Proposition[] {
 /**
  * 把宿主 LLM 服务适配成 LlmPort。
  *
- * ⚠ 宿主 llm 服务的调用形状在 rc 间会变，这里只认三种最常见的入口，
- * 一个都没有就返回 null（编码器自动降级），不做猜测性调用。
+ * ── 为什么这里要"宽进"而不是"猜" ─────────────────────────────────
+ * 宿主的 llm 服务在 rc 之间改过三次调用形状：`complete(prompt)`、
+ * `generate({prompt})`、`chat({messages})`。v0.2 只认前两种字符串入参，
+ * 认不出就静默降级——于是"L1 就绪"这句话实际上从没被验证过。
+ *
+ * 现在的策略是：**枚举已知入口 → 逐个探测 → 把命中的形状写进运行时状态**。
+ * 三条硬约束不变：
+ *   1. 不做猜测性调用。探测失败就返回 null，编码器降级到 lite，不抛错。
+ *   2. 不假设返回结构。字符串 / {text} / {content} / {choices[0].message.content}
+ *      / 异步迭代器（流式）五种形态都归一成字符串。
+ *   3. 探测结果可读。`entry` 会被面板与 doctor 显示——"接上了没有"是运行时事实，
+ *      不该靠 README 里的一句话。
  */
-export function fromHostLlm(llm: unknown): LlmPort | null {
-  if (!llm || typeof llm !== 'object') return null
-  const o = llm as Record<string, unknown>
-  const call =
-    (typeof o.complete === 'function' && (o.complete as (...a: unknown[]) => unknown)) ||
-    (typeof o.generate === 'function' && (o.generate as (...a: unknown[]) => unknown)) ||
-    (typeof o.chat === 'function' && (o.chat as (...a: unknown[]) => unknown)) ||
-    null
-  if (!call) return null
-  return {
-    available: () => true,
-    async complete(prompt: string) {
-      const r = await (call as (p: string) => Promise<unknown>).call(o, prompt)
-      if (typeof r === 'string') return r
-      if (r && typeof r === 'object') {
-        const rr = r as Record<string, unknown>
-        if (typeof rr.text === 'string') return rr.text
-        if (typeof rr.content === 'string') return rr.content
-        if (Array.isArray(rr.content)) {
-          return rr.content.map((b) => String((b as { text?: string })?.text ?? '')).join('\n')
+export interface HostLlmPort extends LlmPort {
+  /** 识别到的入口名（complete / chat / generate / invoke / run / …） */
+  readonly entry: string
+  /** 该入口期望的入参形状 */
+  readonly shape: 'prompt' | 'messages' | 'object'
+}
+
+const ENTRY_ORDER = ['complete', 'chat', 'generate', 'invoke', 'run', 'call', 'respond', 'createCompletion'] as const
+
+type Shape = 'prompt' | 'messages' | 'object'
+
+function shapeOf(entry: string): Shape {
+  if (entry === 'chat') return 'messages'
+  if (entry === 'complete' || entry === 'createCompletion') return 'prompt'
+  return 'object'
+}
+
+/** 把任意返回结构归一成文本。拿不到就返回空串（调用方据此降级）。 */
+export async function normalizeLlmOutput(r: unknown): Promise<string> {
+  if (r == null) return ''
+  if (typeof r === 'string') return r
+  if (typeof r === 'object') {
+    const o = r as Record<string, unknown>
+    // 流式：async iterable of chunks
+    if (typeof (o as { [Symbol.asyncIterator]?: unknown })[Symbol.asyncIterator] === 'function') {
+      let acc = ''
+      for await (const chunk of r as AsyncIterable<unknown>) {
+        if (typeof chunk === 'string') acc += chunk
+        else if (chunk && typeof chunk === 'object') {
+          const c = chunk as Record<string, unknown>
+          acc += typeof c.text === 'string' ? c.text : typeof c.delta === 'string' ? c.delta : ''
         }
       }
-      return ''
-    },
+      return acc
+    }
+    if (typeof o.text === 'string') return o.text
+    if (typeof o.output_text === 'string') return o.output_text
+    if (typeof o.content === 'string') return o.content
+    if (Array.isArray(o.content)) {
+      return o.content
+        .map((b) => (typeof b === 'string' ? b : String((b as { text?: string })?.text ?? '')))
+        .join('\n')
+    }
+    // OpenAI 风格
+    const choices = o.choices
+    if (Array.isArray(choices) && choices.length > 0) {
+      const c0 = choices[0] as Record<string, unknown>
+      const msg = c0.message as Record<string, unknown> | undefined
+      if (msg && typeof msg.content === 'string') return msg.content
+      if (typeof c0.text === 'string') return c0.text
+    }
+    if (typeof o.output === 'string') return o.output
+  }
+  return ''
+}
+
+export function fromHostLlm(llm: unknown): HostLlmPort | null {
+  if (!llm || typeof llm !== 'object') return null
+  const o = llm as Record<string, unknown>
+
+  // 有些宿主把 llm 包在 client / provider 下面
+  const candidates: Array<{ holder: Record<string, unknown>; path: string }> = [{ holder: o, path: '' }]
+  for (const key of ['client', 'provider', 'model', 'models']) {
+    const sub = o[key]
+    if (sub && typeof sub === 'object') candidates.push({ holder: sub as Record<string, unknown>, path: key + '.' })
+  }
+
+  for (const entry of ENTRY_ORDER) {
+    for (const c of candidates) {
+      const fn = c.holder[entry]
+      if (typeof fn !== 'function') continue
+      const shape = shapeOf(entry)
+      return {
+        entry: c.path + entry,
+        shape,
+        available: () => true,
+        async complete(prompt: string, opts?: { maxTokens?: number }) {
+          const args: unknown[] =
+            shape === 'messages'
+              ? [{ messages: [{ role: 'user', content: prompt }], maxTokens: opts?.maxTokens }]
+              : shape === 'prompt'
+                ? [prompt, { maxTokens: opts?.maxTokens }]
+                : [{ prompt, messages: [{ role: 'user', content: prompt }], maxTokens: opts?.maxTokens }]
+          const r = await (fn as (...a: unknown[]) => Promise<unknown>).apply(c.holder, args)
+          return normalizeLlmOutput(r)
+        },
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * 启动自检：真打一次最小调用。
+ *
+ * 为什么必须真打：入口存在不代表能跑通（鉴权、模型名、配额都会让它在第一次调用时失败）。
+ * 自检失败时**不抛错**——编码器降级到 lite，但状态会记成 ok=false，
+ * 面板上"L1：端口失败（401）"比"L1：已就绪"的谎言有用得多。
+ */
+export async function probeLlmPort(port: LlmPort | null, timeoutMs = 4000): Promise<{ ok: boolean; ms: number; note: string; sample: string }> {
+  if (!port) return { ok: false, ms: 0, note: '未找到宿主 llm 服务', sample: '' }
+  if (!port.available()) return { ok: false, ms: 0, note: '端口报告不可用', sample: '' }
+  const t0 = Date.now()
+  try {
+    const raw = await Promise.race([
+      port.complete('只输出一个 JSON 数组：[{"text":"探针"}]', { maxTokens: 32 }),
+      new Promise<string>((_, reject) => setTimeout(() => reject(new Error(`超时 ${timeoutMs}ms`)), timeoutMs)),
+    ])
+    const ms = Date.now() - t0
+    const text = String(raw ?? '').trim()
+    if (!text) return { ok: false, ms, note: '返回空文本（形状不被识别）', sample: '' }
+    const props = parseLlmPropositions(text)
+    return {
+      ok: true,
+      ms,
+      note: props ? `自检通过，解析出 ${props.length} 条命题` : '自检通过，但返回不是合法 JSON（L1 会降级到 lite）',
+      sample: text.slice(0, 80),
+    }
+  } catch (err) {
+    return { ok: false, ms: Date.now() - t0, note: `自检失败：${String((err as Error)?.message ?? err).slice(0, 120)}`, sample: '' }
   }
 }

@@ -39,10 +39,10 @@ test('压缩：短文本不压（头部开销会让它变大），如实标 raw'
   assert.equal(c.bytes.length, raw.length)
 })
 
-test('存储比：长文本下应小于 1（短句被 704 B 定长基底拖累，这是设计代价不是 bug）', async () => {
+test('存储比：MC03 之后长文本必须低于 1.2×（旧版 2.50×，靠三处重新编码降下来）', async () => {
   const h = await open()
   // 文档 §6.3 的口径是"一条 800 字中文轮次"，所以这里必须用真实长度的差异化文本：
-  // 短句会被 704 B 定长基底拖到存储比 > 1，那是设计代价，不是压缩没生效。
+  // 短句会被定长基底拖到存储比 > 1，那是设计代价，不是压缩没生效。
   const filler = '这一段用于填充长度，模拟真实的会议记录与代码讨论，内容需要足够长才能体现压缩收益。'
   for (let i = 0; i < 6; i++) {
     const long = `第 ${i} 轮记录：` + `我们讨论了缓存分片与索引维护的第 ${i} 套方案。`.repeat(4) + filler.repeat(6)
@@ -52,10 +52,11 @@ test('存储比：长文本下应小于 1（短句被 704 B 定长基底拖累�
   const s = h.memory.stats()
   // 残差共享：一轮一条残差，而不是一条命题一条
   assert.ok(st.residuals <= 6, `残差应按轮共享，实际 ${st.residuals} 条`)
-  // 存储比的实测口径： (nCell × 750B 定长基底 + 0.42 × 原文) / 原文
-  // 所以它随"每轮几条命题"变化，不是常数。这里只断言它落在可解释的范围内。
-  assert.ok(s.storageRatio > 0 && s.storageRatio < 3, `storageRatio=${s.storageRatio.toFixed(2)}`)
-  assert.ok(st.bytes / st.rawBytes > 1, '短/中长文本下基底成本占主导，存储比 > 1 是预期结果（见 README）')
+  // 存储比 = (nCell × 单条字节 + 残差压缩) / 原文。MC03 把单条基底从 704 B 降到约 340 B，
+  // 这里同时卡"总比"与"单条字节"，防止只优化其中一个而另一个回退。
+  const perCell = (st.bytes - (st.residualBytes ?? 0)) / Math.max(1, st.cells)
+  assert.ok(perCell < 460, `单条 cell ${perCell.toFixed(0)} B，超过 460 B 说明 MC03 的压缩被回退了`)
+  assert.ok(s.storageRatio > 0 && s.storageRatio < 1.2, `storageRatio=${s.storageRatio.toFixed(2)}，应低于 1.2`)
 })
 
 // ── 双时态 ──────────────────────────────────────────────────────────

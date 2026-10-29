@@ -1,27 +1,27 @@
 {
   "version": 2,
-  "generatedAt": 1793177017140,
+  "generatedAt": 1793251583676,
   "stats": {
-    "cells": 37,
-    "edges": 61,
-    "bytes": 30022,
+    "cells": 27,
+    "edges": 48,
+    "bytes": 10593,
     "byKind": {
-      "relational": 6,
-      "persona": 6,
+      "relational": 1,
+      "persona": 1,
       "semantic": 19,
       "procedure": 4,
       "episodic": 1,
       "narrative": 1
     },
     "byTier": {
-      "1": 37
+      "1": 27
     },
-    "supportOne": 36,
+    "supportOne": 26,
     "disputed": 1,
     "invalidated": 1,
     "contradictions": 1,
     "hitRate": 1,
-    "tokensPerTurn": 111.3529411764706,
+    "tokensPerTurn": 111.76470588235294,
     "tokenSeries": [
       {
         "turn": 1,
@@ -85,15 +85,15 @@
       },
       {
         "turn": 26,
-        "tokens": 119
+        "tokens": 122
       },
       {
         "turn": 26,
-        "tokens": 117
+        "tokens": 121
       }
     ],
-    "storageRatio": 20.89213639526792,
-    "recallP95Ms": 6,
+    "storageRatio": 7.37160751565762,
+    "recallP95Ms": 8,
     "turns": 26,
     "evictions": 0
   },
@@ -331,35 +331,35 @@
         "turn": 22,
         "v": 0.5391808600618703,
         "a": 0.6289437270557222,
-        "strength": 0.5391785588484864,
+        "strength": 0.5391786626624124,
         "trigger": "另外我喜欢把日志放在 stderr，stdout 留给数据。"
       },
       {
         "turn": 9,
         "v": 0.5391099278375627,
         "a": 0.6285809323198553,
-        "strength": 0.5391047378274548,
+        "strength": 0.5391050146267325,
         "trigger": "我不喜欢自动生成的 commit message，太啰嗦。"
       },
       {
         "turn": 12,
         "v": -0.5386841738803179,
         "a": 0.6263984133034258,
-        "strength": 0.5386799387156238,
+        "strength": 0.5386801980104645,
         "trigger": "CI 现在跑 6 分钟，主要是 e2e 太慢。"
       },
       {
         "turn": 4,
         "v": 0.5381871129777478,
         "a": 0.6238396715064369,
-        "strength": 0.5381808092808138,
+        "strength": 0.5381808956323277,
         "trigger": "字体我也偏好等宽，读代码更舒服。"
       },
       {
         "turn": 15,
         "v": -0.5379739721818256,
         "a": 0.622738953370601,
-        "strength": 0.5379704504059005,
+        "strength": 0.5379707956770308,
         "trigger": "我现在有点烦，构建又挂了。"
       }
     ]
@@ -371,11 +371,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793270616681,
+      "tFrom": 1793345183185,
       "valence": 0,
-      "arousal": 0.5751953125,
-      "salience": 0.76739501953125,
-      "importance": 0.6418460607528687,
+      "arousal": 0.5748031496062992,
+      "salience": 0.7686274509803922,
+      "importance": 0.6418402380407416,
       "support": 1,
       "confidence": 0.74375,
       "provenance": 0,
@@ -421,11 +421,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793263416681,
+      "tFrom": 1793337983185,
       "valence": 0,
-      "arousal": 0.583984375,
-      "salience": 0.76971435546875,
-      "importance": 0.6424330472946167,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6424353398947128,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -481,11 +481,11 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793259816681,
+      "tFrom": 1793334383185,
       "valence": 0,
-      "arousal": 0.59259033203125,
-      "salience": 0.77203369140625,
-      "importance": 0.6430158615112305,
+      "arousal": 0.5905511811023622,
+      "salience": 0.7725490196078432,
+      "importance": 0.6430151827267873,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -536,11 +536,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793256216681,
-      "valence": 0.5391845703125,
-      "arousal": 0.62896728515625,
-      "salience": 0.84222412109375,
-      "importance": 0.8223035335540771,
+      "tFrom": 1793330783185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8223086900129701,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -591,16 +591,80 @@
       "accessCount": 0
     },
     {
+      "cellId": "d213ae70028c0b8c",
+      "shortId": "0b8c",
+      "kind": 6,
+      "kindName": "narrative",
+      "tier": 1,
+      "tFrom": 1793330783185,
+      "valence": 0.7244094488188977,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8500038147554742,
+      "support": 5,
+      "confidence": 0.7,
+      "provenance": 4,
+      "trust": 160,
+      "changed": false,
+      "pinned": true,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "story",
+      "emotional": false,
+      "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「ci」",
+      "kv": [
+        [
+          "ci",
+          "narrative"
+        ],
+        [
+          "qty",
+          "5"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "我们"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "narrative"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "ci"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "亲近期"
+        },
+        {
+          "role": 8,
+          "type": "LIT",
+          "value": "5"
+        }
+      ],
+      "residualChars": 0,
+      "stability": 365,
+      "accessCount": 1
+    },
+    {
       "cellId": "93f56cd4e2fc05cf",
       "shortId": "05cf",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793252616681,
+      "tFrom": 1793327183185,
       "valence": 0,
-      "arousal": 0.57562255859375,
-      "salience": 0.76751708984375,
-      "importance": 0.6418728232383728,
+      "arousal": 0.5748031496062992,
+      "salience": 0.7686274509803922,
+      "importance": 0.641870756084535,
       "support": 1,
       "confidence": 0.74375,
       "provenance": 0,
@@ -646,11 +710,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793245416681,
+      "tFrom": 1793319983185,
       "valence": 0,
-      "arousal": 0.58001708984375,
-      "salience": 0.7686767578125,
-      "importance": 0.642166793346405,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6421606775005723,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -710,11 +774,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793241816681,
+      "tFrom": 1793316383185,
       "valence": 0,
-      "arousal": 0.58197021484375,
-      "salience": 0.76922607421875,
-      "importance": 0.642300009727478,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422980086976425,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -774,11 +838,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793238216681,
+      "tFrom": 1793312783185,
       "valence": 0,
-      "arousal": 0.58160400390625,
-      "salience": 0.76910400390625,
-      "importance": 0.6422733664512634,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422674906538491,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -826,7 +890,7 @@
       ],
       "residualChars": 66,
       "stability": 7,
-      "accessCount": 0
+      "accessCount": 2
     },
     {
       "cellId": "7000acec82c34504",
@@ -834,11 +898,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793234616681,
+      "tFrom": 1793309183185,
       "valence": 0,
-      "arousal": 0.58319091796875,
-      "salience": 0.76953125,
-      "importance": 0.642379879951477,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.642374303807126,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -894,11 +958,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793231016681,
-      "valence": -0.5379638671875,
-      "arousal": 0.62274169921875,
-      "salience": 0.8408203125,
-      "importance": 0.821601390838623,
+      "tFrom": 1793305583185,
+      "valence": 1,
+      "arousal": 0.6220472440944882,
+      "salience": 0.8392156862745098,
+      "importance": 0.8216067750057221,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -945,72 +1009,8 @@
         }
       ],
       "residualChars": 39,
-      "stability": 7.000000476837158,
-      "accessCount": 2
-    },
-    {
-      "cellId": "73b82aa1fa4e2e8c",
-      "shortId": "2e8c",
-      "kind": 6,
-      "kindName": "narrative",
-      "tier": 1,
-      "tFrom": 1793231016681,
-      "valence": 0.1080322265625,
-      "arousal": 0.62652587890625,
-      "salience": 0.84222412109375,
-      "importance": 0.8500000238418579,
-      "support": 5,
-      "confidence": 0.7,
-      "provenance": 4,
-      "trust": 160,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "story",
-      "emotional": false,
-      "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「日志」",
-      "kv": [
-        [
-          "日志",
-          "narrative"
-        ],
-        [
-          "qty",
-          "5"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "我们"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "narrative"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "日志"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "亲近期"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "5"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 365,
-      "accessCount": 2
+      "stability": 7,
+      "accessCount": 1
     },
     {
       "cellId": "d2e11ca3f710ec75",
@@ -1018,11 +1018,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793227416681,
+      "tFrom": 1793301983185,
       "valence": 0,
-      "arousal": 0.5811767578125,
-      "salience": 0.76898193359375,
-      "importance": 0.6422467231750488,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422522316319524,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -1073,11 +1073,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793223816681,
+      "tFrom": 1793298383185,
       "valence": 0,
-      "arousal": 0.5843505859375,
-      "salience": 0.76983642578125,
-      "importance": 0.6424596309661865,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6424658579385062,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1137,11 +1137,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793220216681,
-      "valence": -0.5386962890625,
-      "arousal": 0.62640380859375,
-      "salience": 0.84161376953125,
-      "importance": 0.8220147490501404,
+      "tFrom": 1793294783185,
+      "valence": 1,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8220187685969329,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1192,8 +1192,8 @@
         }
       ],
       "residualChars": 47,
-      "stability": 7.000000953674316,
-      "accessCount": 2
+      "stability": 7,
+      "accessCount": 1
     },
     {
       "cellId": "6f3ed0f53cc37ade",
@@ -1201,11 +1201,11 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793216616681,
+      "tFrom": 1793291183185,
       "valence": 0,
-      "arousal": 0.58197021484375,
-      "salience": 0.76922607421875,
-      "importance": 0.642300009727478,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422980086976425,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1261,11 +1261,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793213016681,
-      "valence": 0.53863525390625,
-      "arousal": 0.62603759765625,
-      "salience": 0.841552734375,
-      "importance": 0.821973443031311,
+      "tFrom": 1793287583185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8219729915312428,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1312,7 +1312,7 @@
         }
       ],
       "residualChars": 66,
-      "stability": 7.000000953674316,
+      "stability": 7,
       "accessCount": 3
     },
     {
@@ -1321,11 +1321,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793209416681,
-      "valence": 0.53912353515625,
-      "arousal": 0.62860107421875,
-      "salience": 0.84210205078125,
-      "importance": 0.8222622871398926,
+      "tFrom": 1793283983185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.82226291294728,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -1367,7 +1367,7 @@
         }
       ],
       "residualChars": 57,
-      "stability": 7.000000953674316,
+      "stability": 7,
       "accessCount": 3
     },
     {
@@ -1376,11 +1376,11 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793205816681,
+      "tFrom": 1793280383185,
       "valence": 0,
-      "arousal": 0.58477783203125,
-      "salience": 0.76995849609375,
-      "importance": 0.6424862146377563,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6424811169604029,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -1431,11 +1431,11 @@
       "kind": 0,
       "kindName": "episodic",
       "tier": 1,
-      "tFrom": 1793202216681,
+      "tFrom": 1793276783185,
       "valence": 0,
-      "arousal": 0.54669189453125,
-      "salience": 0.73834228515625,
-      "importance": 0.6422733664512634,
+      "arousal": 0.5511811023622047,
+      "salience": 0.7372549019607844,
+      "importance": 0.6422674906538491,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1482,8 +1482,8 @@
         }
       ],
       "residualChars": 56,
-      "stability": 2.0000011920928955,
-      "accessCount": 2
+      "stability": 2,
+      "accessCount": 1
     },
     {
       "cellId": "b39e4d0297cd6733",
@@ -1491,11 +1491,11 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793195016681,
+      "tFrom": 1793269583185,
       "valence": 0,
-      "arousal": 0.59259033203125,
-      "salience": 0.77203369140625,
-      "importance": 0.6430158615112305,
+      "arousal": 0.5905511811023622,
+      "salience": 0.7725490196078432,
+      "importance": 0.6430151827267873,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -1546,11 +1546,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793191416681,
-      "valence": 0.5382080078125,
-      "arousal": 0.62384033203125,
-      "salience": 0.841064453125,
-      "importance": 0.49303528666496277,
+      "tFrom": 1793265983185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6220472440944882,
+      "salience": 0.8392156862745098,
+      "importance": 0.4930342565041581,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1559,7 +1559,7 @@
       "pinned": false,
       "disputed": true,
       "invalidated": true,
-      "tInvalid": 1793213016681,
+      "tInvalid": 1793287583185,
       "lens": "feeling",
       "emotional": true,
       "digest": "字体我也偏好等宽，读代码更舒服。",
@@ -1606,11 +1606,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793187816681,
+      "tFrom": 1793262383185,
       "valence": 0,
-      "arousal": 0.58001708984375,
-      "salience": 0.7686767578125,
-      "importance": 0.642166793346405,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6421606775005723,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1657,8 +1657,8 @@
         }
       ],
       "residualChars": 54,
-      "stability": 7.000001430511475,
-      "accessCount": 2
+      "stability": 7,
+      "accessCount": 3
     },
     {
       "cellId": "e8c01eb3ce97d5cd",
@@ -1666,11 +1666,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793184216681,
+      "tFrom": 1793258783185,
       "valence": 0,
-      "arousal": 0.5875244140625,
-      "salience": 0.77069091796875,
-      "importance": 0.6426720023155212,
+      "arousal": 0.5905511811023622,
+      "salience": 0.7725490196078432,
+      "importance": 0.6426794842450599,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -1721,11 +1721,11 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793180616681,
+      "tFrom": 1793255183185,
       "valence": 0,
-      "arousal": 0.58197021484375,
-      "salience": 0.76922607421875,
-      "importance": 0.642300009727478,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422980086976425,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -1768,18 +1768,18 @@
       ],
       "residualChars": 69,
       "stability": 7,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
-      "cellId": "d08220d85f9f1395",
-      "shortId": "1395",
+      "cellId": "ff466a57a99b4138",
+      "shortId": "4138",
       "kind": 4,
       "kindName": "persona",
       "tier": 1,
-      "tFrom": 1793177017028,
+      "tFrom": 1793251583563,
       "valence": 0,
       "arousal": 0,
-      "salience": 0.4000244140625,
+      "salience": 0.4,
       "importance": 1,
       "support": 1,
       "confidence": 1,
@@ -1826,20 +1826,20 @@
         }
       ],
       "residualChars": 0,
-      "stability": 3650,
+      "stability": 655.35,
       "accessCount": 0
     },
     {
-      "cellId": "7aac222aa5f36143",
-      "shortId": "6143",
+      "cellId": "259fc1225d4d560e",
+      "shortId": "560e",
       "kind": 5,
       "kindName": "relational",
       "tier": 1,
-      "tFrom": 1793177017028,
+      "tFrom": 1793251583563,
       "valence": 0,
       "arousal": 0,
-      "salience": 0.5,
-      "importance": 0.8999999761581421,
+      "salience": 0.5019607843137255,
+      "importance": 0.9000076295109484,
       "support": 1,
       "confidence": 0.9,
       "provenance": 4,
@@ -1899,651 +1899,16 @@
       "accessCount": 0
     },
     {
-      "cellId": "9b30c2bb96b0c132",
-      "shortId": "c132",
-      "kind": 4,
-      "kindName": "persona",
-      "tier": 1,
-      "tFrom": 1793177016984,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.4000244140625,
-      "importance": 1,
-      "support": 1,
-      "confidence": 1,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "人格锚 rev=5",
-      "kv": [
-        [
-          "rev=5",
-          "persona"
-        ],
-        [
-          "qty",
-          "0.550,0.500,0.500,0.470"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "助手"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "persona"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "rev=5"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "0.550,0.500,0.500,0.470"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 3650,
-      "accessCount": 0
-    },
-    {
-      "cellId": "7b54c62c6ad45a59",
-      "shortId": "5a59",
-      "kind": 5,
-      "kindName": "relational",
-      "tier": 1,
-      "tFrom": 1793177016984,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.5,
-      "importance": 0.8999999761581421,
-      "support": 1,
-      "confidence": 0.9,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "关系模型 trust=0.00 attune=0.63 turns=21",
-      "kv": [
-        [
-          "trust=0.000",
-          "relational"
-        ],
-        [
-          "qty",
-          "turns=21,rev=5"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "relational"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "trust=0.000"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "fam=0.408,attune=0.630,debt=0"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "turns=21,rev=5"
-        },
-        {
-          "role": 7,
-          "type": "LIT",
-          "value": "写进代码；在我没确认的情况下直接改 package.json；用 npm"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 365,
-      "accessCount": 0
-    },
-    {
-      "cellId": "c8fe3d010f4a2948",
-      "shortId": "2948",
-      "kind": 4,
-      "kindName": "persona",
-      "tier": 1,
-      "tFrom": 1793177016945,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.4000244140625,
-      "importance": 1,
-      "support": 1,
-      "confidence": 1,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "人格锚 rev=4",
-      "kv": [
-        [
-          "rev=4",
-          "persona"
-        ],
-        [
-          "qty",
-          "0.550,0.500,0.500,0.470"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "助手"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "persona"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "rev=4"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "0.550,0.500,0.500,0.470"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 3650,
-      "accessCount": 0
-    },
-    {
-      "cellId": "e261a1adea77cf5c",
-      "shortId": "cf5c",
-      "kind": 5,
-      "kindName": "relational",
-      "tier": 1,
-      "tFrom": 1793177016945,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.5,
-      "importance": 0.8999999761581421,
-      "support": 1,
-      "confidence": 0.9,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "关系模型 trust=0.00 attune=0.58 turns=16",
-      "kv": [
-        [
-          "trust=0.000",
-          "relational"
-        ],
-        [
-          "qty",
-          "turns=16,rev=4"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "relational"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "trust=0.000"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "fam=0.330,attune=0.580,debt=0"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "turns=16,rev=4"
-        },
-        {
-          "role": 7,
-          "type": "LIT",
-          "value": "写进代码；在我没确认的情况下直接改 package.json；用 npm"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 365,
-      "accessCount": 0
-    },
-    {
-      "cellId": "3a42486715b731b6",
-      "shortId": "31b6",
-      "kind": 4,
-      "kindName": "persona",
-      "tier": 1,
-      "tFrom": 1793177016868,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.4000244140625,
-      "importance": 1,
-      "support": 1,
-      "confidence": 1,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "人格锚 rev=3",
-      "kv": [
-        [
-          "rev=3",
-          "persona"
-        ],
-        [
-          "qty",
-          "0.550,0.500,0.500,0.470"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "助手"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "persona"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "rev=3"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "0.550,0.500,0.500,0.470"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 3650,
-      "accessCount": 0
-    },
-    {
-      "cellId": "80f036180d20d8b0",
-      "shortId": "d8b0",
-      "kind": 5,
-      "kindName": "relational",
-      "tier": 1,
-      "tFrom": 1793177016868,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.5,
-      "importance": 0.8999999761581421,
-      "support": 1,
-      "confidence": 0.9,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "关系模型 trust=0.00 attune=0.56 turns=11",
-      "kv": [
-        [
-          "trust=0.000",
-          "relational"
-        ],
-        [
-          "qty",
-          "turns=11,rev=3"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "relational"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "trust=0.000"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "fam=0.240,attune=0.555,debt=0"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "turns=11,rev=3"
-        },
-        {
-          "role": 7,
-          "type": "LIT",
-          "value": "写进代码；在我没确认的情况下直接改 package.json；用 npm"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 365,
-      "accessCount": 0
-    },
-    {
-      "cellId": "96f53c5c5a486ea9",
-      "shortId": "6ea9",
-      "kind": 4,
-      "kindName": "persona",
-      "tier": 1,
-      "tFrom": 1793177016792,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.4000244140625,
-      "importance": 1,
-      "support": 1,
-      "confidence": 1,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "人格锚 rev=2",
-      "kv": [
-        [
-          "rev=2",
-          "persona"
-        ],
-        [
-          "qty",
-          "0.550,0.500,0.500,0.470"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "助手"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "persona"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "rev=2"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "0.550,0.500,0.500,0.470"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 3650,
-      "accessCount": 0
-    },
-    {
-      "cellId": "b5da64d2b3f1a13e",
-      "shortId": "a13e",
-      "kind": 5,
-      "kindName": "relational",
-      "tier": 1,
-      "tFrom": 1793177016792,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.5,
-      "importance": 0.8999999761581421,
-      "support": 1,
-      "confidence": 0.9,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "关系模型 trust=0.00 attune=0.53 turns=6",
-      "kv": [
-        [
-          "trust=0.000",
-          "relational"
-        ],
-        [
-          "qty",
-          "turns=6,rev=2"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "relational"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "trust=0.000"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "fam=0.139,attune=0.530,debt=0"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "turns=6,rev=2"
-        },
-        {
-          "role": 7,
-          "type": "LIT",
-          "value": "写进代码"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 365,
-      "accessCount": 0
-    },
-    {
-      "cellId": "aea9b46016cd36aa",
-      "shortId": "36aa",
-      "kind": 4,
-      "kindName": "persona",
-      "tier": 1,
-      "tFrom": 1793177016710,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.4000244140625,
-      "importance": 1,
-      "support": 1,
-      "confidence": 1,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "人格锚 rev=1",
-      "kv": [
-        [
-          "rev=1",
-          "persona"
-        ],
-        [
-          "qty",
-          "0.550,0.500,0.500,0.470"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "助手"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "persona"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "rev=1"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "0.550,0.500,0.500,0.470"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 3650,
-      "accessCount": 0
-    },
-    {
-      "cellId": "3e6dc14cc2c1dbdb",
-      "shortId": "dbdb",
-      "kind": 5,
-      "kindName": "relational",
-      "tier": 1,
-      "tFrom": 1793177016710,
-      "valence": 0,
-      "arousal": 0,
-      "salience": 0.5,
-      "importance": 0.8999999761581421,
-      "support": 1,
-      "confidence": 0.9,
-      "provenance": 4,
-      "trust": 60,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "关系模型 trust=0.00 attune=0.51 turns=1",
-      "kv": [
-        [
-          "trust=0.000",
-          "relational"
-        ],
-        [
-          "qty",
-          "turns=1,rev=1"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "relational"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "trust=0.000"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "fam=0.025,attune=0.505,debt=0"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "turns=1,rev=1"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 365,
-      "accessCount": 0
-    },
-    {
-      "cellId": "87d382ed5a405387",
-      "shortId": "5387",
+      "cellId": "cfc8d49824618803",
+      "shortId": "8803",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1791989016681,
+      "tFrom": 1792063583185,
       "valence": 0,
-      "arousal": 0.582763671875,
-      "salience": 0.7694091796875,
-      "importance": 0.6423532366752625,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6423590447852293,
       "support": 1,
       "confidence": 0.9187500000000001,
       "provenance": 0,
@@ -2567,7 +1932,7 @@
         ],
         [
           "t",
-          "2026-10-14"
+          "2026-10-15"
         ]
       ],
       "slots": [
@@ -2594,7 +1959,7 @@
         {
           "role": 4,
           "type": "LIT",
-          "value": "2026-10-14"
+          "value": "2026-10-15"
         },
         {
           "role": 8,
@@ -2613,13 +1978,6 @@
     }
   ],
   "edges": [
-    {
-      "src": "96f53c5c5a486ea9",
-      "dst": "aea9b46016cd36aa",
-      "rel": 2,
-      "relName": "PART_OF",
-      "weight": 46
-    },
     {
       "src": "7cb7538d1e8efbe3",
       "dst": "d26e661589d7966a",
@@ -2642,15 +2000,8 @@
       "weight": 46
     },
     {
-      "src": "3a42486715b731b6",
-      "dst": "96f53c5c5a486ea9",
-      "rel": 2,
-      "relName": "PART_OF",
-      "weight": 46
-    },
-    {
       "src": "6ded521f53f9302d",
-      "dst": "87d382ed5a405387",
+      "dst": "cfc8d49824618803",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
@@ -2658,20 +2009,6 @@
     {
       "src": "cb9b31a87cea4e40",
       "dst": "27c806305bae3f93",
-      "rel": 2,
-      "relName": "PART_OF",
-      "weight": 46
-    },
-    {
-      "src": "e261a1adea77cf5c",
-      "dst": "80f036180d20d8b0",
-      "rel": 2,
-      "relName": "PART_OF",
-      "weight": 46
-    },
-    {
-      "src": "c8fe3d010f4a2948",
-      "dst": "96f53c5c5a486ea9",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
@@ -2691,20 +2028,6 @@
       "weight": 46
     },
     {
-      "src": "7b54c62c6ad45a59",
-      "dst": "e261a1adea77cf5c",
-      "rel": 2,
-      "relName": "PART_OF",
-      "weight": 46
-    },
-    {
-      "src": "9b30c2bb96b0c132",
-      "dst": "96f53c5c5a486ea9",
-      "rel": 2,
-      "relName": "PART_OF",
-      "weight": 46
-    },
-    {
       "src": "93f56cd4e2fc05cf",
       "dst": "3abe252a46b6ee70",
       "rel": 2,
@@ -2719,13 +2042,6 @@
       "weight": 46
     },
     {
-      "src": "d08220d85f9f1395",
-      "dst": "96f53c5c5a486ea9",
-      "rel": 2,
-      "relName": "PART_OF",
-      "weight": 46
-    },
-    {
       "src": "a83a33c2aaaf8c66",
       "dst": "27c806305bae3f93",
       "rel": 2,
@@ -2733,7 +2049,63 @@
       "weight": 46
     },
     {
-      "src": "73b82aa1fa4e2e8c",
+      "src": "d213ae70028c0b8c",
+      "dst": "3abe252a46b6ee70",
+      "rel": 13,
+      "relName": "EVIDENCE",
+      "weight": 68
+    },
+    {
+      "src": "3abe252a46b6ee70",
+      "dst": "d213ae70028c0b8c",
+      "rel": 15,
+      "relName": "EVOKES",
+      "weight": 61
+    },
+    {
+      "src": "d213ae70028c0b8c",
+      "dst": "cb9b31a87cea4e40",
+      "rel": 13,
+      "relName": "EVIDENCE",
+      "weight": 68
+    },
+    {
+      "src": "cb9b31a87cea4e40",
+      "dst": "d213ae70028c0b8c",
+      "rel": 15,
+      "relName": "EVOKES",
+      "weight": 61
+    },
+    {
+      "src": "d213ae70028c0b8c",
+      "dst": "6c930a578fbaaedf",
+      "rel": 13,
+      "relName": "EVIDENCE",
+      "weight": 68
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "d213ae70028c0b8c",
+      "rel": 15,
+      "relName": "EVOKES",
+      "weight": 61
+    },
+    {
+      "src": "d213ae70028c0b8c",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 13,
+      "relName": "EVIDENCE",
+      "weight": 68
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "d213ae70028c0b8c",
+      "rel": 15,
+      "relName": "EVOKES",
+      "weight": 61
+    },
+    {
+      "src": "d213ae70028c0b8c",
       "dst": "53a2906ef6d65999",
       "rel": 13,
       "relName": "EVIDENCE",
@@ -2741,244 +2113,118 @@
     },
     {
       "src": "53a2906ef6d65999",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 15,
-      "relName": "EVOKES",
-      "weight": 61
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "6c930a578fbaaedf",
-      "rel": 13,
-      "relName": "EVIDENCE",
-      "weight": 68
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 15,
-      "relName": "EVOKES",
-      "weight": 61
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "3abe252a46b6ee70",
-      "rel": 13,
-      "relName": "EVIDENCE",
-      "weight": 68
-    },
-    {
-      "src": "3abe252a46b6ee70",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 15,
-      "relName": "EVOKES",
-      "weight": 61
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 13,
-      "relName": "EVIDENCE",
-      "weight": 68
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 15,
-      "relName": "EVOKES",
-      "weight": 61
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "cb9b31a87cea4e40",
-      "rel": 13,
-      "relName": "EVIDENCE",
-      "weight": 68
-    },
-    {
-      "src": "cb9b31a87cea4e40",
-      "dst": "73b82aa1fa4e2e8c",
+      "dst": "d213ae70028c0b8c",
       "rel": 15,
       "relName": "EVOKES",
       "weight": 61
     },
     {
       "src": "7cb7538d1e8efbe3",
-      "dst": "73b82aa1fa4e2e8c",
+      "dst": "72c7706e804e6264",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 48
     },
     {
-      "src": "73b82aa1fa4e2e8c",
+      "src": "72c7706e804e6264",
       "dst": "7cb7538d1e8efbe3",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 48
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "cb9b31a87cea4e40",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "cb9b31a87cea4e40",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "3abe252a46b6ee70",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "3abe252a46b6ee70",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "cb9b31a87cea4e40",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "cb9b31a87cea4e40",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "3abe252a46b6ee70",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "3abe252a46b6ee70",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "cb9b31a87cea4e40",
-      "dst": "3abe252a46b6ee70",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "3abe252a46b6ee70",
-      "dst": "cb9b31a87cea4e40",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "cb9b31a87cea4e40",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "cb9b31a87cea4e40",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "3abe252a46b6ee70",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "3abe252a46b6ee70",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
     },
     {
       "src": "7cb7538d1e8efbe3",
       "dst": "5e5f5321d0859eeb",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 40
+      "weight": 48
     },
     {
       "src": "5e5f5321d0859eeb",
-      "dst": "73b82aa1fa4e2e8c",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "d213ae70028c0b8c",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "73b82aa1fa4e2e8c",
+      "src": "d213ae70028c0b8c",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "6c930a578fbaaedf",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "72c7706e804e6264",
       "dst": "5e5f5321d0859eeb",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 40
+      "weight": 48
     },
     {
       "src": "5e5f5321d0859eeb",
-      "dst": "20774485e7df6141",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "d213ae70028c0b8c",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "20774485e7df6141",
+      "src": "d213ae70028c0b8c",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "6c930a578fbaaedf",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "d213ae70028c0b8c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "d213ae70028c0b8c",
       "dst": "5e5f5321d0859eeb",
       "rel": 14,
       "relName": "ASSOC",
@@ -2989,45 +2235,17 @@
       "dst": "6c930a578fbaaedf",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 40
+      "weight": 48
     },
     {
       "src": "6c930a578fbaaedf",
       "dst": "5e5f5321d0859eeb",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 40
+      "weight": 48
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "20774485e7df6141",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "20774485e7df6141",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "73b82aa1fa4e2e8c",
-      "dst": "20774485e7df6141",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "20774485e7df6141",
-      "dst": "73b82aa1fa4e2e8c",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "20774485e7df6141",
+      "src": "d213ae70028c0b8c",
       "dst": "6c930a578fbaaedf",
       "rel": 14,
       "relName": "ASSOC",
@@ -3035,49 +2253,105 @@
     },
     {
       "src": "6c930a578fbaaedf",
-      "dst": "20774485e7df6141",
+      "dst": "d213ae70028c0b8c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "6c930a578fbaaedf",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "27c806305bae3f93",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     }
   ],
   "lastRecall": {
-    "queryId": "qmvrvaple2k7",
-    "at": 1793177017112,
-    "tokens": 117,
+    "queryId": "qmvt3oxi05gt",
+    "at": 1793251583645,
+    "tokens": 121,
     "hits": [
       {
         "cellId": "5e5f5321d0859eeb",
         "shortId": "9eeb",
-        "score": 0.6615531052967902,
+        "score": 0.6933092340594478,
+        "slot": 0,
+        "channel": "semantic"
+      },
+      {
+        "cellId": "72c7706e804e6264",
+        "shortId": "6264",
+        "score": 0.331954882989228,
         "slot": 0,
         "channel": "semantic"
       },
       {
         "cellId": "7cb7538d1e8efbe3",
         "shortId": "fbe3",
-        "score": 0.3074702408574766,
-        "slot": 0,
-        "channel": "semantic"
-      },
-      {
-        "cellId": "73b82aa1fa4e2e8c",
-        "shortId": "2e8c",
-        "score": 0.38266319770273205,
+        "score": 0.32822501014044275,
         "slot": 1,
-        "channel": "graph"
+        "channel": "semantic"
       },
       {
-        "cellId": "20774485e7df6141",
-        "shortId": "6141",
-        "score": 0.31461067450694147,
+        "cellId": "27c806305bae3f93",
+        "shortId": "3f93",
+        "score": 0.30392635576590366,
         "slot": 2,
-        "channel": "semantic"
+        "channel": "graph"
       },
       {
         "cellId": "6c930a578fbaaedf",
         "shortId": "aedf",
-        "score": 0.3299641006506,
+        "score": 0.32710062468785145,
         "slot": 3,
         "channel": "graph"
       }
@@ -3087,8 +2361,8 @@
         "cellId": "5e5f5321d0859eeb",
         "parts": {
           "sim": 1,
-          "recency": 0.349999977126917,
-          "freq": 0.03003809664473759,
+          "recency": 0.34999999830318357,
+          "freq": 0.11260401025138062,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
@@ -3096,8 +2370,8 @@
         },
         "raw": {
           "sim": 1,
-          "recency": 0.9999999346483343,
-          "freq": 0.15019048322368794,
+          "recency": 0.9999999951519531,
+          "freq": 0.563020051256903,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
@@ -3112,29 +2386,67 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 1.7200380737716547,
+        "rawSum": 1.8026040085545643,
         "activeW": 2.6,
-        "score": 0.6615531052967902,
+        "score": 0.6933092340594478,
         "slot": 0,
         "channel": "semantic",
         "notes": []
       },
       {
+        "cellId": "72c7706e804e6264",
+        "parts": {
+          "sim": 0.37132797346940427,
+          "recency": 0.34999999830318357,
+          "freq": 0.13154195804195806,
+          "affect": 0.25,
+          "goal": 0,
+          "cue": 0.09,
+          "interf": -0.32978723404255317
+        },
+        "raw": {
+          "sim": 0.37132797346940427,
+          "recency": 0.9999999951519531,
+          "freq": 0.6577097902097903,
+          "affect": 1,
+          "goal": 0,
+          "cue": 0.3,
+          "interf": 0.6595744680851063
+        },
+        "weights": {
+          "sim": 1,
+          "recency": 0.35,
+          "freq": 0.2,
+          "affect": 0.25,
+          "goal": 0,
+          "cue": 0.3,
+          "interf": 0.5
+        },
+        "rawSum": 0.8630826957719928,
+        "activeW": 2.6,
+        "score": 0.331954882989228,
+        "slot": 0,
+        "channel": "semantic",
+        "notes": [
+          "与 9eeb 冗余 0.66"
+        ]
+      },
+      {
         "cellId": "7cb7538d1e8efbe3",
         "parts": {
-          "sim": 0.22493385271060934,
-          "recency": 0.3499999984389291,
+          "sim": 0.27849598010205323,
+          "recency": 0.34999999830318357,
           "freq": 0.17,
-          "affect": 0.18267059326171875,
+          "affect": 0.1830708661417323,
           "goal": 0,
           "cue": 0.09,
           "interf": -0.21818181818181817
         },
         "raw": {
-          "sim": 0.22493385271060934,
-          "recency": 0.9999999955397975,
+          "sim": 0.27849598010205323,
+          "recency": 0.9999999951519531,
           "freq": 0.85,
-          "affect": 0.730682373046875,
+          "affect": 0.7322834645669292,
           "goal": 0,
           "cue": 0.3,
           "interf": 0.43636363636363634
@@ -3148,70 +2460,34 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.7994226262294392,
+        "rawSum": 0.8533850263651511,
         "activeW": 2.6,
-        "score": 0.3074702408574766,
-        "slot": 0,
+        "score": 0.32822501014044275,
+        "slot": 1,
         "channel": "semantic",
         "notes": [
           "与 9eeb 冗余 0.44"
         ]
       },
       {
-        "cellId": "73b82aa1fa4e2e8c",
+        "cellId": "27c806305bae3f93",
         "parts": {
-          "sim": 0.1875,
-          "recency": 0.34999999997006165,
-          "freq": 0.13092834237735432,
-          "affect": 0.2364959716796875,
-          "goal": 0,
-          "cue": 0.09,
-          "interf": 0
-        },
-        "raw": {
-          "sim": 0.1875,
-          "recency": 0.9999999999144619,
-          "freq": 0.6546417118867716,
-          "affect": 0.94598388671875,
-          "goal": 0,
-          "cue": 0.3,
-          "interf": 0
-        },
-        "weights": {
-          "sim": 1,
-          "recency": 0.35,
-          "freq": 0.2,
-          "affect": 0.25,
-          "goal": 0,
-          "cue": 0.3,
-          "interf": 0.5
-        },
-        "rawSum": 0.9949243140271034,
-        "activeW": 2.6,
-        "score": 0.38266319770273205,
-        "slot": 1,
-        "channel": "graph",
-        "notes": []
-      },
-      {
-        "cellId": "20774485e7df6141",
-        "parts": {
-          "sim": 0.22493385271060934,
-          "recency": 0.34999993134682805,
+          "sim": 0.21562499999999998,
+          "recency": 0.3499999738011575,
           "freq": 0.03003809664473759,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
-          "interf": -0.12698412698412698
+          "interf": -0.14545454545454545
         },
         "raw": {
-          "sim": 0.22493385271060934,
-          "recency": 0.9999998038480802,
+          "sim": 0.21562499999999998,
+          "recency": 0.9999999251461643,
           "freq": 0.15019048322368794,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0.25396825396825395
+          "interf": 0.2909090909090909
         },
         "weights": {
           "sim": 1,
@@ -3222,34 +2498,34 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.8179877537180479,
+        "rawSum": 0.7902085249913495,
         "activeW": 2.6,
-        "score": 0.31461067450694147,
+        "score": 0.30392635576590366,
         "slot": 2,
-        "channel": "semantic",
+        "channel": "graph",
         "notes": [
-          "与 9eeb 冗余 0.25"
+          "与 9eeb 冗余 0.29"
         ]
       },
       {
         "cellId": "6c930a578fbaaedf",
         "parts": {
           "sim": 0.1875,
-          "recency": 0.3499999984389291,
-          "freq": 0.11128916863922574,
-          "affect": 0.18260955810546875,
+          "recency": 0.34999999830318357,
+          "freq": 0.11131933117206937,
+          "affect": 0.1830708661417323,
           "goal": 0,
           "cue": 0.09,
-          "interf": -0.06349206349206349
+          "interf": -0.07142857142857142
         },
         "raw": {
           "sim": 0.1875,
-          "recency": 0.9999999955397975,
-          "freq": 0.5564458431961287,
-          "affect": 0.730438232421875,
+          "recency": 0.9999999951519531,
+          "freq": 0.5565966558603468,
+          "affect": 0.7322834645669292,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0.12698412698412698
+          "interf": 0.14285714285714285
         },
         "weights": {
           "sim": 1,
@@ -3260,17 +2536,17 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.85790666169156,
+        "rawSum": 0.8504616241884139,
         "activeW": 2.6,
-        "score": 0.3299641006506,
+        "score": 0.32710062468785145,
         "slot": 3,
         "channel": "graph",
         "notes": [
-          "与 9eeb 冗余 0.13"
+          "与 3f93 冗余 0.14"
         ]
       }
     ],
-    "rendered": "M:9eeb|T:1028|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.81\nM:fbe3|T:1029|P:u|F:pref|K:字体=无衬线字体|V:+0.54|S:0.84|C:0.81\nM:2e8c|T:1029|P:i|F:fact|K:日志=narrative,qty=5|V:+0.11|S:0.84|C:0.7\nM:6141|T:1028|P:u|F:event|K:bug=is|V:0|S:0.74|C:0.81\nM:aedf|T:1029|P:u|F:pref|K:dislike=自动生成的_commit_mes|V:+0.54|S:0.84|C:0.78"
+    "rendered": "M:9eeb|T:1029|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.81\nM:6264|T:1030|P:u|F:pref|K:配色=更克制的配色|V:0|S:0.77|C:0.81\nM:fbe3|T:1029|P:u|F:pref|K:字体=无衬线字体|V:+0.54|S:0.84|C:0.81\nM:3f93|T:1029|P:u|F:fact|K:叫阿哲=states|V:0|S:0.77|C:0.78\nM:aedf|T:1029|P:u|F:pref|K:dislike=自动生成的_commit_mes|V:+0.54|S:0.84|C:0.78"
   },
   "evictions": [],
   "proactive": {
@@ -3285,14 +2561,1446 @@
     "lastAt": 0,
     "nextEligibleAt": 2700000,
     "lastCandidate": {
-      "text": "（主动）你们之间有一段值得回看的日子：「亲近期：1 天内 5 件有情绪的事，主题偏「日志」」。可以提一句那时候的事，看他还记不记得。",
+      "text": "（主动）你们之间有一段值得回看的日子：「亲近期：1 天内 5 件有情绪的事，主题偏「ci」」。可以提一句那时候的事，看他还记不记得。",
       "reason": "近期的关系里程碑",
       "kind": "milestone",
       "cellIds": [
-        "73b82aa1fa4e2e8c"
+        "d213ae70028c0b8c"
       ],
       "urgency": 0.6
     },
     "skipped": []
+  },
+  "runtime": {
+    "source": "host",
+    "dbPath": ":memory:",
+    "storeKind": "sqlite",
+    "preset": "balanced",
+    "surfaceMode": "rows",
+    "ignition": 0.42,
+    "embDim": 256,
+    "embStoreDim": 128,
+    "layoutVersion": 3,
+    "ann": {
+      "enabled": true,
+      "mode": "exact",
+      "size": 0,
+      "threshold": 2000
+    },
+    "l1": {
+      "enabled": false,
+      "mode": "l0",
+      "entry": null,
+      "ok": false,
+      "lastMs": 0,
+      "note": "L1 未启用"
+    },
+    "commandFace": "tool",
+    "remoteFace": true,
+    "tools": [
+      "memory_recall",
+      "memory_expand",
+      "memory_assert",
+      "memory_forget",
+      "affect_report",
+      "memory_stats",
+      "mnemo_command"
+    ],
+    "capabilities": [
+      "remote · 本地服务",
+      "命令面 · 工具降级",
+      "文件系统",
+      "HTTP 服务",
+      "模型工具",
+      "主动事件",
+      "面板事件",
+      "L1 · 关闭"
+    ],
+    "limits": [
+      "embedding：默认走本地哈希 + 同义词族（不是语义模型），接宿主 embedding 服务需实现 EmbeddingPort"
+    ]
+  },
+  "index": {
+    "builtAt": 1793251583678,
+    "status": "ok",
+    "path": ":memory:",
+    "entries": 27,
+    "lastRebuildAt": 0
+  },
+  "tags": [
+    {
+      "tag": "states",
+      "count": 6
+    },
+    {
+      "tag": "is",
+      "count": 5
+    },
+    {
+      "tag": "等宽",
+      "count": 2
+    },
+    {
+      "tag": "无衬线字体",
+      "count": 2
+    },
+    {
+      "tag": "API",
+      "count": 2
+    },
+    {
+      "tag": "config",
+      "count": 2
+    },
+    {
+      "tag": "decides",
+      "count": 2
+    },
+    {
+      "tag": "dsh",
+      "count": 2
+    },
+    {
+      "tag": "e2e",
+      "count": 2
+    },
+    {
+      "tag": "key",
+      "count": 2
+    },
+    {
+      "tag": "pnpm",
+      "count": 2
+    },
+    {
+      "tag": "Redux",
+      "count": 2
+    },
+    {
+      "tag": "2026-10-15",
+      "count": 1
+    },
+    {
+      "tag": "版本",
+      "count": 1
+    },
+    {
+      "tag": "别写进代码",
+      "count": 1
+    },
+    {
+      "tag": "不要用",
+      "count": 1
+    },
+    {
+      "tag": "部署脚本要用",
+      "count": 1
+    },
+    {
+      "tag": "拆成",
+      "count": 1
+    },
+    {
+      "tag": "冲突",
+      "count": 1
+    },
+    {
+      "tag": "存在",
+      "count": 1
+    },
+    {
+      "tag": "的缓存方案先",
+      "count": 1
+    },
+    {
+      "tag": "的那个虚拟滚",
+      "count": 1
+    },
+    {
+      "tag": "的配色",
+      "count": 1
+    },
+    {
+      "tag": "等宽只用在代",
+      "count": 1
+    }
+  ],
+  "categories": [
+    {
+      "key": "profile",
+      "label": "用户档案",
+      "count": 7
+    },
+    {
+      "key": "preference",
+      "label": "长期偏好",
+      "count": 6
+    },
+    {
+      "key": "project",
+      "label": "项目",
+      "count": 1
+    },
+    {
+      "key": "progress",
+      "label": "项目进展",
+      "count": 0
+    },
+    {
+      "key": "decision",
+      "label": "决策",
+      "count": 4
+    },
+    {
+      "key": "knowledge",
+      "label": "知识",
+      "count": 23
+    },
+    {
+      "key": "lesson",
+      "label": "经验教训",
+      "count": 0
+    },
+    {
+      "key": "task",
+      "label": "任务",
+      "count": 0
+    }
+  ],
+  "recentNew": [
+    {
+      "cellId": "a83a33c2aaaf8c66",
+      "shortId": "8c66",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793345183185,
+      "valence": 0,
+      "arousal": 0.5748031496062992,
+      "salience": 0.7686274509803922,
+      "importance": 0.6418402380407416,
+      "support": 1,
+      "confidence": 0.74375,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "好，先这样。",
+      "kv": [
+        [
+          "用户",
+          "states"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "states"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 18,
+      "stability": 7,
+      "accessCount": 0
+    },
+    {
+      "cellId": "02304549114b1fa6",
+      "shortId": "1fa6",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793337983185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6424353398947128,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "bond",
+      "emotional": false,
+      "digest": "我们决定不用 Redux，状态全放 URL 和本地缓存。",
+      "kv": [
+        [
+          "缓存",
+          "Redux"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "uses"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "缓存"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "Redux"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 62,
+      "stability": 7,
+      "accessCount": 0
+    },
+    {
+      "cellId": "7c0e2bdc42d37048",
+      "shortId": "7048",
+      "kind": 2,
+      "kindName": "procedure",
+      "tier": 1,
+      "tFrom": 1793334383185,
+      "valence": 0,
+      "arousal": 0.5905511811023622,
+      "salience": 0.7725490196078432,
+      "importance": 0.6430151827267873,
+      "support": 1,
+      "confidence": 0.775,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "那个 API key 在 ~/.config/dsh/credentials.json，记住别外发。",
+      "kv": [
+        [
+          "credentials.json",
+          "asserts"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "asserts"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "credentials.json"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 70,
+      "stability": 30,
+      "accessCount": 0
+    },
+    {
+      "cellId": "53a2906ef6d65999",
+      "shortId": "5999",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793330783185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8223086900129701,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "feeling",
+      "emotional": true,
+      "digest": "我喜欢把日志放在 stderr，stdout 留给数据。",
+      "kv": [
+        [
+          "日志",
+          "日志放在_stderr"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "prefers"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "日志"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "日志放在 stderr"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 62,
+      "stability": 7,
+      "accessCount": 0
+    },
+    {
+      "cellId": "d213ae70028c0b8c",
+      "shortId": "0b8c",
+      "kind": 6,
+      "kindName": "narrative",
+      "tier": 1,
+      "tFrom": 1793330783185,
+      "valence": 0.7244094488188977,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8500038147554742,
+      "support": 5,
+      "confidence": 0.7,
+      "provenance": 4,
+      "trust": 160,
+      "changed": false,
+      "pinned": true,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "story",
+      "emotional": false,
+      "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「ci」",
+      "kv": [
+        [
+          "ci",
+          "narrative"
+        ],
+        [
+          "qty",
+          "5"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "我们"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "narrative"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "ci"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "亲近期"
+        },
+        {
+          "role": 8,
+          "type": "LIT",
+          "value": "5"
+        }
+      ],
+      "residualChars": 0,
+      "stability": 365,
+      "accessCount": 1
+    },
+    {
+      "cellId": "93f56cd4e2fc05cf",
+      "shortId": "05cf",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793327183185,
+      "valence": 0,
+      "arousal": 0.5748031496062992,
+      "salience": 0.7686274509803922,
+      "importance": 0.641870756084535,
+      "support": 1,
+      "confidence": 0.74375,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "对，就是这样。",
+      "kv": [
+        [
+          "用户",
+          "is"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "is"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 21,
+      "stability": 7,
+      "accessCount": 0
+    }
+  ],
+  "recentUpdated": [
+    {
+      "cellId": "7cb7538d1e8efbe3",
+      "shortId": "fbe3",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793287583185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8219729915312428,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "feeling",
+      "emotional": true,
+      "digest": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
+      "kv": [
+        [
+          "字体",
+          "无衬线字体"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "prefers"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "字体"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "无衬线字体"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 66,
+      "stability": 7,
+      "accessCount": 3
+    },
+    {
+      "cellId": "6c930a578fbaaedf",
+      "shortId": "aedf",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793283983185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.82226291294728,
+      "support": 1,
+      "confidence": 0.775,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "feeling",
+      "emotional": true,
+      "digest": "我不喜欢自动生成的 commit message，太啰嗦。",
+      "kv": [
+        [
+          "dislike",
+          "自动生成的_commit_mes"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "dislikes"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "自动生成的 commit mes"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 57,
+      "stability": 7,
+      "accessCount": 3
+    },
+    {
+      "cellId": "5e5f5321d0859eeb",
+      "shortId": "9eeb",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793262383185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6421606775005723,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "我习惯用深色主题，浅色看久了眼睛疼。",
+      "kv": [
+        [
+          "主题",
+          "深色主题"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "prefers"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "主题"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "深色主题"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 54,
+      "stability": 7,
+      "accessCount": 3
+    },
+    {
+      "cellId": "72c7706e804e6264",
+      "shortId": "6264",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793312783185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422674906538491,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "团队里小王负责设计系统，他偏好更克制的配色。",
+      "kv": [
+        [
+          "配色",
+          "更克制的配色"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "prefers"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "配色"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "更克制的配色"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 66,
+      "stability": 7,
+      "accessCount": 2
+    },
+    {
+      "cellId": "27c806305bae3f93",
+      "shortId": "3f93",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793255183185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422980086976425,
+      "support": 1,
+      "confidence": 0.775,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
+      "kv": [
+        [
+          "叫阿哲",
+          "states"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "states"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "叫阿哲"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 69,
+      "stability": 7,
+      "accessCount": 2
+    },
+    {
+      "cellId": "d213ae70028c0b8c",
+      "shortId": "0b8c",
+      "kind": 6,
+      "kindName": "narrative",
+      "tier": 1,
+      "tFrom": 1793330783185,
+      "valence": 0.7244094488188977,
+      "arousal": 0.6299212598425197,
+      "salience": 0.8431372549019608,
+      "importance": 0.8500038147554742,
+      "support": 5,
+      "confidence": 0.7,
+      "provenance": 4,
+      "trust": 160,
+      "changed": false,
+      "pinned": true,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "story",
+      "emotional": false,
+      "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「ci」",
+      "kv": [
+        [
+          "ci",
+          "narrative"
+        ],
+        [
+          "qty",
+          "5"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "我们"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "narrative"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "ci"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "亲近期"
+        },
+        {
+          "role": 8,
+          "type": "LIT",
+          "value": "5"
+        }
+      ],
+      "residualChars": 0,
+      "stability": 365,
+      "accessCount": 1
+    }
+  ],
+  "pending": [
+    {
+      "cellId": "d26e661589d7966a",
+      "shortId": "966a",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793265983185,
+      "valence": 0.5354330708661418,
+      "arousal": 0.6220472440944882,
+      "salience": 0.8392156862745098,
+      "importance": 0.4930342565041581,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": true,
+      "pinned": false,
+      "disputed": true,
+      "invalidated": true,
+      "tInvalid": 1793287583185,
+      "lens": "feeling",
+      "emotional": true,
+      "digest": "字体我也偏好等宽，读代码更舒服。",
+      "kv": [
+        [
+          "字体",
+          "等宽"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "prefers"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "字体"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "等宽"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 48,
+      "stability": 7,
+      "accessCount": 1
+    },
+    {
+      "cellId": "e8c01eb3ce97d5cd",
+      "shortId": "d5cd",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793258783185,
+      "valence": 0,
+      "arousal": 0.5905511811023622,
+      "salience": 0.7725490196078432,
+      "importance": 0.6426794842450599,
+      "support": 1,
+      "confidence": 0.775,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "bond",
+      "emotional": false,
+      "digest": "我们的仓库叫 dsh-ui，主要用 TypeScript 和 React。",
+      "kv": [
+        [
+          "TypeScript",
+          "uses"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "uses"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "TypeScript"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 61,
+      "stability": 7,
+      "accessCount": 1
+    },
+    {
+      "cellId": "c18debdbd26622cc",
+      "shortId": "22cc",
+      "kind": 2,
+      "kindName": "procedure",
+      "tier": 1,
+      "tFrom": 1793280383185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6424811169604029,
+      "support": 1,
+      "confidence": 0.775,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "以后不要在我没确认的情况下直接改 package.json。",
+      "kv": [
+        [
+          "package.json",
+          "changes"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "changes"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "package.json"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 64,
+      "stability": 30,
+      "accessCount": 1
+    },
+    {
+      "cellId": "02304549114b1fa6",
+      "shortId": "1fa6",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793337983185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6424353398947128,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "bond",
+      "emotional": false,
+      "digest": "我们决定不用 Redux，状态全放 URL 和本地缓存。",
+      "kv": [
+        [
+          "缓存",
+          "Redux"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "uses"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "缓存"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "Redux"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 62,
+      "stability": 7,
+      "accessCount": 0
+    },
+    {
+      "cellId": "7000acec82c34504",
+      "shortId": "4504",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793309183185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.642374303807126,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "构建挂是因为 lockfile 冲突，删掉重装就好。",
+      "kv": [
+        [
+          "构建挂",
+          "is"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "is"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "构建"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "构建挂"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 58,
+      "stability": 7,
+      "accessCount": 0
+    },
+    {
+      "cellId": "881d3c67f7740454",
+      "shortId": "0454",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793316383185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422980086976425,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "bond",
+      "emotional": false,
+      "digest": "我们下周要交付 0.3 版本，重点是记忆面板。",
+      "kv": [
+        [
+          "#0.3",
+          "is"
+        ],
+        [
+          "qty",
+          "0.3"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "is"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "#0.3"
+        },
+        {
+          "role": 8,
+          "type": "LIT",
+          "value": "0.3"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 59,
+      "stability": 7,
+      "accessCount": 0
+    },
+    {
+      "cellId": "6f3ed0f53cc37ade",
+      "shortId": "7ade",
+      "kind": 2,
+      "kindName": "procedure",
+      "tier": 1,
+      "tFrom": 1793291183185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422980086976425,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "记住：部署脚本要用 pnpm，不要用 npm。",
+      "kv": [
+        [
+          "部署",
+          "pnpm"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "uses"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "部署"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "pnpm"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 51,
+      "stability": 30,
+      "accessCount": 1
+    },
+    {
+      "cellId": "20774485e7df6141",
+      "shortId": "6141",
+      "kind": 0,
+      "kindName": "episodic",
+      "tier": 1,
+      "tFrom": 1793276783185,
+      "valence": 0,
+      "arousal": 0.5511811023622047,
+      "salience": 0.7372549019607844,
+      "importance": 0.6422674906538491,
+      "support": 1,
+      "confidence": 0.80625,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "那个缓存 bug 是李工提的，跟并发写有关。",
+      "kv": [
+        [
+          "bug",
+          "is"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "is"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "缓存"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "bug"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 56,
+      "stability": 2,
+      "accessCount": 1
+    },
+    {
+      "cellId": "d2e11ca3f710ec75",
+      "shortId": "ec75",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793301983185,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422522316319524,
+      "support": 1,
+      "confidence": 0.775,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "三周前讨论过的那个虚拟滚动方案，最后没做。",
+      "kv": [
+        [
+          "三周",
+          "states"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "states"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "三周"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 63,
+      "stability": 7,
+      "accessCount": 1
+    }
+  ],
+  "consolidation": {
+    "at": 1793251583586,
+    "merged": 0,
+    "abstracted": 1,
+    "pruned": 0,
+    "decayed": 1,
+    "elapsedMs": 13
   }
 }

@@ -11,6 +11,11 @@ import { Timeline } from '../packages/ui/lib/client/views/Timeline.js'
 import { Graph } from '../packages/ui/lib/client/views/Graph.js'
 import { Affect } from '../packages/ui/lib/client/views/Affect.js'
 import { Diagnostics } from '../packages/ui/lib/client/views/Diagnostics.js'
+import { Overview } from '../packages/ui/lib/client/views/Overview.js'
+import { Search } from '../packages/ui/lib/client/views/Search.js'
+import { Organize } from '../packages/ui/lib/client/views/Organize.js'
+import { Inbox } from '../packages/ui/lib/client/views/Inbox.js'
+import { Settings } from '../packages/ui/lib/client/views/Settings.js'
 import { filterCells } from '../packages/ui/lib/client/Panel.js'
 
 const snap = JSON.parse(readFileSync('artifacts/panel-snapshot.json', 'utf8'))
@@ -77,6 +82,86 @@ check('Affect (disabled)', () =>
 
 check('Diagnostics', () =>
   renderToStaticMarkup(h(Diagnostics, { snapshot: snap, onAct: () => {}, onCommand: () => {} })),
+)
+
+check('Overview', () =>
+  renderToStaticMarkup(
+    h(Overview, {
+      snapshot: snap,
+      onAct: () => {},
+      onCommand: () => {},
+      onOpen: () => {},
+    }),
+  ),
+)
+
+check('Search', () =>
+  renderToStaticMarkup(
+    h(Search, {
+      snapshot: snap,
+      cells: snap.cells.slice(0, 5),
+      query: '',
+      onQuery: () => {},
+      kind: 'all',
+      onKind: () => {},
+      lens: 'all',
+      onLens: () => {},
+      onSelect: () => {},
+      onExplain: () => {},
+      onAct: () => {},
+      explain: null,
+    }),
+  ),
+)
+
+check('Search + explain', () =>
+  renderToStaticMarkup(
+    h(Search, {
+      snapshot: snap,
+      cells: snap.cells.slice(0, 2),
+      query: '深色',
+      onQuery: () => {},
+      kind: 'all',
+      onKind: () => {},
+      lens: 'all',
+      onLens: () => {},
+      selectedId: snap.cells[0]?.cellId,
+      onSelect: () => {},
+      onExplain: () => {},
+      onAct: () => {},
+      explain: { cellId: snap.cells[0]?.cellId, text: 'cell 0000  总分 0.71' },
+    }),
+  ),
+)
+
+check('Organize', () =>
+  renderToStaticMarkup(
+    h(Organize, {
+      snapshot: snap,
+      onAct: () => {},
+      onCommand: () => {},
+      onOpen: () => {},
+      graphMaxNodes: 120,
+    }),
+  ),
+)
+
+check('Inbox', () =>
+  renderToStaticMarkup(h(Inbox, { snapshot: snap, onAct: () => {}, onCommand: () => {}, onOpen: () => {} })),
+)
+
+check('Settings', () =>
+  renderToStaticMarkup(h(Settings, { snapshot: snap, onAct: () => {}, onCommand: () => {} })),
+)
+
+check('Settings（无 runtime 字段的旧快照也能渲染）', () =>
+  renderToStaticMarkup(
+    h(Settings, {
+      snapshot: { ...snap, runtime: undefined, index: undefined, tags: undefined, categories: undefined, pending: undefined },
+      onAct: () => {},
+      onCommand: () => {},
+    }),
+  ),
 )
 
 check('filterCells', () => {

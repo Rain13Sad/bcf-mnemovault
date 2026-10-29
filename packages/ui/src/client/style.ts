@@ -30,6 +30,9 @@ export const CSS = `
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* 关键：作为 flex 子项时 min-width 默认是 min-content，侧栏 320–420 px 会被内容顶宽，
+     表现为"面板比宿主给的宽度宽、右边被裁掉"。三个容器都要显式放开。 */
+  min-width: 0;
 }
 @media (prefers-color-scheme: dark) {
   .mnv-root {
@@ -71,15 +74,16 @@ export const CSS = `
   --mnv-border: #e3e6ec;
 }
 
-.mnv-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--mnv-border); }
-.mnv-title { font-weight: 600; font-size: 13px; letter-spacing: .2px; }
+.mnv-header { min-width: 0; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 8px; border-bottom: 1px solid var(--mnv-border); }
+.mnv-header-row { display: flex; align-items: center; gap: 6px; min-width: 0; flex-wrap: wrap; }
+.mnv-title { font-weight: 600; font-size: 13px; letter-spacing: .2px; white-space: nowrap; flex: none; }
 .mnv-spacer { flex: 1; }
-.mnv-badge { font-size: 11px; color: var(--mnv-fg-soft); background: var(--mnv-bg-sunken); border-radius: 999px; padding: 2px 8px; }
-.mnv-tabs { display: flex; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--mnv-border); }
-.mnv-tab { border: 0; background: transparent; color: var(--mnv-fg-soft); font: inherit; padding: 5px 10px; border-radius: 7px; cursor: pointer; }
+.mnv-badge { font-size: 11px; color: var(--mnv-fg-soft); background: var(--mnv-bg-sunken); border-radius: 999px; padding: 2px 8px; white-space: nowrap; flex: none; }
+.mnv-tabs { min-width: 0; display: flex; gap: 2px; padding: 6px 8px; border-bottom: 1px solid var(--mnv-border); }
+.mnv-tab { border: 0; background: transparent; color: var(--mnv-fg-soft); font: inherit; font-size: 12px; padding: 5px 9px; border-radius: 7px; cursor: pointer; white-space: nowrap; flex: none; }
 .mnv-tab:hover { background: var(--mnv-bg-soft); color: var(--mnv-fg); }
 .mnv-tab[data-active="true"] { background: var(--mnv-bg-sunken); color: var(--mnv-fg); font-weight: 600; }
-.mnv-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 10px 16px; }
+.mnv-body { flex: 1; min-height: 0; min-width: 0; overflow: auto; padding: 8px 10px 16px; }
 .mnv-toolbar { display: flex; gap: 6px; padding: 8px 10px; align-items: center; border-bottom: 1px solid var(--mnv-border); }
 .mnv-input { flex: 1; min-width: 0; border: 1px solid var(--mnv-border); background: var(--mnv-bg-soft); color: var(--mnv-fg); border-radius: 8px; padding: 5px 9px; font: inherit; }
 .mnv-input:focus { outline: 2px solid color-mix(in srgb, var(--mnv-accent) 40%, transparent); outline-offset: 1px; }
@@ -127,4 +131,85 @@ export const CSS = `
 .mnv-graph text { fill: var(--mnv-fg-soft); font-size: 10px; }
 .mnv-affect-scatter { width: 100%; height: 200px; display: block; }
 .mnv-pillrow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+
+/* ── v0.3：对齐 DSH 记忆插件的版式 ───────────────────────────────── */
+
+.mnv-subhead { display: flex; align-items: center; gap: 8px; margin: 14px 2px 8px; }
+.mnv-subhead > b { font-size: 12px; font-weight: 600; color: var(--mnv-fg); letter-spacing: .2px; }
+.mnv-subhead > span { font-size: 11px; color: var(--mnv-fg-faint); }
+.mnv-subhead::after { content: ''; flex: 1; height: 1px; background: var(--mnv-border); }
+
+.mnv-panel { min-width: 0; border: 1px solid var(--mnv-border); border-radius: var(--mnv-radius); background: var(--mnv-bg); padding: 10px 12px; margin-bottom: 10px; }
+.mnv-panel[data-tone="sunken"] { background: var(--mnv-bg-soft); }
+
+.mnv-code {
+  display: block; width: 100%; box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--mnv-fg-soft); background: var(--mnv-bg-sunken);
+  border-radius: 6px; padding: 5px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* 指标格：参考界面是 4–8 列等宽，数字大、标签小 */
+.mnv-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(76px, 1fr)); gap: 2px 8px; }
+.mnv-stat { padding: 6px 2px; text-align: center; border-radius: 8px; }
+.mnv-stat:hover { background: var(--mnv-bg-soft); }
+.mnv-stat > b { display: block; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.mnv-stat > span { display: block; font-size: 11px; color: var(--mnv-fg-faint); margin-top: 2px; }
+.mnv-stat[data-tone="warn"] > b { color: var(--mnv-warn); }
+.mnv-stat[data-tone="danger"] > b { color: var(--mnv-danger); }
+.mnv-stat[data-tone="accent"] > b { color: var(--mnv-accent); }
+
+/* 四列最近列表 */
+.mnv-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.mnv-col { min-width: 0; }
+.mnv-col > h5 { margin: 0 0 6px; font-size: 11px; font-weight: 600; color: var(--mnv-fg-soft); letter-spacing: .3px; }
+.mnv-mini {
+  border: 1px solid var(--mnv-border); border-radius: 8px; background: var(--mnv-bg-soft);
+  padding: 6px 8px; margin-bottom: 5px; cursor: pointer;
+}
+.mnv-mini:hover { border-color: var(--mnv-accent); }
+.mnv-mini > div:first-child { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mnv-mini > div:last-child { font-size: 10px; color: var(--mnv-fg-faint); margin-top: 2px; display: flex; gap: 6px; }
+
+.mnv-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.mnv-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px; cursor: default;
+  background: var(--mnv-bg-sunken); color: var(--mnv-fg-soft); border: 1px solid transparent;
+}
+.mnv-tag > i { font-style: normal; color: var(--mnv-fg-faint); margin-left: 4px; font-size: 10px; }
+
+.mnv-kvrow { display: grid; grid-template-columns: 96px 1fr; gap: 8px; font-size: 11px; padding: 3px 0; align-items: baseline; }
+.mnv-kvrow > span:first-child { color: var(--mnv-fg-faint); }
+.mnv-kvrow > span:last-child { color: var(--mnv-fg-soft); word-break: break-all; }
+.mnv-kvrow code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; }
+
+.mnv-status { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+.mnv-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mnv-fg-faint); }
+.mnv-status[data-ok="true"] { color: var(--mnv-neg); }
+.mnv-status[data-ok="true"]::before { background: var(--mnv-neg); }
+.mnv-status[data-ok="false"] { color: var(--mnv-warn); }
+.mnv-status[data-ok="false"]::before { background: var(--mnv-warn); }
+
+.mnv-tabs { overflow-x: auto; scrollbar-width: none; }
+.mnv-tabs::-webkit-scrollbar { display: none; }
+
+/* 设置项 */
+.mnv-setting { display: flex; align-items: center; gap: 10px; padding: 7px 2px; border-bottom: 1px dashed var(--mnv-border); }
+.mnv-setting:last-child { border-bottom: 0; }
+.mnv-setting > div:first-child { flex: 1; min-width: 0; }
+.mnv-setting b { display: block; font-size: 12px; font-weight: 500; }
+.mnv-setting small { display: block; font-size: 10.5px; color: var(--mnv-fg-faint); margin-top: 1px; }
+.mnv-seg { display: inline-flex; border: 1px solid var(--mnv-border); border-radius: 8px; overflow: hidden; }
+.mnv-seg > button { border: 0; background: transparent; color: var(--mnv-fg-soft); font: inherit; font-size: 11px; padding: 4px 9px; cursor: pointer; }
+.mnv-seg > button[data-active="true"] { background: var(--mnv-accent); color: #fff; }
+
+.mnv-danger { border-color: color-mix(in srgb, var(--mnv-danger) 40%, var(--mnv-border)); }
+.mnv-danger > b { color: var(--mnv-danger); }
+
+.mnv-hit { display: flex; align-items: center; gap: 8px; }
+.mnv-score { font-variant-numeric: tabular-nums; font-size: 11px; color: var(--mnv-accent); min-width: 34px; text-align: right; }
+.mnv-muted { color: var(--mnv-fg-faint); font-size: 11px; }
+.mnv-loading { padding: 28px 12px; text-align: center; color: var(--mnv-fg-faint); font-size: 12px; }
+.mnv-skeleton { height: 10px; border-radius: 5px; background: var(--mnv-bg-sunken); margin: 6px 0; animation: mnv-pulse 1.4s ease-in-out infinite; }
+@keyframes mnv-pulse { 0%,100% { opacity: .55 } 50% { opacity: 1 } }
 `

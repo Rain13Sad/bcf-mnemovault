@@ -57,7 +57,7 @@ export interface Config {
   pageSize: number
   graphMaxNodes: number
   /** 打开面板时默认停在哪个视图 */
-  defaultTab: 'timeline' | 'graph' | 'affect' | 'diagnostics'
+  defaultTab: 'overview' | 'search' | 'organize' | 'inbox' | 'affect' | 'settings'
   /** 无 remote 时是否允许降级为只读事件源 */
   allowReadOnlyFallback: boolean
 }
@@ -65,7 +65,7 @@ export interface Config {
 export const defaultConfig: Config = {
   pageSize: 50,
   graphMaxNodes: 200,
-  defaultTab: 'timeline',
+  defaultTab: 'overview',
   allowReadOnlyFallback: true,
 }
 
@@ -118,10 +118,16 @@ export function apply(ctx: ClientContext, config: Config = defaultConfig): void 
 }
 
 /**
- * 数据源选择：remote > host 注入的快照 > 只读事件源 > 演示数据。
+ * 数据源选择：host 提供的 remote 服务 > 宿主 remote 注册表 > host 注入的快照 > 演示数据。
+ *
+ * v0.3 的关键改动：**host 侧现在会主动 `ctx.provide('mnemoRemote', …)`**，
+ * 所以即使宿主的 `ctx.remote` 注册表形状对不上，面板也能拿到可读写的数据面。
  * 这条链的每一级都是"功能变少但不变错"，没有一级会假装有数据。
  */
 function resolveSource(ctx: ClientContext, config: Config): MnemoDataSource {
+  const direct = ctx.get?.('mnemoRemote') as MnemoRemoteFace | undefined
+  if (direct?.snapshot) return createRemoteSource(direct)
+
   const remote = (ctx.get?.('remote') as Record<string, unknown> | undefined)?.['mnemo'] as MnemoRemoteFace | undefined
   if (remote?.snapshot) return createRemoteSource(remote)
 

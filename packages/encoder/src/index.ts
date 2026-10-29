@@ -44,7 +44,8 @@ import {
   type SdrSpace,
 } from '@rain13sad/dsh-mnemo-core'
 
-import { fromHostLlm, parseLlmPropositions, segmentLite, segmentWithPort, type LlmPort, type Proposition } from './l1.js'
+import { fromHostLlm, parseLlmPropositions, probeLlmPort, segmentLite, segmentWithPort, type HostLlmPort, type LlmPort, type Proposition } from './l1.js'
+import type { L1Status, RuntimeStatus } from '@rain13sad/dsh-mnemo-core'
 
 export const name = 'mnemo-encoder'
 export const inject = ['memory', 'sessions']
@@ -56,20 +57,33 @@ export interface Config {
   encodeTools: boolean
   /** 单轮最多产出多少 cell（防止长粘贴把库刷爆） */
   maxCellsPerTurn: number
+  /**
+   * 长度感知的切分预算：每多少字最多产出一条 cell。
+   *
+   * 这是存储比的第一个杠杆，也是最容易被误解的一个：命题级切分（§7.2）本身是对的，
+   * 但一条 800 字的轮次切出 6 条 cell，每条都要付 112 B 头 + SDR + 向量，
+   * 固定基底会盖过压缩收益。默认 600 字/条 = "800 字轮次最多 2 条"，
+   * 既保留"一件事一条"的语义，又不让短句碎片把库撑大。
+   * 设为 0 关闭（退化为纯 maxCellsPerTurn 上限）。
+   */
+  cellsPerTurnChars: number
   /** 残差长度上限（字节），超出截断并标注 */
   maxResidualBytes: number
   /** L1 小模型切分（需要宿主 llm 服务；缺失时静默降级到 L0） */
-  l1: { enabled: boolean; model?: string }
+  l1: { enabled: boolean; model?: string; probe: boolean; timeoutMs: number }
 }
 
 export const Config: z<Config> = z.object({
   encodeAssistant: z.boolean().default(true).description('编码助手的承诺/决定类断言'),
   encodeTools: z.boolean().default(true).description('编码工具结果中的事实'),
   maxCellsPerTurn: z.number().min(1).max(32).default(8).description('单轮 cell 上限，防止长粘贴刷库'),
+  cellsPerTurnChars: z.number().min(0).max(4000).default(600).description('每多少字最多一条 cell（存储比与原子性的折中）'),
   maxResidualBytes: z.number().min(512).max(65536).default(8192).description('残差字节上限'),
   l1: z.object({
-    enabled: z.boolean().default(false).description('启用 L1 小模型切分（需宿主 llm 服务）'),
+    enabled: z.boolean().default(true).description('启用 L1 小模型切分（需宿主 llm 服务；缺失时自动降级）'),
     model: z.string().description('L1 模型名，留空用宿主默认小模型'),
+    probe: z.boolean().default(true).description('加载时真打一次探针，验证宿主 llm 的调用形状'),
+    timeoutMs: z.number().min(500).max(30000).default(4000).description('探针超时'),
   }),
 })
 
@@ -108,6 +122,7 @@ export class Encoder {
 
   /** L1 端口：宿主小模型；缺席时用 L1-lite（规则增强） */
   private readonly port: LlmPort | null
+  private l1: L1Status
 
   constructor(
     private readonly memory: MemoryService,
@@ -116,12 +131,21 @@ export class Encoder {
     port?: LlmPort | null,
   ) {
     this.port = port ?? null
+    this.l1 = {
+      enabled: config.l1.enabled,
+      mode: config.l1.enabled ? (port ? 'lite' : 'lite') : 'l0',
+      entry: (port as HostLlmPort | null)?.entry ?? null,
+      ok: false,
+      lastMs: 0,
+      note: port ? '端口已就绪，等待首轮调用' : config.l1.enabled ? '未找到宿主 llm，使用 lite 规则切分' : 'L1 未启用',
+    }
   }
 
   /** 一轮结束时的编码入口。 */
   encodeTurn(input: TurnInput, opts: { skipSensory?: boolean } = {}): EncodeResult {
     const at = input.at ?? Date.now()
     const out: EncodeResult = { cells: [], created: 0, merged: 0, linked: 0, conflicts: 0, skipped: 0 }
+    const budget = this.maxCellsForTurn(input.userText)
 
     // 感觉记忆（§8.1）：同一段内容在 2 轮内重复出现就不再编码。
     // 用户反复粘贴同一份日志是最常见的 token 浪费来源，哈希命中比"看着像"可靠得多。
@@ -146,7 +170,7 @@ export class Encoder {
     }
 
     const push = (text: string, provenance: 0 | 1 | 2 | 3, seq: number) => {
-      if (out.cells.length >= this.config.maxCellsPerTurn) {
+      if (out.cells.length >= budget) {
         out.skipped++
         return
       }
@@ -217,14 +241,47 @@ export class Encoder {
   }
 
   /**
+   * 本轮 cell 预算：`ceil(len / cellsPerTurnChars)`，夹在 [1, maxCellsPerTurn]。
+   *
+   * 为什么不是纯 maxCellsPerTurn：那个上限是**防御性**的（防长粘贴刷库），
+   * 不是**经济性**的。存储比的问题恰恰来自"短轮次切得太多"，
+   * 所以预算要跟轮次长度走：一段 200 字的话切成 6 条，每条都只剩半句，
+   * 既稀释了证据计数，又让固定基底成本翻六倍。
+   */
+  maxCellsForTurn(text: string): number {
+    const max = this.config.maxCellsPerTurn
+    const per = this.config.cellsPerTurnChars
+    if (!per || per <= 0) return max
+    return Math.max(1, Math.min(max, Math.ceil(text.length / per)))
+  }
+
+  /**
    * 异步编码：优先用模型做 L1 切分，失败或未启用时退回同步路径。
    * 宿主若能在 turn/end 上 await，用这个版本；否则用 encodeTurn（同步、lite）。
    */
   async encodeTurnAsync(input: TurnInput): Promise<EncodeResult> {
     if (!this.config.l1.enabled || !this.port) return this.encodeTurn(input)
+    const t0 = Date.now()
     const props = await segmentWithPort(input.userText, this.port)
+    this.noteL1(props, Date.now() - t0)
     if (!props || props.length === 0) return this.encodeTurn(input)
     return this.encodePropositions(input, props)
+  }
+
+  /** L1 运行时状态：成功/失败/耗时都记下来，面板与 doctor 直接读。 */
+  private noteL1(props: Proposition[] | null, ms: number): void {
+    this.l1 = {
+      enabled: this.config.l1.enabled,
+      mode: props ? 'port' : this.config.l1.enabled ? 'lite' : 'l0',
+      entry: (this.port as HostLlmPort | null)?.entry ?? null,
+      ok: Boolean(props),
+      lastMs: ms,
+      note: props ? `L1 切分 ${props.length} 条命题（${ms}ms）` : '端口返回不可解析，本轮回退到 lite 规则切分',
+    }
+  }
+
+  l1Status(): L1Status {
+    return { ...this.l1 }
   }
 
   /** 用给定命题列表编码（L1 的产物直接进这条路径，不再二次切分）。 */
@@ -240,8 +297,9 @@ export class Encoder {
       rawLen: turnBytes.length,
     }
     let seq = input.seqs[0] ?? 0
+    const budget = this.maxCellsForTurn(input.userText)
     for (const p of props) {
-      if (out.cells.length >= this.config.maxCellsPerTurn) break
+      if (out.cells.length >= budget) break
       const key = p.text.trim().toLowerCase()
       if (!key || seen.has(key)) continue
       seen.add(key)
@@ -465,11 +523,54 @@ function textOf(content: unknown): string {
 export function apply(ctx: Context, config: Config) {
   const memory = ctx.get('memory') as MemoryService
   if (!memory) throw new Error('[mnemo-encoder] 需要 ctx.memory（先装 @rain13sad/dsh-mnemo-core）')
-  const port = config.l1.enabled ? fromHostLlm(ctx.get('llm')) : null
+  const hostLlm = config.l1.enabled ? fromHostLlm(ctx.get('llm')) : null
+  const port = hostLlm
   const encoder = new Encoder(memory, memory.space, config, port)
-  if (config.l1.enabled) {
-    ctx.logger('mnemo-encoder').info(port ? 'L1 使用宿主 llm 端口' : 'L1 未找到宿主 llm，降级为 lite 规则切分')
+  const runtime = ctx.get('mnemoRuntime') as RuntimeStatus | undefined
+  const log = ctx.logger('mnemo-encoder')
+
+  // 暴露给面板/命令面读（L1 状态、预算等）
+  try {
+    ctx.provide('mnemoEncoder', encoder)
+  } catch {
+    /* 热重载时已存在 */
   }
+
+  const pushL1 = () => {
+    const s = encoder.l1Status()
+    runtime?.setL1(s)
+    if (runtime) {
+      runtime.capabilities = [
+        ...runtime.capabilities.filter((c) => !c.startsWith('L1')),
+        s.mode === 'port' ? `L1 · ${s.entry ?? 'port'}` : s.enabled ? 'L1 · lite 规则切分' : 'L1 · 关闭',
+      ]
+    }
+  }
+  pushL1()
+
+  // 启动自检：入口存在 ≠ 能跑通。探针失败不抛错，只把结论写进运行时状态。
+  if (config.l1.enabled && port && config.l1.probe) {
+    ctx.effect(() => {
+      let alive = true
+      void (async () => {
+        const r = await probeLlmPort(port, config.l1.timeoutMs)
+        if (!alive) return
+        runtime?.setL1({ enabled: true, entry: (port as HostLlmPort).entry, ok: r.ok, lastMs: r.ms, note: r.note, mode: r.ok ? 'lite' : 'lite' })
+        pushL1()
+        log.info(`L1 自检：${r.ok ? '通过' : '失败'}（${(port as HostLlmPort).entry}，${r.ms}ms）${r.note}`)
+        if (!r.ok && runtime) {
+          runtime.limits = [...runtime.limits.filter((x) => !x.startsWith('L1')), `L1：宿主 llm 自检未通过（${r.note}），当前用 lite 规则切分`]
+        }
+      })()
+      return () => {
+        alive = false
+      }
+    }, 'mnemo-encoder: l1 probe')
+  } else if (config.l1.enabled && !port) {
+    log.warn('L1 已启用但未识别到宿主 llm 入口，降级为 lite 规则切分')
+    if (runtime) runtime.limits = [...runtime.limits.filter((x) => !x.startsWith('L1')), 'L1：未识别到 ctx.llm 入口，当前用 lite 规则切分']
+  }
+
   /** 按会话累积本轮事件，在 turn/end 一次性编码——逐条编码会把碎片写进库。 */
   const pending = new Map<string, PendingTurn>()
 
@@ -524,7 +625,7 @@ export function apply(ctx: Context, config: Config) {
           // 带上 affect 的当前 PAD：不带的话每条 cell 的情感维度都是 0，
           // "情感记忆"就永远不会被标记（实测踩过：flags.bit6 一条都打不上）。
           const affectNow = ctx.get('affect') as { current?(): { v: number; a: number; d: number; s: number } } | undefined
-          const r = encoder.encodeTurn({
+          const input: TurnInput = {
             sessionId: sid,
             seqs: p.seqs,
             turn: p.turn,
@@ -533,17 +634,40 @@ export function apply(ctx: Context, config: Config) {
             toolResults: p.tools,
             at: p.at,
             pad: affectNow?.current?.(),
-          })
-          for (const cell of r.cells) {
-            memory.emit('memory/cell', {
-              cellId: cell.cellId.toString(16).padStart(16, '0'),
-              kind: cell.kind,
-              digest: cell.digest ?? '',
-              sourceSeqs: p.seqs,
-              residualRef: cell.residual ? String(cell.residual.off) : undefined,
-            })
           }
-          memory.noteTurn()
+          const finish = (r: EncodeResult) => {
+            for (const cell of r.cells) {
+              memory.emit('memory/cell', {
+                cellId: cell.cellId.toString(16).padStart(16, '0'),
+                kind: cell.kind,
+                digest: cell.digest ?? '',
+                sourceSeqs: p.seqs,
+                residualRef: cell.residual ? String(cell.residual.off) : undefined,
+              })
+            }
+            memory.noteTurn()
+          }
+          // L1 端口可用时走异步路径（宿主在 turn/end 上不 await，但监听器自身可以 async）；
+          // 任何异常都退回同步路径，绝不让"模型不可用"变成"这一轮没记"。
+          if (config.l1.enabled && port) {
+            void (async () => {
+              try {
+                finish(await encoder.encodeTurnAsync(input))
+              } catch (err) {
+                log.warn(`L1 编码失败，回退同步路径：${String(err)}`)
+                try {
+                  finish(encoder.encodeTurn(input))
+                } catch (err2) {
+                  log.error(`编码失败：${String(err2)}`)
+                }
+              } finally {
+                pushL1()
+              }
+            })()
+          } else {
+            finish(encoder.encodeTurn(input))
+            pushL1()
+          }
           break
         }
       }

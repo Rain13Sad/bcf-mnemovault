@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-tools",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "工具面（6）+ 命令面（13）+ egress 守卫",
   "keywords": [
     "dsh",

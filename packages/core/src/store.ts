@@ -115,7 +115,7 @@ export interface Store {
 
   /** BEGIN IMMEDIATE 语义的单写事务。读侧不进事务（WAL 快照）。 */
   write<T>(fn: () => T): T
-  stats(): { cells: number; edges: number; residuals: number; bytes: number; rawBytes?: number }
+  stats(): { cells: number; edges: number; residuals: number; bytes: number; rawBytes?: number; residualBytes?: number }
 }
 
 const idKey = (id: bigint) => toHex(id, 16)
@@ -330,6 +330,7 @@ export class MemoryStore implements Store {
       residuals: this.residuals.length,
       bytes: blobBytes + residualBytes,
       rawBytes,
+      residualBytes,
     }
   }
 }
@@ -759,6 +760,7 @@ export class SqliteStore implements Store {
       residuals: Number(r?.n ?? 0),
       bytes: Number(c?.b ?? 0) + Number(r?.b ?? 0),
       rawBytes: Number(r?.raw ?? 0),
+      residualBytes: Number(r?.b ?? 0),
     }
   }
 }

@@ -201,24 +201,33 @@ export function apply(ctx, config) {
 
 ## 3. 数据面：面板怎么拿到 host 的数据
 
-`@deepseek-ai/dsh-api-remotes` 是官方通道（BFF + Gateway + Cordis 事件源），
-但它的接线在 rc 之间最不稳定，且需要部署方注册 contribution。
-因此面板面向 `MnemoDataSource` 编程，三个适配器：
+v0.3 之前这里写的是"`ctx.remote` 需要部署方注册 contribution，面板走只读事件源"。
+现在 **host 侧自己接线**，面板按四级顺序取数据源：
 
-| 适配器 | 何时用 | 能力 |
+| 顺序 | 来源 | 能力 |
 | :--- | :--- | :--- |
-| `remote` | 宿主注册了 `ctx.remote.mnemo` | 全量读写 |
-| `event` | 只订阅了会话事件 | 只读（能看本轮召回与情感状态） |
-| `demo` | 独立预览 / 回归测试 | 内存 fixtures |
+| 1 | `ctx.get('mnemoRemote')`（host 侧 `ctx.provide`） | 全量读写（快照 + 动作 + 搜索 + 订阅） |
+| 2 | `ctx.get('remote').mnemo`（宿主注册表） | 同上，若宿主支持 |
+| 3 | `ctx.get('mnemoSnapshot')` | 只读（能看本轮召回与情感状态） |
+| 4 | `demo` fixtures | 独立预览 / 回归测试 |
 
-host 侧要接 remote，只需实现三个方法：
+host 侧注册（`packages/tools/src/bridge.ts`）：
 
 ```ts
-export interface MnemoRemoteFace {
-  snapshot(): Promise<PanelSnapshot>     // memory.panelSnapshot()
-  act(a: PanelAction): Promise<{ok, message}>  // memory.applyAction(a)
-  subscribe?(fn): () => void
+const face = {
+  snapshot: async () => memory.panelSnapshot(),
+  act: async (a) => memory.applyAction(a),
+  search: async (q) => memory.search(q, 50),
+  subscribe: (fn) => memory.onPanelUpdate(fn),
 }
+ctx.provide('mnemoRemote', face)          // 面板优先读这个
+
+// 宿主的 remote 注册表形状在 rc 间不固定，四种逐个探测，认不出就跳过：
+const remote = ctx.get('remote')
+remote?.register?.('mnemo', face)          // A
+remote?.contribute?.({ name: 'mnemo', ...face })  // B
+remote?.define?.('mnemo', face)            // C
+remote?.contributions?.set?.('mnemo', face) // D
 ```
 
 `PanelSnapshot` / `PanelAction` 的形状在 `@rain13sad/dsh-mnemo-core` 的 `types.ts` 里，
@@ -226,14 +235,88 @@ export interface MnemoRemoteFace {
 
 ---
 
-## 4. 尚未接线的部分
+## 4. 运行时状态：`ctx.provide('mnemoRuntime', …)`
+
+这是 v0.3 新加的。**文档里每一个"未实机验证"的能力，都必须有一个运行时可读的状态**，
+否则"已接线"和"在降级"在外部看起来完全一样。
+
+```ts
+interface L1Status {
+  enabled: boolean
+  mode: 'port' | 'lite' | 'l0'
+  entry: string | null      // 识别到的宿主入口名（chat / complete / client.invoke …）
+  ok: boolean               // 最近一次调用是否解析出命题
+  lastMs: number
+  note: string              // 人话说明，面板直接显示
+}
+```
+
+写入方：`core`（ANN 模式）、`encoder`（L1 自检与每次调用）、`tools`（命令面 / remote 面 / 工具清单）。
+读取方：`memory.panelSnapshot().runtime`、`/mnemo doctor`、面板「设置 → 编码与索引」。
+
+---
+
+## 5. L1 端口：`fromHostLlm` 认什么
+
+v0.2 只认 `complete` / `generate` / `chat` 三个入口、且假设第一个参数是字符串。v0.3 改成：
+
+- **入口**（按顺序探测）：`complete` `chat` `generate` `invoke` `run` `call` `respond` `createCompletion`，
+  并在 `client` / `provider` / `model` / `models` 四个嵌套路径下各试一遍。
+- **入参形状**：`chat` → `{ messages: [{role:'user', content}] }`；`complete` → `(prompt, {maxTokens})`；
+  其余 → `{ prompt, messages, maxTokens }`（宽对象，多数宿主能接受其一）。
+- **返回归一**：字符串 / `{text}` / `{output_text}` / `{content}` / `{content:[{text}]}` /
+  `{choices:[{message:{content}}]}` / `{choices:[{text}]}` / `{output}` / 异步迭代器（流式增量拼接）。
+- **自检**：`probeLlmPort(port)` 真打一次最小调用，4 秒超时。失败**不抛错**，
+  只把 `ok:false` 与原因写进 `RuntimeStatus.l1.note`，编码器降级到 lite。
+
+一次都没识别到时 `fromHostLlm` 返回 `null`——不做猜测性调用，这是刻意的。
+
+---
+
+## 6. 向量索引：HNSW 的分档
+
+```ts
+// core/src/ann.ts
+interface VectorIndex {
+  add(id: bigint, vec: Int8Array): void
+  remove(id: bigint): void
+  search(vec: Int8Array, k: number, ef?: number): VectorHit[]
+}
+```
+
+- `cell < recall.annThreshold`（默认 2000）→ 精确扫描：更快，且没有近似误差。
+- 超过阈值 → `HnswIndex`（`M=16` / `efConstruction=200` / `efSearch=64`）。
+- 层高由 **id 的哈希**决定，不用 `Math.random`：同一批 cell 重建索引得到同一张图，
+  召回可复现（`test/ann.test.mjs` 断言逐条一致）。
+- 删除用墓碑标记，墓碑超过 20% 整图重建（HNSW 的删除本身是研究问题）。
+- `memory.annOverlap(k)` 抽样比对 ANN 与精确扫描的 top-k 重合度，面板/doctor 可自检。
+
+---
+
+## 7. 命令面：四种形状
+
+```ts
+cmdline.command('mnemo').command('<command> [args...]').description(d).action(fn)  // A
+cmdline.register({ name, description, usage, handler })                             // B
+cmdline.define('mnemo', '<command> [args...]', handler)                             // C
+ctx.get('commands').register(...)                                                   // D
+```
+
+全部不中才降级为 `mnemo_command` 工具（同一套 `runCommand`）。落在哪一种，
+`RuntimeStatus.commandFace` 记录，面板「设置 → 命令面」显示。
+另外始终提供 `ctx.provide('mnemoCommands', { run(line) })` 给面板按钮用——
+**"面板上能点的"和"命令行能敲的"必须走同一个实现**。
+
+---
+
+## 8. 仍然没有实机验证的部分
 
 | 项 | 状态 | 影响 |
 | :--- | :--- | :--- |
-| `ctx.remote.mnemo` contribution | 未实现，只定义了接口 | 面板走只读事件源 |
-| `ctx.cmdline` 命令注册 | 已按 `command(name).command(spec).description().action()` 写，宿主无此服务时降级为工具 | 命令面不缺功能 |
-| L1 切分（宿主 LLM） | 端口就绪，`ctx.llm` 调用形状未实机验证；同步链路用 `segmentLite` | 切分质量介于 L0 与真 L1 之间 |
+| `ctx.remote` 宿主注册表 | 四种形状都试了，但仓库里没有真宿主可验证 | 认不出时面板走 `mnemoRemote` 本地服务，功能不缺 |
+| L1 端口真调用 | 形状与自检都做了，未在真宿主上跑过 | 面板显示"lite 规则切分"，这是诚实的当前状态 |
 | `compaction/summary` 事件名 | 用宽类型入口 + 运行时校验订阅，拿不到就静默降级 | 遮蔽检测可能失效（不影响主链路） |
+| 百万级 cell 的 ANN 收益 | HNSW 已实现且有重合度测试，但 bench 没有百万级数据集 | 没有"快多少"的数字，只有"准不准"的数字 |
 
 ### 1.8 卡片渲染：`presentCall` / `presentResult`（§12.7）
 
@@ -245,33 +328,3 @@ presentResult(args, value)   // → { card:'generic', title, content:[ContentBlo
 - `card` 是标签联合（`generic` / `terminal` / `diff` / `search` / `read` / `web`），UI 按 `card` 分派。
 - 纯函数：同 `args`/`value` 必须得到同结果（会话回放时会再调一次）。
 - 只影响 UI，**不进模型上下文**；模型看到的仍然是 `output.render()` 的文本。
-
-### 1.9 作用域隔离（§14.10）
-
-- `cell.scope`（`'user:local'` / `'user:<id>'` / `'global'`）与 `cell.session` 作为**列**承载，
-  不进 MC02 头（头是 v0.2 定死的）。
-- 检索时：`scopeKey` 不匹配且不是 `'global'` → 不可见；`kind=0`（情景）且会话不同 → 不可见。
-- `recall({ scope: 'global' })` 是唯一的放宽口，必须由调用方显式传。
-
-### 1.10 重建（§14.11）
-
-`session_log` 是插件自己的影子日志（session, seq, turn, role, text, at），
-只存重建所需的最小信息，不替代 DSH Session Log。
-`/mnemo rebuild --from-log --yes` → `clearLattice([3,4,5])`（保留图式/人格锚/关系）→ 按轮重放 → 重新编码。
-
-已接线（上一版列在这里，这一版做完了）：
-
-| 项 | 做法 |
-| :--- | :--- |
-| 残差压缩 | `node:zlib` brotli（质量 5），`codec` 字段留 zstd 扩展位；轮级共享 |
-| 条件审批 | `ctx.approval.request()`，用户明说"记住"时免审 |
-| 人格锚 / 关系模型持久化 | `kind=4` / `kind=5` cell，启动时 `restoreFromMemory()` |
-| 双时态 | `t_invalid` 列（不进 MC02 头，避免破版） |
-| 作用域隔离 | `scope` / `session` 列 + 检索期过滤（情景按会话，语义全局） |
-| 晶格重建 | `session_log` 影子日志 + 编码器重建钩子 |
-| 重放一致性 | `recall_snapshots` 内容寻址 + `replayRecall(id)` |
-| 对话流卡片 | `presentCall` / `presentResult`（generic） |
-| L1 端口 | `LlmPort` + `fromHostLlm`（未实机验证，认不出就降级） |
-
-这四项都是"接线"而不是"缺设计"：接口在，实现是纯工程量。
-把它们列出来，是因为文档反复强调的一件事——**未经测量的能力不该被说成已有**。

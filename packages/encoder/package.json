@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-encoder",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "写侧：订阅 session/event，产出 MemCell",
   "keywords": [
     "dsh",

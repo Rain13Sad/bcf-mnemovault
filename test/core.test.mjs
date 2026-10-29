@@ -66,7 +66,7 @@ test('cell 编解码往返：头部字段、槽位、边、残差引用', () => 
   const c = mkCell()
   const bytes = encodeCell(c)
   assert.equal(bytes[0], 0x4d)
-  assert.equal(bytes[4], 2) // 布局版本
+  assert.equal(bytes[4], 3) // 布局版本（MC03）
   const back = decodeCell(bytes, space)
   assert.equal(back.cellId, c.cellId)
   assert.equal(back.kind, 1)
@@ -75,9 +75,22 @@ test('cell 编解码往返：头部字段、槽位、边、残差引用', () => 
   assert.equal(back.slots[1].value, 'ui.theme')
   assert.equal(back.edges.length, 1)
   assert.equal(back.edges[0].rel, 5)
-  assert.ok(Math.abs(back.valence - 0.6) < 1e-3, `valence=${back.valence}`)
+  // MC03 把效价压到 i8（1/127 ≈ 0.008 分辨率）：显示两位小数够用，
+  // 但要接受量化误差——所以断言用 5e-3 而不是 1e-3。
+  assert.ok(Math.abs(back.valence - 0.6) < 5e-3, `valence=${back.valence}`)
   assert.equal(back.residual.rawLen, 64)
   assert.equal(back.support, 1) // 双置信度不在 blob 里，由列承载
+  // SDR 稀疏编码是无损的：还原后必须逐位一致
+  assert.deepEqual([...back.sdr], [...c.sdr])
+})
+
+test('MC03 定长基底显著小于 MC02（存储比达标的前提）', () => {
+  // 64 维向量 + 稀疏 SDR + 112 B 头：一条 4 槽 1 边的 cell 应远低于旧版 704 B 基底
+  const compact = encodeCell({ ...mkCell(), emb: hashEmbedding('用户偏好深色主题', 64) })
+  assert.ok(compact.length < 420, `MC03 cell = ${compact.length} B，超过 420 B 说明布局回退了`)
+  // 冷层落 4 bit：32 B 向量
+  const cold = encodeCell({ ...mkCell(), tier: 2, emb: hashEmbedding('用户偏好深色主题', 64) })
+  assert.ok(cold.length < compact.length, `冷层应更小：${cold.length} vs ${compact.length}`)
 })
 
 test('布局版本不匹配必须拒绝解码（不能静默混读）', () => {

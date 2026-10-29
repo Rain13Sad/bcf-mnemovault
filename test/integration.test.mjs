@@ -225,7 +225,7 @@ test('体检：无孤儿边、无悬空槽、布局版本正确', () => {
   const d = harness.memory.doctor()
   assert.equal(d.orphanEdges, 0)
   assert.equal(d.danglingSlots, 0)
-  assert.equal(d.layoutVersion, 2)
+  assert.equal(d.layoutVersion, 3)
   assert.equal(d.sdrDim, 2048)
 })
 
