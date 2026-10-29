@@ -75,6 +75,13 @@ export interface AffectPolicy {
   restateGoal: boolean
   /** 本轮建议的 sampling temperature 偏移 */
   temperatureDelta: number
+  /**
+   * v0.4 反漠视规则 3：本轮必须先接住情绪，再谈别的。
+   * 触发条件：当前效价 < −0.3，或存在未平复的情绪事件。
+   */
+  requireAcknowledgment?: boolean
+  /** 未平复的情绪事件数量（强制关怀槽） */
+  neglect?: number
   /** 触发原因，供 UI 与解释器展示 */
   reasons: string[]
 }
@@ -372,6 +379,46 @@ export interface PanelIndexInfo {
   lastRebuildAt: number
 }
 
+/**
+ * 保留度视图（v0.4）。
+ *
+ * 面板的"保留度"页要回答两个问题：**它为什么还在**、**它为什么快没了**。
+ * 所以每一项都带七因子分解与命中的闸门，而不是只给一个分数。
+ */
+export interface PanelRetentionEntry {
+  cellId: string
+  shortId: string
+  digest: string
+  kind: number
+  tier: number
+  score: number
+  disposition: 'P5' | 'P4' | 'P3' | 'P2' | 'P1'
+  /** 命中"永不删除"闸门时的理由 */
+  protectedBy: string | null
+  /** 七因子原始值 0..1 */
+  parts: Record<string, number>
+  /** 七因子已乘权重的贡献（冗余为负） */
+  contributions: Record<string, number>
+  anniversary: number
+  /** 一句话解释 */
+  why: string
+}
+
+export interface PanelRetentionView {
+  byDisposition: Record<string, number>
+  /** 六档阈值，面板画刻度用 */
+  floors: { P5: number; P4: number; P3: number; P2: number }
+  entries: PanelRetentionEntry[]
+  /** 神经调制四信号 */
+  neuromod: { da: number; ach: number; ne: number; cort: number }
+  mode: 'encode' | 'retrieve'
+  temperature: number
+  /** 当前档位下实际生效的权重（面板显示"为什么这条重要"） */
+  weights: Record<string, number>
+  /** 最近的再巩固事件 */
+  reconsolidation: Array<{ at: number; cellId: string; dStability: number; dConfidence: number; dValence: number; plastic: boolean }>
+}
+
 export interface PanelSnapshot {
   version: 2
   generatedAt: number
@@ -395,6 +442,29 @@ export interface PanelSnapshot {
     trajectory?: Array<{ turn: number; v: number; a: number; d: number }>
     /** 未平复的情绪事件 */
     episodes?: Array<{ turn: number; v: number; a: number; strength: number; trigger: string }>
+    /**
+     * v0.4：情绪事件状态机全量（含 resolved / dormant）。
+     * 旧快照没有这个字段，视图必须降级到 `episodes`。
+     */
+    episodeDetail?: Array<{
+      id: string
+      trigger: string
+      status: 'open' | 'acknowledged' | 'attended' | 'resolved' | 'dormant'
+      onset: number
+      turn: number
+      valence: number
+      arousal: number
+      peak: number
+      strength: number
+      decayResistance: number
+      closure: number
+      repairDebt: number
+      labels: Array<{ label: string; intensity: number }>
+    }>
+    /** v0.4：强制关怀槽的注入行（未平复情绪） */
+    neglect?: string[]
+    /** v0.4：本轮 OCC 情绪标签 */
+    labels?: Array<{ label: string; intensity: number }>
   } | null
   cells: PanelCellView[]
   edges: PanelEdgeView[]
@@ -422,6 +492,8 @@ export interface PanelSnapshot {
   pending?: PanelCellView[]
   /** 最近一次巩固 pass 的结果 */
   consolidation?: { at: number; merged: number; abstracted: number; pruned: number; decayed: number; elapsedMs: number } | null
+  /** 保留度视图（v0.4）。旧快照没有这个字段，视图必须能降级渲染。 */
+  retention?: PanelRetentionView
   /** 主动开口的状态（未装 proactive 包时为 null） */
   proactive: {
     enabled: boolean

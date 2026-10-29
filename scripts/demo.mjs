@@ -145,6 +145,27 @@ else {
   log(cand ? `  [${cand.kind}] ${cand.reason}\n  ${cand.text}` : '  （此刻不该开口，原因见面板"最近为什么没说"）')
 }
 
+log('\n=== 14. 保留度与六档处置 ===')
+// 把三条记忆的访问时间推到一年多以前，再跑三次降档 pass：
+// 「重要但不常提」应留在 P4 以上，情感记忆应被删除闸挡住，琐事应降到低档。
+const pool = harness.memory.store.listCells({ limit: 200 })
+const pickImportant = pool.filter((c) => c.provenance === 0 && c.kind === 1).sort((a, b) => b.importance - a.importance)[0]
+const pickTrivial = pool.filter((c) => c.provenance === 0 && c.kind === 1).sort((a, b) => a.importance - b.importance)[0]
+const pickEmo = pool.find((c) => (c.flags & 64) !== 0)
+const clock = harness.now()
+for (const c of [pickImportant, pickTrivial, pickEmo]) {
+  if (!c) continue
+  c.tAccess = BigInt(clock - 400 * 86_400_000)
+  c.tIngest = BigInt(clock - 800 * 86_400_000)
+  harness.memory.store.putCell(c)
+}
+for (let i = 0; i < 3; i++) harness.memory.demoteDue()
+const ret = harness.memory.panelSnapshot().retention
+log(`  六档分布：${JSON.stringify(ret.byDisposition)}`)
+for (const e of ret.entries.slice(0, 4)) {
+  log(`  ${e.shortId}  ${e.disposition} ${e.score.toFixed(2)}  ${e.protectedBy ?? '无闸门'}  ${e.why}`)
+}
+
 // 落一份面板快照，供 UI 预览使用
 const panel = harness.panel()
 mkdirSync('artifacts', { recursive: true })

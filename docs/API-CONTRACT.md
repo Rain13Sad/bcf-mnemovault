@@ -233,6 +233,41 @@ remote?.contributions?.set?.('mnemo', face) // D
 `PanelSnapshot` / `PanelAction` 的形状在 `@rain13sad/dsh-mnemo-core` 的 `types.ts` 里，
 是 host 与 client 唯一共享的契约——两边都只依赖它，不互相 import 实现。
 
+### 3.1 v0.4 新增的可选字段
+
+| 字段 | 类型 | 兼容策略 |
+| :--- | :--- | :--- |
+| `snapshot.retention` | `PanelRetentionView` | **可选**。旧 host 不提供时，面板「保留度」页降级为说明页而不是白屏 |
+| `affect.policy.requireAcknowledgment` | `boolean?` | 可选。旧 host 不提供时按 `false` 处理 |
+| `affect.policy.neglect` | `number?` | 可选。未平复情绪事件数 |
+| `affect.episodeDetail` | `Array<...>?` | 可选。情绪事件五态全量（含 resolved/dormant），旧字段 `episodes` 保留 |
+| `affect.neglect` | `string[]?` | 可选。强制关怀槽的注入行 |
+
+`PanelRetentionView` 的结构：
+
+```ts
+{
+  byDisposition: Record<'P5'|'P4'|'P3'|'P2'|'P1', number>
+  floors: { P5: number; P4: number; P3: number; P2: number }
+  entries: Array<{
+    cellId: string; shortId: string; digest: string; kind: number; tier: number
+    score: number; disposition: 'P5'|'P4'|'P3'|'P2'|'P1'
+    protectedBy: string | null
+    parts: Record<string, number>          // 七因子原始值
+    contributions: Record<string, number>  // 七因子已乘权重（冗余为负）
+    anniversary: number; why: string
+  }>
+  neuromod: { da: number; ach: number; ne: number; cort: number }
+  mode: 'encode' | 'retrieve'
+  temperature: number
+  weights: Record<string, number>
+  reconsolidation: Array<{ at: number; cellId: string; dStability: number; dConfidence: number; dValence: number; plastic: boolean }>
+}
+```
+
+口径：`entries` 只含最近 120 条里保留度最高的 40 条，`byDisposition` 统计的是那 120 条。
+面板上写明了这一点——**不假装是全域统计**。
+
 ---
 
 ## 4. 运行时状态：`ctx.provide('mnemoRuntime', …)`

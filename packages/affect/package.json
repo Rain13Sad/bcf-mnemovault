@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-affect",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "情感内核：内感受 / 评价 / PAD / 心境 / 关系模型（ctx.affect）",
   "keywords": [
     "dsh",
@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "@rain13sad/dsh-mnemo-core": "^0.3.1"
+    "@rain13sad/dsh-mnemo-core": "^0.4.0"
   },
   "publishConfig": {
     "access": "public"

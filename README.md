@@ -11,8 +11,8 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A522.5-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-93-brightgreen.svg)](test/)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
+[![Tests](https://img.shields.io/badge/tests-135-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -27,18 +27,38 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 
 | | |
 | :--- | :--- |
-| **Status** | v0.2.0 · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 10 packages · 42 source files / 11,215 lines of TS · 93 tests · **zero runtime dependencies** (only built-in `node:sqlite` and `node:zlib`) |
+| **Status** | **v0.4.0** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 10 packages · 46 source files / ~12,600 lines of TS · 135 tests · **zero runtime dependencies** (only built-in `node:sqlite` and `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 
 ---
 
 ## Table of contents
 
-- [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not) · [Data flow](#data-flow)
-- [Quick start](#quick-start) · [Benchmarks](#benchmarks) · [Packages](#packages)
-- [Sidebar panel](#sidebar-panel) · [Known limitations](#known-limitations)
+- [What's new in 0.4.0](#whats-new-in-040) · [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not)
+- [Data flow](#data-flow) · [Quick start](#quick-start) · [Benchmarks](#benchmarks) · [Packages](#packages)
+- [Panel](#panel) · [How it compares](#how-it-compares) · [Known limitations](#known-limitations)
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
+
+---
+
+## What's new in 0.4.0
+
+0.4.0 replaces the two weakest mechanisms of 0.3 with things that can be **asserted in tests**.
+
+| Before (0.3) | Now (0.4) | Why it matters |
+| :--- | :--- | :--- |
+| Forgetting looked only at *last access time* | **Seven-factor retention**: ACT-R base-level activation (frequency + recency) + importance + affect intensity + graph centrality + narrative role + user affinity + spacing − redundancy | A fact you confirmed ten times and a fact you mentioned once aged identically. Now they don't |
+| `hot → warm → cold → archive → hard delete` | **Six dispositions** (P5 keep / P4 compress / P3 summarise / P2 archive / P1 tombstone) + **six never-delete gates** | Physical deletion is never automatic. P0 only happens when *you* ask for it |
+| Retrieval only reinforced stability | **Reconsolidation**: retrieval makes a memory plastic again — confidence drops when the user corrects you, valence drifts with mood | "Why does it get deeper the more we talk" and "why does it get bent" now have the same explanation |
+| Emotion episodes were a decaying array | **Five-state episode machine** (`open → acknowledged → attended → resolved / dormant`) | An unacknowledged emotion **grows stronger** with time. Neglect is no longer architecturally possible |
+| Six-dimension appraisal only | **OCC classifier** (22 labels, pure function, no LLM call) on top | Emotion logic stays reproducible; the model never decides state transitions |
+| 300–420 px vertical sidebar | **Desktop-first panel**: left rail + two-column content via container queries, falls back to top tabs under 760 px | A memory tool on a desktop should not use one third of the screen |
+| `resolveByPrefix` scanned the whole table per edge | Expression index on the 32-bit suffix + `Store.findByPrefix()` | 4 edges over 2000 cells: 425 ms → < 2 ms |
+
+The full design note — what was taken from the v0.4 proposal, what was deliberately deferred to 0.5
+(CA3 auto-association, STDP, autonomy agenda) and why — is in
+[docs/design/V0.4-PLAN.md](docs/design/V0.4-PLAN.md).
 
 ---
 
@@ -236,9 +256,9 @@ affect install `core + encoder + recall + tools` only, and `recall` degrades to 
 
 ---
 
-## Sidebar panel
+## Panel
 
-The panel uses the **actually published** client contract of `0.2.1-rc.3`, not the sketch in the design doc:
+The panel registers through the **actually published** client contract of `0.2.1-rc.3`:
 
 ```ts
 export const inject = ['slots', 'layout']
@@ -246,31 +266,60 @@ ctx.slots.register({ name: 'main', key: 'mnemo' }, MnemoPanel)
 ctx.slots.register({ name: 'sidebar.panellist', id: 'mnemo', order: 60, label: () => '记忆' }, PanelIcon)
 ```
 
-Six tabs, laid out like the DSH memory plugin:
+### Desktop-first, but not desktop-only
 
-![Memory panel · overview](docs/assets/panel-overview.png)
+The layout switches on the **panel's own width**, not the viewport — the same component may live in a
+320 px sidebar or fill a 1440 px window. `@container (min-width: 760px)` turns the top tab strip into a
+left rail and puts the content into two columns; below 760 px it degrades to the 0.3 layout.
 
+<p align="center">
+  <img src="docs/assets/panel-overview.png" alt="Overview — left rail, two-column content" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/panel-retention.png" alt="Retention — six dispositions, factor breakdown, neuromodulators" width="100%">
+</p>
+
+<p align="center">
+  <img src="docs/assets/panel-narrow.png" alt="Narrow mode — top tabs" width="46%">
+</p>
+
+### Seven tabs
 
 | Tab | Question it answers |
 | :--- | :--- |
-| **Overview** | Where is the store, what state is it in — path + actions, 8 metrics, 8 categories, index status, tag cloud, four recent columns, backend capabilities |
+| **Overview** | Where is the store, what state is it in — path + actions, metrics, categories, index status, tag cloud, four recent columns, backend capabilities |
 | **Search** | Is the memory I want in there — filters, per-hit channel and score, inline "why" from the same `ScoreBreakdown` |
-| **Organize** | How to make it better — run a consolidation pass, association/version-chain stats, graph, invalidated versions, forgetting audit |
+| **Organize** | How to make it better — consolidation pass, association/version-chain stats, graph, invalidated versions |
+| **Retention** *(new)* | **Why is this still here / why is it almost gone** — six-disposition distribution, seven-factor bars per memory, DA/ACh/NE/CORT signals, reconsolidation log |
 | **Inbox** | What is waiting on me — disputed or isolated single-evidence memories, contradiction adjudication |
-| **Affect** | What state it is in — PAD scatter, six variables, persona anchor, user schema |
+| **Affect** | What state it is in — PAD scatter, six variables, OCC labels, episode state machine, persona anchor |
 | **Settings** | How to tune it — preset/surface/ignition, real L1 and index shape, maintenance actions |
 
-Counters live in the header, not inside a tab: "how many are waiting on me" is a decision input.
-And backend capabilities are runtime facts written by the host into `RuntimeStatus` — whether L1 uses a
-model port or rule-based lite, whether the semantic channel is HNSW or exact scan, where the command
-surface landed — so the panel can never claim a capability the host is silently degrading.
+Counters live in the header/rail, not inside a tab: "how many are waiting on me" is a decision input.
+Backend capabilities are runtime facts written by the host into `RuntimeStatus` — whether L1 uses a model
+port or rule-based lite, whether the semantic channel is HNSW or exact scan, where the command surface
+landed — so the panel can never claim a capability the host is silently degrading.
 
-"Why was this recalled?" is rendered from the same `ScoreBreakdown` the scorer produces; the host and
-client implementations are cross-checked by `test/panel-ssr.test.mjs`.
+"Why was this recalled?" is rendered from the same `ScoreBreakdown` the scorer produces; host and client
+implementations are cross-checked by `test/panel-ssr.test.mjs`.
 
-The preview needs no bundler: `npm run panel:build` copies `packages/ui/lib/client` into
-`artifacts/panel/`, rewrites the two bare module specifiers to a React UMD shim, and serves it.
-The point is that **the preview runs the same compiled output the host loads**.
+---
+
+## How it compares
+
+| | MnemoVault | Mem0 | Zep / Graphiti | Letta (MemGPT) |
+| :--- | :--- | :--- | :--- | :--- |
+| Storage format | fixed-size binary cells (sparse code + int8 + hyperedges) | text + vectors | graph nodes + vectors | text blocks |
+| Bi-temporal | event time **and** transaction time | no | yes | no |
+| Forgetting | seven-factor retention, six dispositions, never auto-deletes | TTL / none | none | manual |
+| Reconsolidation | yes — retrieval rewrites confidence and valence | no | no | no |
+| Emotion as state | appraisal → PAD → mood → relationship → persona, all persisted | no | no | no |
+| Runtime dependencies | **zero** (`node:sqlite` + `node:zlib`) | vector DB + LLM | Neo4j + LLM | Postgres + LLM |
+| Cost model | ~116 tokens injected per turn | LLM call per write | LLM call per write | LLM call per turn |
+
+The trade-off is deliberate: MnemoVault does **not** call an LLM to decide what to remember. Extraction is
+rule-based and deterministic, which is why the same dialogue replays to the same lattice.
 
 ---
 
@@ -289,6 +338,15 @@ The point is that **the preview runs the same compiled output the host loads**.
 6. No phenomenal consciousness, by design.
 7. No encryption at rest — the database holds real conversations. See [SECURITY.md](SECURITY.md).
 8. MC03 changed the on-disk layout: existing vaults need `/mnemo rebuild --from-log`.
+9. **Retention is not materialised.** 0.4 computes the seven-factor score on read (last 120 cells for
+   the panel, one full pass per demotion tick). At 10⁵ cells this needs a `retention_score` column —
+   the schema is prepared for it, the column is not there yet.
+10. **CA3 auto-association and STDP are still 0.3-era.** The v0.4 proposal's associative network
+    (pattern completion, synaptic homeostasis) was deferred: it changes edge-weight semantics and would
+    invalidate the bench baseline. What shipped is the part that does not: the four neuromodulator
+    signals, used only as global gains.
+11. **Reconsolidation's prediction error is a proxy.** It fires when conflict detection reports a
+    correction; there is no per-turn user feedback signal yet (`predictionErrorProxy` exists, unwired).
 
 ---
 
@@ -301,7 +359,9 @@ Long-form docs are in Chinese; the design doc and the project guide are the two 
 | [`docs/README.md`](docs/README.md) | Documentation map — pick by intent, not by order |
 | [`docs/PROJECT-GUIDE.md`](docs/PROJECT-GUIDE.md) | What the code actually does; 15 weaknesses with evidence; 12 improvements ranked P0–P2 |
 | [`docs/design/MNEMOVAULT-DESIGN.md`](docs/design/MNEMOVAULT-DESIGN.md) | Full derivation: sparse-code algebra, four-channel recall, MRS rendering, biphasic consolidation |
+| [`docs/design/V0.4-PLAN.md`](docs/design/V0.4-PLAN.md) | 0.4.0 scope: what was taken from the v0.4 proposal, what was deferred, and the formulas |
 | [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md) | Where the real DSH `0.2.1-rc.3` packages differ from the design doc |
+| [`docs/releases/v0.4.0.md`](docs/releases/v0.4.0.md) | Release note for 0.4.0 |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Environment, code map, hard constraints, commit style |
 | [`CHANGELOG.md`](CHANGELOG.md) · [`SECURITY.md`](SECURITY.md) · [`docs/PUBLISH.md`](docs/PUBLISH.md) | History, threat model, release steps |
 

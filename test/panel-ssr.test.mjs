@@ -16,6 +16,7 @@ import { Search } from '../packages/ui/lib/client/views/Search.js'
 import { Organize } from '../packages/ui/lib/client/views/Organize.js'
 import { Inbox } from '../packages/ui/lib/client/views/Inbox.js'
 import { Settings } from '../packages/ui/lib/client/views/Settings.js'
+import { Retention } from '../packages/ui/lib/client/views/Retention.js'
 import { filterCells } from '../packages/ui/lib/client/Panel.js'
 
 const snap = JSON.parse(readFileSync('artifacts/panel-snapshot.json', 'utf8'))
@@ -68,6 +69,14 @@ check('Graph', () =>
       onSelect: () => {},
     }),
   ),
+)
+
+check('Retention', () =>
+  renderToStaticMarkup(h(Retention, { snapshot: snap, onOpen: () => {} })),
+)
+
+check('Retention (无 retention 字段的旧快照)', () =>
+  renderToStaticMarkup(h(Retention, { snapshot: { ...snap, retention: undefined }, onOpen: () => {} })),
 )
 
 check('Affect', () =>

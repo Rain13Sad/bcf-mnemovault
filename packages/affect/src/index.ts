@@ -19,6 +19,18 @@ import { appraise, clampPersona, coreAffect, DEFAULT_COEFF, integrateMood, label
 import { derivePolicy, interocept, type InteroSignals } from './policy.js'
 import { initialRelational, personaFromAttunement, updateRelational, type RelationalModel } from './relational.js'
 import {
+  acknowledge,
+  attend,
+  classifyEmotion,
+  decayEpisode,
+  episodeLine,
+  neglectQueue,
+  openEpisode,
+  resolve as resolveEpisode,
+  type EmotionEpisode,
+  type EmotionHit,
+} from './episode.js'
+import {
   deriveUserSchema,
   personaCell,
   readPersisted,
@@ -101,8 +113,8 @@ export class AffectService extends Service {
   private lastSchemaTurn = 0
   private lastSchema: SchemaPattern[] = []
   private seenTopics = new Set<string>()
-  /** 情绪事件（一次显著的起伏），带衰减；供面板画轨迹、供主动聊天挑话题 */
-  private episodes: Array<{ at: number; turn: number; peak: { v: number; a: number }; trigger: string; halfLife: number }> = []
+  /** 情绪事件（一次显著的起伏），带生命周期状态机；供面板画轨迹、供主动聊天挑话题 */
+  private episodes: EmotionEpisode[] = []
   /** PAD 轨迹（每轮一个点，上限 240，够画 40 分钟的连续情绪） */
   private trajectory: Array<{ turn: number; v: number; a: number; d: number }> = []
   /** 有情绪波动的轮数，用于依恋度 */
@@ -147,7 +159,7 @@ export class AffectService extends Service {
         pad: neutralPad(),
         mood: this.mood,
         relational: this.relationalSnapshot(),
-        policy: derivePolicy({ pad: this.pad, mood: this.mood, intero: this.intero, relational: this.relationalSnapshot(), turns: this.relational.turns }),
+        policy: derivePolicy({ pad: this.pad, mood: this.mood, intero: this.intero, relational: this.relationalSnapshot(), turns: this.relational.turns, neglect: this.neglectCount() }),
         intero: this.intero,
         label: '已关闭',
       }
@@ -200,6 +212,7 @@ export class AffectService extends Service {
       relational: this.relationalSnapshot(),
       turns: this.relational.turns,
       hasGoal: (input.goalEntities?.length ?? 0) > 0,
+      neglect: this.neglectCount(),
     })
 
     this.lastTurn = {
@@ -220,13 +233,17 @@ export class AffectService extends Service {
     if (Math.abs(this.pad.v) >= 0.45) this.emotionalTurns++
     const swing = prev ? Math.abs(this.pad.v - prev.v) : 0
     if (swing > 0.3 || this.pad.a > 0.7) {
-      this.episodes.push({
-        at: Date.now(),
-        turn: input.turn,
-        peak: { v: this.pad.v, a: this.pad.a },
-        trigger: input.text.slice(0, 40),
-        halfLife: 6,
-      })
+      // v0.4：事件带状态机。旧版只是一个带半衰期的记录，无法区分"接住了"与"没接住"。
+      this.episodes.push(
+        openEpisode({
+          trigger: input.text.slice(0, 40),
+          at: Date.now(),
+          turn: input.turn,
+          valence: this.pad.v,
+          arousal: this.pad.a,
+          labels: classifyEmotion(a),
+        }),
+      )
       if (this.episodes.length > 40) this.episodes.shift()
     }
 
@@ -297,18 +314,94 @@ export class AffectService extends Service {
     return this.trajectory.slice(-120)
   }
 
-  /** 未平复的情绪事件（峰值 × 半衰），供主动聊天判断"他还在气头上吗" */
+  /** 未平复的情绪事件（峰值 × 状态机强度），供主动聊天判断"他还在气头上吗" */
   activeEpisodes(now = Date.now()): Array<{ turn: number; v: number; a: number; strength: number; trigger: string }> {
     return this.episodes
       .map((e) => ({
         turn: e.turn,
-        v: e.peak.v,
-        a: e.peak.a,
-        strength: Math.min(1, Math.abs(e.peak.v) * Math.pow(0.5, (now - e.at) / (e.halfLife * 3600_000))),
+        v: e.valence,
+        a: e.arousal,
+        strength: decayEpisode(e, now),
         trigger: e.trigger,
       }))
       .filter((e) => e.strength > 0.15)
       .sort((x, y) => y.strength - x.strength)
+  }
+
+  /**
+   * 完整事件状态（面板"情感状态 → 情绪事件"用）。
+   *
+   * 与 `activeEpisodes()` 的区别：那个是给主动聊天挑话题的**排序摘要**，
+   * 这个是给面板看的**全量状态**——包括 resolved 与 dormant，否则"我处理过它"
+   * 这件事在界面上不可见，用户会以为系统忘了。
+   */
+  episodeStates(now = Date.now()): Array<{
+    id: string
+    trigger: string
+    status: EmotionEpisode['status']
+    onset: number
+    turn: number
+    valence: number
+    arousal: number
+    peak: number
+    strength: number
+    decayResistance: number
+    closure: number
+    repairDebt: number
+    labels: EmotionHit[]
+  }> {
+    return this.episodes
+      .map((e) => ({
+        id: e.id,
+        trigger: e.trigger,
+        status: e.status,
+        onset: e.onset,
+        turn: e.turn,
+        valence: e.valence,
+        arousal: e.arousal,
+        peak: e.peak,
+        strength: decayEpisode(e, now),
+        decayResistance: e.decayResistance,
+        closure: e.closure,
+        repairDebt: e.repairDebt,
+        labels: e.labels ?? [],
+      }))
+      .sort((a, b) => b.strength - a.strength)
+  }
+
+  /** 规则 2：强制关怀槽的注入行。空数组表示"没有欠着的情绪"。 */
+  neglectLines(now = Date.now()): string[] {
+    return neglectQueue(this.episodes, now)
+      .slice(0, 3)
+      .map((e) => episodeLine(e, now))
+  }
+
+  /** 我接住了当前最强的那条未平复事件（供宿主/面板调用）。 */
+  acknowledgeTop(now = Date.now()): string | null {
+    const top = neglectQueue(this.episodes, now)[0]
+    if (!top) return null
+    const i = this.episodes.findIndex((x) => x.id === top.id)
+    if (i < 0) return null
+    this.episodes[i] = acknowledge(this.episodes[i], now)
+    return top.id
+  }
+
+  /** 继续跟进（追问 / 给建议 / 陪着）。 */
+  attendTop(now = Date.now()): string | null {
+    const top = neglectQueue(this.episodes, now)[0]
+    if (!top) return null
+    const i = this.episodes.findIndex((x) => x.id === top.id)
+    if (i < 0) return null
+    this.episodes[i] = attend(this.episodes[i], now)
+    return top.id
+  }
+
+  /** 用户表示"过去了" → 结案。 */
+  resolveEpisode(id: string, now = Date.now()): boolean {
+    const i = this.episodes.findIndex((x) => x.id === id)
+    if (i < 0) return false
+    this.episodes[i] = resolveEpisode(this.episodes[i], now)
+    return true
   }
 
   /**
@@ -388,6 +481,11 @@ export class AffectService extends Service {
     return Boolean(saved.relational || saved.persona)
   }
 
+  /** 未平复事件数（策略与面板共用同一口径，避免两处各算一遍）。 */
+  neglectCount(now = Date.now()): number {
+    return neglectQueue(this.episodes, now).length
+  }
+
   policy(): TurnOutput['policy'] {
     return derivePolicy({
       pad: this.pad,
@@ -395,6 +493,7 @@ export class AffectService extends Service {
       intero: this.intero,
       relational: this.relationalSnapshot(),
       turns: this.relational.turns,
+      neglect: this.neglectCount(),
     })
   }
 
@@ -431,6 +530,12 @@ export class AffectService extends Service {
     stage: { key: string; label: string; progress: number }
     trajectory: Array<{ turn: number; v: number; a: number; d: number }>
     episodes: Array<{ turn: number; v: number; a: number; strength: number; trigger: string }>
+    /** v0.4：事件状态机全量（含已结案/休眠） */
+    episodeDetail: ReturnType<AffectService['episodeStates']>
+    /** v0.4：强制关怀槽的注入行 */
+    neglect: string[]
+    /** v0.4：本轮 OCC 标签 */
+    labels: EmotionHit[]
   } {
     return {
       persona: { rev: this.personaRev, vector: [...this.persona], baseline: [...this.persona0] },
@@ -439,6 +544,9 @@ export class AffectService extends Service {
       stage: this.stage(),
       trajectory: this.trajectorySeries(),
       episodes: this.activeEpisodes(),
+      episodeDetail: this.episodeStates(),
+      neglect: this.neglectLines(),
+      labels: this.lastTurn ? classifyEmotion(this.lastTurn.appraisal) : [],
     }
   }
 
@@ -532,4 +640,5 @@ export { appraise, coreAffect, integrateMood, label, clampPersona } from './appr
 export { deriveUserSchema, readPersisted, relationalCell, personaCell, schemaCell } from './persist.js'
 export type { PersonaState, SchemaPattern } from './persist.js'
 export { derivePolicy, interocept } from './policy.js'
+export * from './episode.js'
 export { updateRelational, personaFromAttunement, initialRelational } from './relational.js'

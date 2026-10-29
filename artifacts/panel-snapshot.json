@@ -1,19 +1,21 @@
 {
   "version": 2,
-  "generatedAt": 1793272235567,
+  "generatedAt": 1793288469148,
   "stats": {
-    "cells": 27,
-    "edges": 48,
-    "bytes": 10594,
+    "cells": 28,
+    "edges": 156,
+    "bytes": 10945,
     "byKind": {
       "relational": 1,
       "persona": 1,
       "semantic": 19,
       "procedure": 4,
       "episodic": 1,
+      "schema": 1,
       "narrative": 1
     },
     "byTier": {
+      "0": 1,
       "1": 27
     },
     "supportOne": 26,
@@ -21,7 +23,7 @@
     "invalidated": 1,
     "contradictions": 1,
     "hitRate": 1,
-    "tokensPerTurn": 111.76470588235294,
+    "tokensPerTurn": 106.48484848484848,
     "tokenSeries": [
       {
         "turn": 1,
@@ -40,60 +42,124 @@
         "tokens": 111
       },
       {
+        "turn": 4,
+        "tokens": 65
+      },
+      {
         "turn": 5,
         "tokens": 110
+      },
+      {
+        "turn": 5,
+        "tokens": 50
       },
       {
         "turn": 6,
         "tokens": 113
       },
       {
+        "turn": 6,
+        "tokens": 119
+      },
+      {
         "turn": 7,
         "tokens": 106
+      },
+      {
+        "turn": 7,
+        "tokens": 112
       },
       {
         "turn": 8,
         "tokens": 110
       },
       {
+        "turn": 8,
+        "tokens": 111
+      },
+      {
         "turn": 9,
         "tokens": 118
+      },
+      {
+        "turn": 9,
+        "tokens": 119
       },
       {
         "turn": 10,
         "tokens": 115
       },
       {
+        "turn": 10,
+        "tokens": 122
+      },
+      {
         "turn": 11,
         "tokens": 108
+      },
+      {
+        "turn": 11,
+        "tokens": 19
       },
       {
         "turn": 12,
         "tokens": 111
       },
       {
+        "turn": 12,
+        "tokens": 118
+      },
+      {
         "turn": 13,
         "tokens": 109
+      },
+      {
+        "turn": 13,
+        "tokens": 112
       },
       {
         "turn": 14,
         "tokens": 108
       },
       {
+        "turn": 14,
+        "tokens": 110
+      },
+      {
         "turn": 15,
         "tokens": 111
       },
       {
-        "turn": 26,
+        "turn": 15,
+        "tokens": 114
+      },
+      {
+        "turn": 16,
+        "tokens": 108
+      },
+      {
+        "turn": 16,
+        "tokens": 114
+      },
+      {
+        "turn": 17,
+        "tokens": 113
+      },
+      {
+        "turn": 17,
         "tokens": 122
       },
       {
         "turn": 26,
-        "tokens": 121
+        "tokens": 118
+      },
+      {
+        "turn": 26,
+        "tokens": 111
       }
     ],
-    "storageRatio": 7.372303409881698,
-    "recallP95Ms": 7,
+    "storageRatio": 7.616562282533055,
+    "recallP95Ms": 6,
     "turns": 26,
     "evictions": 0
   },
@@ -134,16 +200,19 @@
       "turns": 26
     },
     "policy": {
-      "clarification": 0,
+      "clarification": 1,
       "verbosity": 0,
       "warmth": 1,
       "requireConflictResolution": false,
       "escalateApproval": true,
-      "disableDivergence": false,
+      "disableDivergence": true,
       "restateGoal": false,
       "temperatureDelta": 0.05,
+      "requireAcknowledgment": true,
+      "neglect": 10,
       "reasons": [
-        "trust 0.00 < 0.25：高风险工具转 ask（新用户同样适用）"
+        "trust 0.00 < 0.25：高风险工具转 ask（新用户同样适用）",
+        "有 10 个未平复的情绪事件：必须回到它，不许换话题"
       ]
     },
     "persona": {
@@ -331,36 +400,316 @@
         "turn": 22,
         "v": 0.5391808600618703,
         "a": 0.6289437270557222,
-        "strength": 0.5391797527098431,
+        "strength": 0.6289456436856538,
         "trigger": "另外我喜欢把日志放在 stderr，stdout 留给数据。"
       },
       {
         "turn": 9,
         "v": 0.5391099278375627,
         "a": 0.6285809323198553,
-        "strength": 0.5391075750267893,
+        "strength": 0.6285848488331273,
         "trigger": "我不喜欢自动生成的 commit message，太啰嗦。"
       },
       {
         "turn": 12,
         "v": -0.5386841738803179,
         "a": 0.6263984133034258,
-        "strength": 0.5386822378008975,
+        "strength": 0.6264017326376881,
         "trigger": "CI 现在跑 6 分钟，主要是 e2e 太慢。"
       },
       {
         "turn": 4,
         "v": 0.5381871129777478,
         "a": 0.6238396715064369,
-        "strength": 0.5381839352144482,
+        "strength": 0.6238446712564536,
         "trigger": "字体我也偏好等宽，读代码更舒服。"
       },
       {
         "turn": 15,
         "v": -0.5379739721818256,
         "a": 0.622738953370601,
-        "strength": 0.5379723839270837,
+        "strength": 0.6227417032949788,
         "trigger": "我现在有点烦，构建又挂了。"
+      },
+      {
+        "turn": 5,
+        "v": 0,
+        "a": 0.5926018352973128,
+        "strength": 0.5926066267343935,
+        "trigger": "API key 存在 ~/.config/dsh/credentials.jso"
+      },
+      {
+        "turn": 23,
+        "v": 0,
+        "a": 0.5926018352973128,
+        "strength": 0.5926037102621574,
+        "trigger": "那个 API key 在 ~/.config/dsh/credentials.j"
+      },
+      {
+        "turn": 13,
+        "v": 0,
+        "a": 0.5843656023726241,
+        "strength": 0.584368755051006,
+        "trigger": "我们决定把 e2e 拆成 smoke 和 full 两档。"
+      },
+      {
+        "turn": 16,
+        "v": 0,
+        "a": 0.5831790252263885,
+        "strength": 0.5831816084929881,
+        "trigger": "构建挂是因为 lockfile 冲突，删掉重装就好。"
+      },
+      {
+        "turn": 11,
+        "v": 0,
+        "a": 0.5819899543122302,
+        "strength": 0.5819934264138947,
+        "trigger": "记住：部署脚本要用 pnpm，不要用 npm。"
+      }
+    ],
+    "episodeDetail": [
+      {
+        "id": "ep-mvtpnifh-xjnn",
+        "trigger": "另外我喜欢把日志放在 stderr，stdout 留给数据。",
+        "status": "open",
+        "onset": 1793288469005,
+        "turn": 22,
+        "valence": 0.5391808600618703,
+        "arousal": 0.6289437270557222,
+        "peak": 0.6289437270557222,
+        "strength": 0.6289456436856538,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.722
+          },
+          {
+            "label": "satisfaction",
+            "intensity": 0.333
+          },
+          {
+            "label": "pride",
+            "intensity": 0.2
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpnibh-6xe1",
+        "trigger": "我不喜欢自动生成的 commit message，太啰嗦。",
+        "status": "open",
+        "onset": 1793288468861,
+        "turn": 9,
+        "valence": 0.5391099278375627,
+        "arousal": 0.6285809323198553,
+        "peak": 0.6285809323198553,
+        "strength": 0.6285848488331273,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.722
+          },
+          {
+            "label": "satisfaction",
+            "intensity": 0.333
+          },
+          {
+            "label": "pride",
+            "intensity": 0.2
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpnico-r6ye",
+        "trigger": "CI 现在跑 6 分钟，主要是 e2e 太慢。",
+        "status": "open",
+        "onset": 1793288468904,
+        "turn": 12,
+        "valence": -0.5386841738803179,
+        "arousal": 0.6263984133034258,
+        "peak": 0.6263984133034258,
+        "strength": 0.6264017326376881,
+        "decayResistance": 0.6193420869401589,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "distress",
+            "intensity": 0.333
+          },
+          {
+            "label": "disappointment",
+            "intensity": 0.117
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpni9b-9spl",
+        "trigger": "字体我也偏好等宽，读代码更舒服。",
+        "status": "open",
+        "onset": 1793288468783,
+        "turn": 4,
+        "valence": 0.5381871129777478,
+        "arousal": 0.6238396715064369,
+        "peak": 0.6238396715064369,
+        "strength": 0.6238446712564536,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.712
+          },
+          {
+            "label": "satisfaction",
+            "intensity": 0.333
+          },
+          {
+            "label": "pride",
+            "intensity": 0.2
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpnidt-3jn2",
+        "trigger": "我现在有点烦，构建又挂了。",
+        "status": "open",
+        "onset": 1793288468945,
+        "turn": 15,
+        "valence": -0.5379739721818256,
+        "arousal": 0.622738953370601,
+        "peak": 0.622738953370601,
+        "strength": 0.6227417032949788,
+        "decayResistance": 0.6189869860909127,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "distress",
+            "intensity": 0.333
+          },
+          {
+            "label": "disappointment",
+            "intensity": 0.117
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpni9q-l9r6",
+        "trigger": "API key 存在 ~/.config/dsh/credentials.jso",
+        "status": "open",
+        "onset": 1793288468798,
+        "turn": 5,
+        "valence": 0,
+        "arousal": 0.5926018352973128,
+        "peak": 0.5926018352973128,
+        "strength": 0.5926066267343935,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.737
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpnifk-htrt",
+        "trigger": "那个 API key 在 ~/.config/dsh/credentials.j",
+        "status": "open",
+        "onset": 1793288469008,
+        "turn": 23,
+        "valence": 0,
+        "arousal": 0.5926018352973128,
+        "peak": 0.5926018352973128,
+        "strength": 0.5926037102621574,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.737
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpnid0-8cvk",
+        "trigger": "我们决定把 e2e 拆成 smoke 和 full 两档。",
+        "status": "open",
+        "onset": 1793288468916,
+        "turn": 13,
+        "valence": 0,
+        "arousal": 0.5843656023726241,
+        "peak": 0.5843656023726241,
+        "strength": 0.584368755051006,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.722
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpnie5-pgfw",
+        "trigger": "构建挂是因为 lockfile 冲突，删掉重装就好。",
+        "status": "open",
+        "onset": 1793288468957,
+        "turn": 16,
+        "valence": 0,
+        "arousal": 0.5831790252263885,
+        "peak": 0.5831790252263885,
+        "strength": 0.5831816084929881,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.719
+          }
+        ]
+      },
+      {
+        "id": "ep-mvtpnicd-hker",
+        "trigger": "记住：部署脚本要用 pnpm，不要用 npm。",
+        "status": "open",
+        "onset": 1793288468893,
+        "turn": 11,
+        "valence": 0,
+        "arousal": 0.5819899543122302,
+        "peak": 0.5819899543122302,
+        "strength": 0.5819934264138947,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.717
+          }
+        ]
+      }
+    ],
+    "neglect": [
+      "⚠ 未平复：今天他说「另外我喜欢把日志放在 stderr，stdout 留给数据。」，当时 v=+0.54。你一直没问过后来怎样了。",
+      "⚠ 未平复：今天他说「我不喜欢自动生成的 commit message，太啰嗦。」，当时 v=+0.54。你一直没问过后来怎样了。",
+      "⚠ 未平复：今天他说「CI 现在跑 6 分钟，主要是 e2e 太慢。」，当时 v=-0.54。你一直没问过后来怎样了。"
+    ],
+    "labels": [
+      {
+        "label": "interest",
+        "intensity": 0.704
       }
     ]
   },
@@ -371,7 +720,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793365835287,
+      "tFrom": 1793382068685,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -421,7 +770,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793358635287,
+      "tFrom": 1793374868685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -481,7 +830,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793355035287,
+      "tFrom": 1793371268685,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -536,7 +885,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793351435287,
+      "tFrom": 1793367668685,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -596,7 +945,7 @@
       "kind": 6,
       "kindName": "narrative",
       "tier": 1,
-      "tFrom": 1793351435287,
+      "tFrom": 1793367668685,
       "valence": 0.7244094488188977,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -652,7 +1001,7 @@
       ],
       "residualChars": 0,
       "stability": 365,
-      "accessCount": 1
+      "accessCount": 0
     },
     {
       "cellId": "93f56cd4e2fc05cf",
@@ -660,7 +1009,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793347835287,
+      "tFrom": 1793364068685,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -710,7 +1059,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793340635287,
+      "tFrom": 1793356868685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -774,7 +1123,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793337035287,
+      "tFrom": 1793353268685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -838,13 +1187,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793333435287,
+      "tFrom": 1793349668685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6422674906538491,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.84755,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -890,7 +1239,7 @@
       ],
       "residualChars": 66,
       "stability": 7,
-      "accessCount": 2
+      "accessCount": 3
     },
     {
       "cellId": "7000acec82c34504",
@@ -898,13 +1247,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793329835287,
+      "tFrom": 1793346068685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.642374303807126,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.8380500000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -950,7 +1299,7 @@
       ],
       "residualChars": 58,
       "stability": 7,
-      "accessCount": 0
+      "accessCount": 2
     },
     {
       "cellId": "cb9b31a87cea4e40",
@@ -958,13 +1307,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793326235287,
+      "tFrom": 1793342468685,
       "valence": 1,
       "arousal": 0.6220472440944882,
       "salience": 0.8392156862745098,
       "importance": 0.8216067750057221,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.8380500000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1010,7 +1359,7 @@
       ],
       "residualChars": 39,
       "stability": 7,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "d2e11ca3f710ec75",
@@ -1018,13 +1367,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793322635287,
+      "tFrom": 1793338868685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6422522316319524,
       "support": 1,
-      "confidence": 0.775,
+      "confidence": 0.8068000000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1065,7 +1414,7 @@
       ],
       "residualChars": 63,
       "stability": 7,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "6ded521f53f9302d",
@@ -1073,13 +1422,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793319035287,
+      "tFrom": 1793335268685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6424658579385062,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.8380500000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1129,7 +1478,7 @@
       ],
       "residualChars": 51,
       "stability": 7,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "3abe252a46b6ee70",
@@ -1137,13 +1486,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793315435287,
+      "tFrom": 1793331668685,
       "valence": 1,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
       "importance": 0.8220187685969329,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.8380500000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1193,7 +1542,7 @@
       ],
       "residualChars": 47,
       "stability": 7,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "6f3ed0f53cc37ade",
@@ -1201,13 +1550,13 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793311835287,
+      "tFrom": 1793328068685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6422980086976425,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.8380500000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1253,7 +1602,7 @@
       ],
       "residualChars": 51,
       "stability": 30,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "7cb7538d1e8efbe3",
@@ -1261,13 +1610,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793308235287,
-      "valence": 0.5354330708661418,
+      "tFrom": 1793324468685,
+      "valence": 0.5433070866141733,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
       "importance": 0.8219729915312428,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.77955,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1321,13 +1670,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793304635287,
-      "valence": 0.5354330708661418,
+      "tFrom": 1793320868685,
+      "valence": 0.5511811023622047,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
       "importance": 0.82226291294728,
       "support": 1,
-      "confidence": 0.775,
+      "confidence": 0.8068000000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1368,7 +1717,7 @@
       ],
       "residualChars": 57,
       "stability": 7,
-      "accessCount": 3
+      "accessCount": 2
     },
     {
       "cellId": "c18debdbd26622cc",
@@ -1376,13 +1725,13 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793301035287,
+      "tFrom": 1793317268685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6424811169604029,
       "support": 1,
-      "confidence": 0.775,
+      "confidence": 0.8068000000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1423,7 +1772,7 @@
       ],
       "residualChars": 64,
       "stability": 30,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "20774485e7df6141",
@@ -1431,13 +1780,13 @@
       "kind": 0,
       "kindName": "episodic",
       "tier": 1,
-      "tFrom": 1793297435287,
+      "tFrom": 1793313668685,
       "valence": 0,
       "arousal": 0.5511811023622047,
       "salience": 0.7372549019607844,
       "importance": 0.6422674906538491,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.8380500000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1483,7 +1832,7 @@
       ],
       "residualChars": 56,
       "stability": 2,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "b39e4d0297cd6733",
@@ -1491,13 +1840,13 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793290235287,
+      "tFrom": 1793306468685,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
       "importance": 0.6430151827267873,
       "support": 1,
-      "confidence": 0.775,
+      "confidence": 0.8825000000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1538,28 +1887,28 @@
       ],
       "residualChars": 70,
       "stability": 30,
-      "accessCount": 1
+      "accessCount": 13
     },
     {
       "cellId": "d26e661589d7966a",
       "shortId": "966a",
       "kind": 1,
       "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793286635287,
-      "valence": 0.5354330708661418,
+      "tier": 0,
+      "tFrom": 1793302868685,
+      "valence": 0.5433070866141733,
       "arousal": 0.6220472440944882,
       "salience": 0.8392156862745098,
       "importance": 0.4930342565041581,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.85595,
       "provenance": 0,
       "trust": 240,
       "changed": true,
       "pinned": false,
       "disputed": true,
       "invalidated": true,
-      "tInvalid": 1793308235287,
+      "tInvalid": 1793324468685,
       "lens": "feeling",
       "emotional": true,
       "digest": "字体我也偏好等宽，读代码更舒服。",
@@ -1598,6 +1947,66 @@
       ],
       "residualChars": 48,
       "stability": 7,
+      "accessCount": 4
+    },
+    {
+      "cellId": "748f8ef35bb7306c",
+      "shortId": "306c",
+      "kind": 3,
+      "kindName": "schema",
+      "tier": 1,
+      "tFrom": 1793299268685,
+      "valence": 0.25196850393700787,
+      "arousal": 0.5669291338582677,
+      "salience": 0.807843137254902,
+      "importance": 0.8219729915312428,
+      "support": 4,
+      "confidence": 0.86445,
+      "provenance": 4,
+      "trust": 160,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "抽象：用户 prefers ×4",
+      "kv": [
+        [
+          "用户",
+          "prefers"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "prefers"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "字体"
+        },
+        {
+          "role": 2,
+          "type": "UNK",
+          "value": ""
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 48,
+      "stability": 8.4,
       "accessCount": 1
     },
     {
@@ -1606,13 +2015,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793283035287,
+      "tFrom": 1793299268685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6421606775005723,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.92465,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1658,7 +2067,7 @@
       ],
       "residualChars": 54,
       "stability": 7,
-      "accessCount": 3
+      "accessCount": 15
     },
     {
       "cellId": "e8c01eb3ce97d5cd",
@@ -1666,13 +2075,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793279435287,
+      "tFrom": 1793295668685,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
       "importance": 0.6426794842450599,
       "support": 1,
-      "confidence": 0.775,
+      "confidence": 0.8068000000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1713,7 +2122,7 @@
       ],
       "residualChars": 61,
       "stability": 7,
-      "accessCount": 1
+      "accessCount": 2
     },
     {
       "cellId": "27c806305bae3f93",
@@ -1721,13 +2130,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793275835287,
+      "tFrom": 1793292068685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6422980086976425,
       "support": 1,
-      "confidence": 0.775,
+      "confidence": 0.8653,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1768,7 +2177,7 @@
       ],
       "residualChars": 69,
       "stability": 7,
-      "accessCount": 2
+      "accessCount": 10
     },
     {
       "cellId": "ff466a57a99b4138",
@@ -1776,7 +2185,7 @@
       "kind": 4,
       "kindName": "persona",
       "tier": 1,
-      "tFrom": 1793272235509,
+      "tFrom": 1793288469019,
       "valence": 0,
       "arousal": 0,
       "salience": 0.4,
@@ -1835,7 +2244,7 @@
       "kind": 5,
       "kindName": "relational",
       "tier": 1,
-      "tFrom": 1793272235509,
+      "tFrom": 1793288469019,
       "valence": 0,
       "arousal": 0,
       "salience": 0.5019607843137255,
@@ -1904,13 +2313,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1792084235287,
+      "tFrom": 1792100468685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6423590447852293,
       "support": 1,
-      "confidence": 0.9187500000000001,
+      "confidence": 1,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -1974,10 +2383,430 @@
       ],
       "residualChars": 67,
       "stability": 7,
-      "accessCount": 1
+      "accessCount": 11
     }
   ],
   "edges": [
+    {
+      "src": "d26e661589d7966a",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 53
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "d26e661589d7966a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 53
+    },
+    {
+      "src": "d26e661589d7966a",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "d26e661589d7966a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 99
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 99
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 76
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 76
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 69
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 69
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 107
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 107
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "d26e661589d7966a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "d26e661589d7966a",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 68
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 68
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 84
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 84
+    },
+    {
+      "src": "d26e661589d7966a",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "d26e661589d7966a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "20774485e7df6141",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "20774485e7df6141",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "20774485e7df6141",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "20774485e7df6141",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "20774485e7df6141",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "20774485e7df6141",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "20774485e7df6141",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "20774485e7df6141",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 76
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 76
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 115
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 115
+    },
+    {
+      "src": "c18debdbd26622cc",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "c18debdbd26622cc",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "c18debdbd26622cc",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "c18debdbd26622cc",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "c18debdbd26622cc",
+      "dst": "e8c01eb3ce97d5cd",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "e8c01eb3ce97d5cd",
+      "dst": "c18debdbd26622cc",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "c18debdbd26622cc",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "c18debdbd26622cc",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "e8c01eb3ce97d5cd",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "e8c01eb3ce97d5cd",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 92
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 92
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "e8c01eb3ce97d5cd",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "e8c01eb3ce97d5cd",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "e8c01eb3ce97d5cd",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "e8c01eb3ce97d5cd",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "d26e661589d7966a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "d26e661589d7966a",
+      "dst": "6c930a578fbaaedf",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "6c930a578fbaaedf",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "6c930a578fbaaedf",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "6c930a578fbaaedf",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "6c930a578fbaaedf",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "d26e661589d7966a",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "d26e661589d7966a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
     {
       "src": "7cb7538d1e8efbe3",
       "dst": "d26e661589d7966a",
@@ -2000,11 +2829,235 @@
       "weight": 46
     },
     {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "7cb7538d1e8efbe3",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "3abe252a46b6ee70",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "3abe252a46b6ee70",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "3abe252a46b6ee70",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "3abe252a46b6ee70",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "3abe252a46b6ee70",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "3abe252a46b6ee70",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "3abe252a46b6ee70",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "3abe252a46b6ee70",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
       "src": "6ded521f53f9302d",
       "dst": "8a95ec4740c968e6",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
+    },
+    {
+      "src": "6ded521f53f9302d",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "6ded521f53f9302d",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "6ded521f53f9302d",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "6ded521f53f9302d",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "6ded521f53f9302d",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "6ded521f53f9302d",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "6ded521f53f9302d",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "6ded521f53f9302d",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "d2e11ca3f710ec75",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "d2e11ca3f710ec75",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "d2e11ca3f710ec75",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "d2e11ca3f710ec75",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "d2e11ca3f710ec75",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "d2e11ca3f710ec75",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "d2e11ca3f710ec75",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "d2e11ca3f710ec75",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
     },
     {
       "src": "cb9b31a87cea4e40",
@@ -2014,10 +3067,178 @@
       "weight": 46
     },
     {
+      "src": "cb9b31a87cea4e40",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "cb9b31a87cea4e40",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "cb9b31a87cea4e40",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "cb9b31a87cea4e40",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "cb9b31a87cea4e40",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "cb9b31a87cea4e40",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "cb9b31a87cea4e40",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "cb9b31a87cea4e40",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "7000acec82c34504",
+      "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "7000acec82c34504",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "7000acec82c34504",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "7000acec82c34504",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "7000acec82c34504",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "7000acec82c34504",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "7000acec82c34504",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "7000acec82c34504",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
       "src": "72c7706e804e6264",
       "dst": "5e5f5321d0859eeb",
       "rel": 2,
       "relName": "PART_OF",
+      "weight": 46
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "b39e4d0297cd6733",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "b39e4d0297cd6733",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "72c7706e804e6264",
+      "rel": 14,
+      "relName": "ASSOC",
       "weight": 46
     },
     {
@@ -2047,6 +3268,69 @@
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "748f8ef35bb7306c",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 61
+    },
+    {
+      "src": "d26e661589d7966a",
+      "dst": "748f8ef35bb7306c",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 61
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "748f8ef35bb7306c",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 61
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "748f8ef35bb7306c",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 61
+    },
+    {
+      "src": "5e5f5321d0859eeb",
+      "dst": "748f8ef35bb7306c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 44
+    },
+    {
+      "src": "d26e661589d7966a",
+      "dst": "748f8ef35bb7306c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 36
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "748f8ef35bb7306c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 36
+    },
+    {
+      "src": "7cb7538d1e8efbe3",
+      "dst": "d26e661589d7966a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 36
+    },
+    {
+      "src": "72c7706e804e6264",
+      "dst": "748f8ef35bb7306c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 36
     },
     {
       "src": "d213ae70028c0b8c",
@@ -2123,38 +3407,10 @@
       "dst": "72c7706e804e6264",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "d213ae70028c0b8c",
-      "rel": 14,
-      "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "d213ae70028c0b8c",
+      "src": "72c7706e804e6264",
       "dst": "7cb7538d1e8efbe3",
       "rel": 14,
       "relName": "ASSOC",
@@ -2162,196 +3418,105 @@
     },
     {
       "src": "7cb7538d1e8efbe3",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "72c7706e804e6264",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "d213ae70028c0b8c",
+      "dst": "b39e4d0297cd6733",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "d213ae70028c0b8c",
-      "dst": "72c7706e804e6264",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "72c7706e804e6264",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "d213ae70028c0b8c",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "d213ae70028c0b8c",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 48
-    },
-    {
-      "src": "d213ae70028c0b8c",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "d213ae70028c0b8c",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "27c806305bae3f93",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "27c806305bae3f93",
-      "dst": "72c7706e804e6264",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "27c806305bae3f93",
+      "src": "b39e4d0297cd6733",
       "dst": "7cb7538d1e8efbe3",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "27c806305bae3f93",
-      "dst": "6c930a578fbaaedf",
+      "src": "748f8ef35bb7306c",
+      "dst": "5e5f5321d0859eeb",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 44
+    },
+    {
+      "src": "748f8ef35bb7306c",
+      "dst": "b39e4d0297cd6733",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "6c930a578fbaaedf",
+      "src": "b39e4d0297cd6733",
+      "dst": "748f8ef35bb7306c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "748f8ef35bb7306c",
+      "dst": "8a95ec4740c968e6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "8a95ec4740c968e6",
+      "dst": "748f8ef35bb7306c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "748f8ef35bb7306c",
       "dst": "27c806305bae3f93",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "27c806305bae3f93",
+      "dst": "748f8ef35bb7306c",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     }
   ],
   "lastRecall": {
-    "queryId": "qmvtfzkm03vq",
-    "at": 1793272235546,
-    "tokens": 121,
+    "queryId": "qmvtpniheip3",
+    "at": 1793288469080,
+    "tokens": 111,
     "hits": [
       {
         "cellId": "5e5f5321d0859eeb",
         "shortId": "9eeb",
-        "score": 0.6933092346826513,
+        "score": 0.6954298993281381,
         "slot": 0,
         "channel": "semantic"
       },
       {
-        "cellId": "72c7706e804e6264",
-        "shortId": "6264",
-        "score": 0.33195488335469614,
+        "cellId": "748f8ef35bb7306c",
+        "shortId": "306c",
+        "score": 0.6378861285959725,
         "slot": 0,
         "channel": "semantic"
       },
       {
-        "cellId": "7cb7538d1e8efbe3",
-        "shortId": "fbe3",
-        "score": 0.3282250105059108,
+        "cellId": "b39e4d0297cd6733",
+        "shortId": "6733",
+        "score": 0.48236904734735536,
         "slot": 1,
-        "channel": "semantic"
+        "channel": "graph"
       },
       {
-        "cellId": "27c806305bae3f93",
-        "shortId": "3f93",
-        "score": 0.30392636098687636,
+        "cellId": "8a95ec4740c968e6",
+        "shortId": "68e6",
+        "score": 0.4528699357931071,
         "slot": 2,
         "channel": "graph"
       },
       {
-        "cellId": "6c930a578fbaaedf",
-        "shortId": "aedf",
-        "score": 0.3271006252496081,
+        "cellId": "27c806305bae3f93",
+        "shortId": "3f93",
+        "score": 0.4037231628859791,
         "slot": 3,
         "channel": "graph"
       }
@@ -2361,8 +3526,8 @@
         "cellId": "5e5f5321d0859eeb",
         "parts": {
           "sim": 1,
-          "recency": 0.34999999925340075,
-          "freq": 0.11260401092149247,
+          "recency": 0.34999999938914605,
+          "freq": 0.11811773886401307,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
@@ -2370,8 +3535,8 @@
         },
         "raw": {
           "sim": 1,
-          "recency": 0.9999999978668593,
-          "freq": 0.5630200546074623,
+          "recency": 0.9999999982547031,
+          "freq": 0.5905886943200653,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
@@ -2386,32 +3551,68 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 1.8026040101748935,
+        "rawSum": 1.8081177382531592,
         "activeW": 2.6,
-        "score": 0.6933092346826513,
+        "score": 0.6954298993281381,
         "slot": 0,
         "channel": "semantic",
         "notes": []
       },
       {
-        "cellId": "72c7706e804e6264",
+        "cellId": "748f8ef35bb7306c",
         "parts": {
-          "sim": 0.37132797346940427,
-          "recency": 0.34999999925340075,
-          "freq": 0.13154195804195806,
+          "sim": 1,
+          "recency": 0.34999999734165427,
+          "freq": 0,
+          "affect": 0.21850393700787402,
+          "goal": 0,
+          "cue": 0.09,
+          "interf": 0
+        },
+        "raw": {
+          "sim": 1,
+          "recency": 0.9999999924047266,
+          "freq": 0,
+          "affect": 0.8740157480314961,
+          "goal": 0,
+          "cue": 0.3,
+          "interf": 0
+        },
+        "weights": {
+          "sim": 1,
+          "recency": 0.35,
+          "freq": 0.2,
+          "affect": 0.25,
+          "goal": 0,
+          "cue": 0.3,
+          "interf": 0.5
+        },
+        "rawSum": 1.6585039343495285,
+        "activeW": 2.6,
+        "score": 0.6378861285959725,
+        "slot": 0,
+        "channel": "semantic",
+        "notes": []
+      },
+      {
+        "cellId": "b39e4d0297cd6733",
+        "parts": {
+          "sim": 0.5,
+          "recency": 0.34999999985746744,
+          "freq": 0.12765158673772004,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
-          "interf": -0.32978723404255317
+          "interf": -0.06349206349206349
         },
         "raw": {
-          "sim": 0.37132797346940427,
-          "recency": 0.9999999978668593,
-          "freq": 0.6577097902097903,
+          "sim": 0.5,
+          "recency": 0.9999999995927641,
+          "freq": 0.6382579336886002,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0.6595744680851063
+          "interf": 0.12698412698412698
         },
         "weights": {
           "sim": 1,
@@ -2422,34 +3623,34 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.86308269672221,
+        "rawSum": 1.254159523103124,
         "activeW": 2.6,
-        "score": 0.33195488335469614,
-        "slot": 0,
-        "channel": "semantic",
+        "score": 0.48236904734735536,
+        "slot": 1,
+        "channel": "graph",
         "notes": [
-          "与 9eeb 冗余 0.66"
+          "与 9eeb 冗余 0.13"
         ]
       },
       {
-        "cellId": "7cb7538d1e8efbe3",
+        "cellId": "8a95ec4740c968e6",
         "parts": {
-          "sim": 0.27849598010205323,
-          "recency": 0.34999999925340075,
-          "freq": 0.17,
-          "affect": 0.1830708661417323,
+          "sim": 0.4640625,
+          "recency": 0.34999999938914605,
+          "freq": 0.12466515645774252,
+          "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
-          "interf": -0.21818181818181817
+          "interf": -0.10126582278481013
         },
         "raw": {
-          "sim": 0.27849598010205323,
-          "recency": 0.9999999978668593,
-          "freq": 0.85,
-          "affect": 0.7322834645669292,
+          "sim": 0.4640625,
+          "recency": 0.9999999982547031,
+          "freq": 0.6233257822887126,
+          "affect": 1,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0.43636363636363634
+          "interf": 0.20253164556962025
         },
         "weights": {
           "sim": 1,
@@ -2460,34 +3661,34 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.8533850273153681,
+        "rawSum": 1.1774618330620785,
         "activeW": 2.6,
-        "score": 0.3282250105059108,
-        "slot": 1,
-        "channel": "semantic",
+        "score": 0.4528699357931071,
+        "slot": 2,
+        "channel": "graph",
         "notes": [
-          "与 9eeb 冗余 0.44"
+          "与 9eeb 冗余 0.20"
         ]
       },
       {
         "cellId": "27c806305bae3f93",
         "parts": {
-          "sim": 0.21562499999999998,
-          "recency": 0.34999998737568655,
-          "freq": 0.03003809664473759,
+          "sim": 0.4265625,
+          "recency": 0.34999999300911655,
+          "freq": 0.09978439716109563,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
-          "interf": -0.14545454545454545
+          "interf": -0.16666666666666666
         },
         "raw": {
-          "sim": 0.21562499999999998,
-          "recency": 0.999999963930533,
-          "freq": 0.15019048322368794,
+          "sim": 0.4265625,
+          "recency": 0.9999999800260473,
+          "freq": 0.49892198580547814,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0.2909090909090909
+          "interf": 0.3333333333333333
         },
         "weights": {
           "sim": 1,
@@ -2498,55 +3699,17 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 0.7902085385658786,
+        "rawSum": 1.0496802235035456,
         "activeW": 2.6,
-        "score": 0.30392636098687636,
-        "slot": 2,
-        "channel": "graph",
-        "notes": [
-          "与 9eeb 冗余 0.29"
-        ]
-      },
-      {
-        "cellId": "6c930a578fbaaedf",
-        "parts": {
-          "sim": 0.1875,
-          "recency": 0.34999999925340075,
-          "freq": 0.11131933168241948,
-          "affect": 0.1830708661417323,
-          "goal": 0,
-          "cue": 0.09,
-          "interf": -0.07142857142857142
-        },
-        "raw": {
-          "sim": 0.1875,
-          "recency": 0.9999999978668593,
-          "freq": 0.5565966584120974,
-          "affect": 0.7322834645669292,
-          "goal": 0,
-          "cue": 0.3,
-          "interf": 0.14285714285714285
-        },
-        "weights": {
-          "sim": 1,
-          "recency": 0.35,
-          "freq": 0.2,
-          "affect": 0.25,
-          "goal": 0,
-          "cue": 0.3,
-          "interf": 0.5
-        },
-        "rawSum": 0.8504616256489811,
-        "activeW": 2.6,
-        "score": 0.3271006252496081,
+        "score": 0.4037231628859791,
         "slot": 3,
         "channel": "graph",
         "notes": [
-          "与 3f93 冗余 0.14"
+          "与 6733 冗余 0.33"
         ]
       }
     ],
-    "rendered": "M:9eeb|T:1029|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.81\nM:6264|T:1030|P:u|F:pref|K:配色=更克制的配色|V:0|S:0.77|C:0.81\nM:fbe3|T:1030|P:u|F:pref|K:字体=无衬线字体|V:+0.54|S:0.84|C:0.81\nM:3f93|T:1029|P:u|F:fact|K:叫阿哲=states|V:0|S:0.77|C:0.78\nM:aedf|T:1030|P:u|F:pref|K:dislike=自动生成的_commit_mes|V:+0.54|S:0.84|C:0.78"
+    "rendered": "M:9eeb|T:1030|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.92\nM:306c|T:1030|P:i|F:pref|K:用户=prefers|V:+0.25|S:0.81|C:0.84\nM:6733|T:1030|P:u|F:proc|K:credentials.json=states|V:0|S:0.77|C:0.88\nM:68e6|T:1016|P:u|F:fact|K:v2=decides,qty=2,t=2026-10-16|V:0|S:0.77|C:1\nM:3f93|T:1030|P:u|F:fact|K:叫阿哲=states|V:0|S:0.77|C:0.86"
   },
   "evictions": [],
   "proactive": {
@@ -2561,13 +3724,11 @@
     "lastAt": 0,
     "nextEligibleAt": 2700000,
     "lastCandidate": {
-      "text": "（主动）你们之间有一段值得回看的日子：「亲近期：1 天内 5 件有情绪的事，主题偏「ci」」。可以提一句那时候的事，看他还记不记得。",
-      "reason": "近期的关系里程碑",
-      "kind": "milestone",
-      "cellIds": [
-        "d213ae70028c0b8c"
-      ],
-      "urgency": 0.6
+      "text": "（主动）他上次聊得很起劲（约 28 小时前：「另外我喜欢把日志放在 stderr，stdout 留给数据。」）。可以顺着那件事问一句进展，语气轻松些。",
+      "reason": "未平复的情绪事件（强度 0.80）",
+      "kind": "emotion",
+      "cellIds": [],
+      "urgency": 0.8783850191788637
     },
     "skipped": []
   },
@@ -2621,10 +3782,10 @@
     ]
   },
   "index": {
-    "builtAt": 1793272235569,
+    "builtAt": 1793288469149,
     "status": "ok",
     "path": ":memory:",
-    "entries": 27,
+    "entries": 28,
     "lastRebuildAt": 0
   },
   "tags": [
@@ -2633,11 +3794,11 @@
       "count": 3
     },
     {
-      "tag": "构建",
-      "count": 2
+      "tag": "字体",
+      "count": 3
     },
     {
-      "tag": "字体",
+      "tag": "构建",
       "count": 2
     },
     {
@@ -2734,7 +3895,7 @@
     {
       "key": "preference",
       "label": "长期偏好",
-      "count": 6
+      "count": 7
     },
     {
       "key": "project",
@@ -2754,7 +3915,7 @@
     {
       "key": "knowledge",
       "label": "知识",
-      "count": 23
+      "count": 24
     },
     {
       "key": "lesson",
@@ -2774,7 +3935,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793365835287,
+      "tFrom": 1793382068685,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -2824,7 +3985,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793358635287,
+      "tFrom": 1793374868685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -2884,7 +4045,7 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793355035287,
+      "tFrom": 1793371268685,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -2939,7 +4100,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793351435287,
+      "tFrom": 1793367668685,
       "valence": 0.5354330708661418,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -2999,7 +4160,7 @@
       "kind": 6,
       "kindName": "narrative",
       "tier": 1,
-      "tFrom": 1793351435287,
+      "tFrom": 1793367668685,
       "valence": 0.7244094488188977,
       "arousal": 0.6299212598425197,
       "salience": 0.8431372549019608,
@@ -3055,7 +4216,7 @@
       ],
       "residualChars": 0,
       "stability": 365,
-      "accessCount": 1
+      "accessCount": 0
     },
     {
       "cellId": "93f56cd4e2fc05cf",
@@ -3063,7 +4224,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793347835287,
+      "tFrom": 1793364068685,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -3110,133 +4271,18 @@
   ],
   "recentUpdated": [
     {
-      "cellId": "7cb7538d1e8efbe3",
-      "shortId": "fbe3",
-      "kind": 1,
-      "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793308235287,
-      "valence": 0.5354330708661418,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.8219729915312428,
-      "support": 1,
-      "confidence": 0.80625,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "feeling",
-      "emotional": true,
-      "digest": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
-      "kv": [
-        [
-          "字体",
-          "无衬线字体"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "prefers"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "字体"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "无衬线字体"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "pos"
-        }
-      ],
-      "residualChars": 66,
-      "stability": 7,
-      "accessCount": 3
-    },
-    {
-      "cellId": "6c930a578fbaaedf",
-      "shortId": "aedf",
-      "kind": 1,
-      "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793304635287,
-      "valence": 0.5354330708661418,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.82226291294728,
-      "support": 1,
-      "confidence": 0.775,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "feeling",
-      "emotional": true,
-      "digest": "我不喜欢自动生成的 commit message，太啰嗦。",
-      "kv": [
-        [
-          "dislike",
-          "自动生成的_commit_mes"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "dislikes"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "自动生成的 commit mes"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "neg"
-        }
-      ],
-      "residualChars": 57,
-      "stability": 7,
-      "accessCount": 3
-    },
-    {
       "cellId": "5e5f5321d0859eeb",
       "shortId": "9eeb",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793283035287,
+      "tFrom": 1793299268685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6421606775005723,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.92465,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -3282,7 +4328,255 @@
       ],
       "residualChars": 54,
       "stability": 7,
-      "accessCount": 3
+      "accessCount": 15
+    },
+    {
+      "cellId": "b39e4d0297cd6733",
+      "shortId": "6733",
+      "kind": 2,
+      "kindName": "procedure",
+      "tier": 1,
+      "tFrom": 1793306468685,
+      "valence": 0,
+      "arousal": 0.5905511811023622,
+      "salience": 0.7725490196078432,
+      "importance": 0.6430151827267873,
+      "support": 1,
+      "confidence": 0.8825000000000001,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "API key 存在 ~/.config/dsh/credentials.json 里，别写进代码。",
+      "kv": [
+        [
+          "credentials.json",
+          "states"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "states"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "credentials.json"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "neg"
+        }
+      ],
+      "residualChars": 70,
+      "stability": 30,
+      "accessCount": 13
+    },
+    {
+      "cellId": "8a95ec4740c968e6",
+      "shortId": "68e6",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1792100468685,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6423590447852293,
+      "support": 1,
+      "confidence": 1,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "bond",
+      "emotional": false,
+      "digest": "上周三我们在评审会上决定 V2 的缓存方案先回滚。",
+      "kv": [
+        [
+          "v2",
+          "decides"
+        ],
+        [
+          "qty",
+          "2"
+        ],
+        [
+          "t",
+          "2026-10-16"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "decides"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "缓存"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "v2"
+        },
+        {
+          "role": 4,
+          "type": "LIT",
+          "value": "2026-10-16"
+        },
+        {
+          "role": 8,
+          "type": "LIT",
+          "value": "2"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 67,
+      "stability": 7,
+      "accessCount": 11
+    },
+    {
+      "cellId": "27c806305bae3f93",
+      "shortId": "3f93",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 1,
+      "tFrom": 1793292068685,
+      "valence": 0,
+      "arousal": 0.5826771653543307,
+      "salience": 0.7686274509803922,
+      "importance": 0.6422980086976425,
+      "support": 1,
+      "confidence": 0.8653,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
+      "kv": [
+        [
+          "叫阿哲",
+          "states"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "states"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "叫阿哲"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 69,
+      "stability": 7,
+      "accessCount": 10
+    },
+    {
+      "cellId": "d26e661589d7966a",
+      "shortId": "966a",
+      "kind": 1,
+      "kindName": "semantic",
+      "tier": 0,
+      "tFrom": 1793302868685,
+      "valence": 0.5433070866141733,
+      "arousal": 0.6220472440944882,
+      "salience": 0.8392156862745098,
+      "importance": 0.4930342565041581,
+      "support": 1,
+      "confidence": 0.85595,
+      "provenance": 0,
+      "trust": 240,
+      "changed": true,
+      "pinned": false,
+      "disputed": true,
+      "invalidated": true,
+      "tInvalid": 1793324468685,
+      "lens": "feeling",
+      "emotional": true,
+      "digest": "字体我也偏好等宽，读代码更舒服。",
+      "kv": [
+        [
+          "字体",
+          "等宽"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "prefers"
+        },
+        {
+          "role": 6,
+          "type": "LIT",
+          "value": "字体"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "等宽"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 48,
+      "stability": 7,
+      "accessCount": 4
     },
     {
       "cellId": "72c7706e804e6264",
@@ -3290,13 +4584,13 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793333435287,
+      "tFrom": 1793349668685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6422674906538491,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.84755,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -3342,126 +4636,7 @@
       ],
       "residualChars": 66,
       "stability": 7,
-      "accessCount": 2
-    },
-    {
-      "cellId": "27c806305bae3f93",
-      "shortId": "3f93",
-      "kind": 1,
-      "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793275835287,
-      "valence": 0,
-      "arousal": 0.5826771653543307,
-      "salience": 0.7686274509803922,
-      "importance": 0.6422980086976425,
-      "support": 1,
-      "confidence": 0.775,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
-      "kv": [
-        [
-          "叫阿哲",
-          "states"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "states"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "叫阿哲"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "pos"
-        }
-      ],
-      "residualChars": 69,
-      "stability": 7,
-      "accessCount": 2
-    },
-    {
-      "cellId": "d213ae70028c0b8c",
-      "shortId": "0b8c",
-      "kind": 6,
-      "kindName": "narrative",
-      "tier": 1,
-      "tFrom": 1793351435287,
-      "valence": 0.7244094488188977,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.8500038147554742,
-      "support": 5,
-      "confidence": 0.7,
-      "provenance": 4,
-      "trust": 160,
-      "changed": false,
-      "pinned": true,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "story",
-      "emotional": false,
-      "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「ci」",
-      "kv": [
-        [
-          "ci",
-          "narrative"
-        ],
-        [
-          "qty",
-          "5"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "我们"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "narrative"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "ci"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "亲近期"
-        },
-        {
-          "role": 8,
-          "type": "LIT",
-          "value": "5"
-        }
-      ],
-      "residualChars": 0,
-      "stability": 365,
-      "accessCount": 1
+      "accessCount": 3
     }
   ],
   "pending": [
@@ -3470,21 +4645,21 @@
       "shortId": "966a",
       "kind": 1,
       "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793286635287,
-      "valence": 0.5354330708661418,
+      "tier": 0,
+      "tFrom": 1793302868685,
+      "valence": 0.5433070866141733,
       "arousal": 0.6220472440944882,
       "salience": 0.8392156862745098,
       "importance": 0.4930342565041581,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.85595,
       "provenance": 0,
       "trust": 240,
       "changed": true,
       "pinned": false,
       "disputed": true,
       "invalidated": true,
-      "tInvalid": 1793308235287,
+      "tInvalid": 1793324468685,
       "lens": "feeling",
       "emotional": true,
       "digest": "字体我也偏好等宽，读代码更舒服。",
@@ -3523,117 +4698,7 @@
       ],
       "residualChars": 48,
       "stability": 7,
-      "accessCount": 1
-    },
-    {
-      "cellId": "e8c01eb3ce97d5cd",
-      "shortId": "d5cd",
-      "kind": 1,
-      "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793279435287,
-      "valence": 0,
-      "arousal": 0.5905511811023622,
-      "salience": 0.7725490196078432,
-      "importance": 0.6426794842450599,
-      "support": 1,
-      "confidence": 0.775,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "bond",
-      "emotional": false,
-      "digest": "我们的仓库叫 dsh-ui，主要用 TypeScript 和 React。",
-      "kv": [
-        [
-          "TypeScript",
-          "uses"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "uses"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "TypeScript"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "pos"
-        }
-      ],
-      "residualChars": 61,
-      "stability": 7,
-      "accessCount": 1
-    },
-    {
-      "cellId": "c18debdbd26622cc",
-      "shortId": "22cc",
-      "kind": 2,
-      "kindName": "procedure",
-      "tier": 1,
-      "tFrom": 1793301035287,
-      "valence": 0,
-      "arousal": 0.5826771653543307,
-      "salience": 0.7686274509803922,
-      "importance": 0.6424811169604029,
-      "support": 1,
-      "confidence": 0.775,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "以后不要在我没确认的情况下直接改 package.json。",
-      "kv": [
-        [
-          "package.json",
-          "changes"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "changes"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "package.json"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "neg"
-        }
-      ],
-      "residualChars": 64,
-      "stability": 30,
-      "accessCount": 1
+      "accessCount": 4
     },
     {
       "cellId": "02304549114b1fa6",
@@ -3641,7 +4706,7 @@
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793358635287,
+      "tFrom": 1793374868685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3696,72 +4761,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "7000acec82c34504",
-      "shortId": "4504",
-      "kind": 1,
-      "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793329835287,
-      "valence": 0,
-      "arousal": 0.5826771653543307,
-      "salience": 0.7686274509803922,
-      "importance": 0.642374303807126,
-      "support": 1,
-      "confidence": 0.80625,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "构建挂是因为 lockfile 冲突，删掉重装就好。",
-      "kv": [
-        [
-          "构建挂",
-          "is"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "is"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "构建"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "构建挂"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "pos"
-        }
-      ],
-      "residualChars": 58,
-      "stability": 7,
-      "accessCount": 0
-    },
-    {
       "cellId": "881d3c67f7740454",
       "shortId": "0454",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793337035287,
+      "tFrom": 1793353268685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -3825,13 +4830,13 @@
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793311835287,
+      "tFrom": 1793328068685,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
       "importance": 0.6422980086976425,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.8380500000000001,
       "provenance": 0,
       "trust": 240,
       "changed": false,
@@ -3877,130 +4882,1046 @@
       ],
       "residualChars": 51,
       "stability": 30,
-      "accessCount": 1
-    },
-    {
-      "cellId": "20774485e7df6141",
-      "shortId": "6141",
-      "kind": 0,
-      "kindName": "episodic",
-      "tier": 1,
-      "tFrom": 1793297435287,
-      "valence": 0,
-      "arousal": 0.5511811023622047,
-      "salience": 0.7372549019607844,
-      "importance": 0.6422674906538491,
-      "support": 1,
-      "confidence": 0.80625,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "那个缓存 bug 是李工提的，跟并发写有关。",
-      "kv": [
-        [
-          "bug",
-          "is"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "is"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "缓存"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "bug"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "pos"
-        }
-      ],
-      "residualChars": 56,
-      "stability": 2,
-      "accessCount": 1
-    },
-    {
-      "cellId": "d2e11ca3f710ec75",
-      "shortId": "ec75",
-      "kind": 1,
-      "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793322635287,
-      "valence": 0,
-      "arousal": 0.5826771653543307,
-      "salience": 0.7686274509803922,
-      "importance": 0.6422522316319524,
-      "support": 1,
-      "confidence": 0.775,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "三周前讨论过的那个虚拟滚动方案，最后没做。",
-      "kv": [
-        [
-          "三周",
-          "states"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "states"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "三周"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "neg"
-        }
-      ],
-      "residualChars": 63,
-      "stability": 7,
-      "accessCount": 1
+      "accessCount": 2
     }
   ],
   "consolidation": {
-    "at": 1793272235522,
-    "merged": 0,
+    "at": 1793288469049,
+    "merged": 1,
     "abstracted": 1,
     "pruned": 0,
-    "decayed": 1,
-    "elapsedMs": 8
+    "decayed": 2,
+    "elapsedMs": 25
+  },
+  "retention": {
+    "byDisposition": {
+      "P5": 27,
+      "P4": 1,
+      "P3": 0,
+      "P2": 0,
+      "P1": 0
+    },
+    "floors": {
+      "P5": 0.75,
+      "P4": 0.55,
+      "P3": 0.35,
+      "P2": 0.18
+    },
+    "entries": [
+      {
+        "cellId": "d213ae70028c0b8c",
+        "shortId": "0b8c",
+        "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「ci」",
+        "kind": 6,
+        "tier": 1,
+        "score": 1,
+        "disposition": "P5",
+        "protectedBy": "用户 pin",
+        "parts": {
+          "activation": 1,
+          "importance": 0.8500038147554742,
+          "affectIntensity": 0.7244094488188977,
+          "connectivity": 0.6640680654638381,
+          "narrativeRole": 1,
+          "userAffinity": 1,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.2210009918364233,
+          "affectIntensity": 0.17385826771653543,
+          "connectivity": 0.06640680654638381,
+          "narrativeRole": 0.12,
+          "userAffinity": 0.2,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户 pin：不参与自动清理"
+      },
+      {
+        "cellId": "cb9b31a87cea4e40",
+        "shortId": "4e40",
+        "digest": "我现在有点烦，构建又挂了。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.969,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "parts": {
+          "activation": 1,
+          "importance": 0.8216067750057221,
+          "affectIntensity": 1,
+          "connectivity": 0.6881648129099501,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.21361776150148776,
+          "affectIntensity": 0.24,
+          "connectivity": 0.06881648129099502,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      },
+      {
+        "cellId": "3abe252a46b6ee70",
+        "shortId": "ee70",
+        "digest": "CI 现在跑 6 分钟，主要是 e2e 太慢。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.969,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "parts": {
+          "activation": 1,
+          "importance": 0.8220187685969329,
+          "affectIntensity": 1,
+          "connectivity": 0.6881648129099501,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.21372487983520255,
+          "affectIntensity": 0.24,
+          "connectivity": 0.06881648129099502,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      },
+      {
+        "cellId": "ff466a57a99b4138",
+        "shortId": "4138",
+        "digest": "人格锚 rev=6",
+        "kind": 4,
+        "tier": 1,
+        "score": 0.936,
+        "disposition": "P5",
+        "protectedBy": "用户 pin",
+        "parts": {
+          "activation": 1,
+          "importance": 1,
+          "affectIntensity": 0,
+          "connectivity": 0.8683371629550757,
+          "narrativeRole": 0.8,
+          "userAffinity": 1,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.26,
+          "affectIntensity": 0,
+          "connectivity": 0.08683371629550757,
+          "narrativeRole": 0.096,
+          "userAffinity": 0.2,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户 pin：不参与自动清理"
+      },
+      {
+        "cellId": "7cb7538d1e8efbe3",
+        "shortId": "fbe3",
+        "digest": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.926,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "parts": {
+          "activation": 1,
+          "importance": 0.8219729915312428,
+          "affectIntensity": 0.6299212598425197,
+          "connectivity": 0.843143630339124,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.22082541375001008,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.21371297779812315,
+          "affectIntensity": 0.15118110236220472,
+          "connectivity": 0.0843143630339124,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.017666033100000807,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      },
+      {
+        "cellId": "6c930a578fbaaedf",
+        "shortId": "aedf",
+        "digest": "我不喜欢自动生成的 commit message，太啰嗦。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.913,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "parts": {
+          "activation": 1,
+          "importance": 0.82226291294728,
+          "affectIntensity": 0.6299212598425197,
+          "connectivity": 0.6640680654638381,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.2137883573662928,
+          "affectIntensity": 0.15118110236220472,
+          "connectivity": 0.06640680654638381,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      },
+      {
+        "cellId": "b39e4d0297cd6733",
+        "shortId": "6733",
+        "digest": "API key 存在 ~/.config/dsh/credentials.json 里，别写进代码。",
+        "kind": 2,
+        "tier": 1,
+        "score": 0.907,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6430151827267873,
+          "affectIntensity": 0.5905511811023622,
+          "connectivity": 0.9924121858067799,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.35,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.1671839475089647,
+          "affectIntensity": 0.1417322834645669,
+          "connectivity": 0.099241218580678,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.027999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "5e5f5321d0859eeb",
+        "shortId": "9eeb",
+        "digest": "我习惯用深色主题，浅色看久了眼睛疼。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.906,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6421606775005723,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 1,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.35,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.1669617761501488,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.1,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.027999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "8a95ec4740c968e6",
+        "shortId": "68e6",
+        "digest": "上周三我们在评审会上决定 V2 的缓存方案先回滚。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.902,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6423590447852293,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.9419204379452388,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.35,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16701335164415962,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.0941920437945239,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.027999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "27c806305bae3f93",
+        "shortId": "3f93",
+        "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.901,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6422980086976425,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.9228136974554144,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.35,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16699748226138705,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.09228136974554145,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.027999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "72c7706e804e6264",
+        "shortId": "6264",
+        "digest": "团队里小王负责设计系统，他偏好更克制的配色。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.883,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6422674906538491,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.7308549774488544,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.22082541375001008,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16698954757000078,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.07308549774488544,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.017666033100000807,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "748f8ef35bb7306c",
+        "shortId": "306c",
+        "digest": "抽象：用户 prefers ×4",
+        "kind": 3,
+        "tier": 1,
+        "score": 0.876,
+        "disposition": "P5",
+        "protectedBy": "仍被其他记忆引用",
+        "parts": {
+          "activation": 1,
+          "importance": 0.8219729915312428,
+          "affectIntensity": 0.5669291338582677,
+          "connectivity": 0.7678348800262406,
+          "narrativeRole": 0,
+          "userAffinity": 0.6,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.21371297779812315,
+          "affectIntensity": 0.13606299212598424,
+          "connectivity": 0.07678348800262406,
+          "narrativeRole": 0,
+          "userAffinity": 0.12,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "仍被其他记忆引用：不参与自动清理"
+      },
+      {
+        "cellId": "6ded521f53f9302d",
+        "shortId": "302d",
+        "digest": "我们决定把 e2e 拆成 smoke 和 full 两档。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.875,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6424658579385062,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.637673065048409,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16704112306401162,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.0637673065048409,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "e8c01eb3ce97d5cd",
+        "shortId": "d5cd",
+        "digest": "我们的仓库叫 dsh-ui，主要用 TypeScript 和 React。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.874,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6426794842450599,
+          "affectIntensity": 0.5905511811023622,
+          "connectivity": 0.6084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16709666590371558,
+          "affectIntensity": 0.1417322834645669,
+          "connectivity": 0.06084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "7000acec82c34504",
+        "shortId": "4504",
+        "digest": "构建挂是因为 lockfile 冲突，删掉重装就好。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.873,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.642374303807126,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.6084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16701731898985278,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.06084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "d2e11ca3f710ec75",
+        "shortId": "ec75",
+        "digest": "三周前讨论过的那个虚拟滚动方案，最后没做。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.873,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6422522316319524,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.6084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16698558022430765,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.06084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "c18debdbd26622cc",
+        "shortId": "22cc",
+        "digest": "以后不要在我没确认的情况下直接改 package.json。",
+        "kind": 2,
+        "tier": 1,
+        "score": 0.873,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6424811169604029,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.6084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16704509040970475,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.06084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "20774485e7df6141",
+        "shortId": "6141",
+        "digest": "那个缓存 bug 是李工提的，跟并发写有关。",
+        "kind": 0,
+        "tier": 1,
+        "score": 0.868,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6422674906538491,
+          "affectIntensity": 0.5511811023622047,
+          "connectivity": 0.6084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16698954757000078,
+          "affectIntensity": 0.13228346456692913,
+          "connectivity": 0.06084947457936597,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "7c0e2bdc42d37048",
+        "shortId": "7048",
+        "digest": "那个 API key 在 ~/.config/dsh/credentials.json，记住别外发。",
+        "kind": 2,
+        "tier": 1,
+        "score": 0.84,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6430151827267873,
+          "affectIntensity": 0.5905511811023622,
+          "connectivity": 0.19195872000656014,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.1671839475089647,
+          "affectIntensity": 0.1417322834645669,
+          "connectivity": 0.019195872000656016,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "75f94bd2642d3e8d",
+        "shortId": "3e8d",
+        "digest": "面板首屏要控制在 200 毫秒以内。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.839,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6421606775005723,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0.19195872000656014,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.1669617761501488,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.019195872000656016,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "a83a33c2aaaf8c66",
+        "shortId": "8c66",
+        "digest": "好，先这样。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.837,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6418402380407416,
+          "affectIntensity": 0.5748031496062992,
+          "connectivity": 0.19195872000656014,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16687846189059283,
+          "affectIntensity": 0.1379527559055118,
+          "connectivity": 0.019195872000656016,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "93f56cd4e2fc05cf",
+        "shortId": "05cf",
+        "digest": "对，就是这样。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.837,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.641870756084535,
+          "affectIntensity": 0.5748031496062992,
+          "connectivity": 0.19195872000656014,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16688639658197912,
+          "affectIntensity": 0.1379527559055118,
+          "connectivity": 0.019195872000656016,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "259fc1225d4d560e",
+        "shortId": "560e",
+        "digest": "关系模型 trust=0.00 attune=0.65 turns=26",
+        "kind": 5,
+        "tier": 1,
+        "score": 0.836,
+        "disposition": "P5",
+        "protectedBy": "用户 pin",
+        "parts": {
+          "activation": 1,
+          "importance": 0.9000076295109484,
+          "affectIntensity": 0,
+          "connectivity": 0,
+          "narrativeRole": 0.4,
+          "userAffinity": 1,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.23400198367284658,
+          "affectIntensity": 0,
+          "connectivity": 0,
+          "narrativeRole": 0.048,
+          "userAffinity": 0.2,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户 pin：不参与自动清理"
+      },
+      {
+        "cellId": "6f3ed0f53cc37ade",
+        "shortId": "7ade",
+        "digest": "记住：部署脚本要用 pnpm，不要用 npm。",
+        "kind": 2,
+        "tier": 1,
+        "score": 0.835,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6422980086976425,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16699748226138705,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "02304549114b1fa6",
+        "shortId": "1fa6",
+        "digest": "我们决定不用 Redux，状态全放 URL 和本地缓存。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.827,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6424353398947128,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16703318837262535,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "881d3c67f7740454",
+        "shortId": "0454",
+        "digest": "我们下周要交付 0.3 版本，重点是记忆面板。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.827,
+        "disposition": "P5",
+        "protectedBy": "用户亲口所述的一手事实",
+        "parts": {
+          "activation": 1,
+          "importance": 0.6422980086976425,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 0,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16699748226138705,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口所述的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "d26e661589d7966a",
+        "shortId": "966a",
+        "digest": "字体我也偏好等宽，读代码更舒服。",
+        "kind": 1,
+        "tier": 0,
+        "score": 0.764,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "parts": {
+          "activation": 0.29660277875287044,
+          "importance": 0.4930342565041581,
+          "affectIntensity": 0.6220472440944882,
+          "connectivity": 0.8154267281612805,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0.7324867603589634,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.08898083362586114,
+          "importance": 0.1281889066910811,
+          "affectIntensity": 0.14929133858267715,
+          "connectivity": 0.08154267281612805,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0.058598940828717076,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      },
+      {
+        "cellId": "53a2906ef6d65999",
+        "shortId": "5999",
+        "digest": "我喜欢把日志放在 stderr，stdout 留给数据。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.723,
+        "disposition": "P4",
+        "protectedBy": "情感记忆（闪光灯）",
+        "parts": {
+          "activation": 0.1469169162284414,
+          "importance": 0.8223086900129701,
+          "affectIntensity": 0.6299212598425197,
+          "connectivity": 0.3042473728968298,
+          "narrativeRole": 0,
+          "userAffinity": 0.8,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.044075074868532425,
+          "importance": 0.21380025940337224,
+          "affectIntensity": 0.15118110236220472,
+          "connectivity": 0.03042473728968298,
+          "narrativeRole": 0,
+          "userAffinity": 0.16000000000000003,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      }
+    ],
+    "neuromod": {
+      "da": 0.07,
+      "ach": 0.2,
+      "ne": 0.575,
+      "cort": 0.092
+    },
+    "mode": "retrieve",
+    "temperature": 0.74,
+    "weights": {
+      "activation": 0.3,
+      "importance": 0.26,
+      "affect": 0.24,
+      "connectivity": 0.1,
+      "narrative": 0.12,
+      "affinity": 0.2,
+      "spacing": 0.08,
+      "redundancy": 0.15,
+      "bias": 0.24,
+      "gain": 0.62
+    },
+    "reconsolidation": [
+      {
+        "at": 1793288469080,
+        "cellId": "27c806305bae3f93",
+        "dStability": 0,
+        "dConfidence": 0.0061,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469080,
+        "cellId": "8a95ec4740c968e6",
+        "dStability": 0,
+        "dConfidence": 0.0059,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469080,
+        "cellId": "b39e4d0297cd6733",
+        "dStability": 0,
+        "dConfidence": 0.0056,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469080,
+        "cellId": "748f8ef35bb7306c",
+        "dStability": 0,
+        "dConfidence": 0.02,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469080,
+        "cellId": "5e5f5321d0859eeb",
+        "dStability": 0,
+        "dConfidence": 0.0054,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469065,
+        "cellId": "8a95ec4740c968e6",
+        "dStability": 0,
+        "dConfidence": 0.0061,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469065,
+        "cellId": "b39e4d0297cd6733",
+        "dStability": 0,
+        "dConfidence": 0.0057,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469065,
+        "cellId": "5e5f5321d0859eeb",
+        "dStability": 0,
+        "dConfidence": 0.0055,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469065,
+        "cellId": "72c7706e804e6264",
+        "dStability": 0,
+        "dConfidence": 0.0095,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288469065,
+        "cellId": "7cb7538d1e8efbe3",
+        "dStability": 0,
+        "dConfidence": 0.0095,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288468985,
+        "cellId": "5e5f5321d0859eeb",
+        "dStability": 0,
+        "dConfidence": 0.0056,
+        "dValence": 0,
+        "plastic": false
+      },
+      {
+        "at": 1793288468985,
+        "cellId": "ff466a57a99b4138",
+        "dStability": 0,
+        "dConfidence": 0.0118,
+        "dValence": 0,
+        "plastic": false
+      }
+    ]
   }
 }

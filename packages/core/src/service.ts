@@ -31,7 +31,11 @@ import {
 } from './cell.js'
 import { BruteIndex, HnswIndex, type VectorIndex } from './ann.js'
 import { RuntimeStatus } from './runtime.js'
-import { retrievabilityFrom, reinforce, shouldArchive, shouldDemote } from './forgetting.js'
+import { RETENTION_WEIGHTS, DISPOSITION_FLOOR, evaluateRetention, retentionWhy, type Disposition } from './retention.js'
+import { applyReconsolidation, onRetrieved } from './reconsolidation.js'
+import { graphHopsFor, modeOf, neuromodulate, retrievalTemperature } from './neuromod.js'
+import { nextTier } from './lifecycle.js'
+import type { PresetName } from './preset.js'
 import { estimateTokens, fmt2, mmdd, assignShortIds, kvPairs } from './render.js'
 import { formatBreakdown, runRecall, SIM_FLOOR } from './recall.js'
 import { SdrSpace } from './sdr.js'
@@ -47,13 +51,12 @@ import type {
   PanelAction,
   PanelCellView,
   PanelEdgeView,
+  PanelRetentionEntry,
   PanelSnapshot,
   RecallQuery,
   RecallResult,
   StatsSnapshot,
 } from './types.js'
-
-const DAY = 86_400_000
 
 export interface IngestResult {
   cell: MemCell
@@ -104,6 +107,19 @@ export class MemoryService extends Service {
   private turns = 0
   private lastRecall: PanelSnapshot['lastRecall'] = null
   private affectState: PanelSnapshot['affect'] = null
+  /**
+   * 再巩固日志（v0.4）。只留最近 40 条：它不是审计日志，是"最近哪条记忆被改写过"的证据，
+   * 面板的保留度页直接读它。全量历史在 evict_log / session_log 里，不在这里重复存。
+   */
+  private reconsolidationLog: Array<{ at: number; cellId: string; dStability: number; dConfidence: number; dValence: number; plastic: boolean }> = []
+  /**
+   * 本轮是否发生了"用户纠正"。由 ingest 的冲突检测置位、被下一次 recall 消费。
+   *
+   * 这是预测误差的**可用代理**：真正的预测误差需要宿主回传用户下一句的语义反馈，
+   * 而那需要改宿主接口（v0.5 的 seam）。在此之前，"这一轮检测到矛盾"是唯一
+   * 确定"新信息与旧记忆不符"的时刻——用它标记可塑窗口，比拿查询距离当代理准确得多。
+   */
+  private pendingPredictionError = 0
   private listeners = new Set<(s: PanelSnapshot) => void>()
   private pendingActions: PanelAction[] = []
   /** 单会话内每个 cell 的展开次数（§14.9：上限 2 次） */
@@ -328,6 +344,9 @@ export class MemoryService extends Service {
           clean.flags |= FLAG.disputed
         }
         this.emit('memory/conflict', { a: toHex(clean.cellId, 16), b: toHex(conflict.cellId, 16), field: 'PATIENT/POLARITY' })
+        // 用户改主意 = 一次预测误差事件：下一次召回时，被召回的旧记忆进入可塑窗口。
+        // 这是"再巩固"里 confidence 下降的唯一触发点，见 reconsolidation.ts。
+        this.pendingPredictionError = Math.max(this.pendingPredictionError, 0.6)
       }
 
       // ④ 关联而非合并（0.45 < J ≤ 0.85）
@@ -422,11 +441,7 @@ export class MemoryService extends Service {
   }
 
   private resolveByPrefix(prefix: number): bigint | undefined {
-    let found: bigint | undefined
-    this.store.forEachCell((c) => {
-      if (!found && Number(c.cellId & 0xffffffffn) === prefix) found = c.cellId
-    })
-    return found
+    return this.store.findByPrefix(prefix) ?? undefined
   }
 
   // ── 读路径 ──────────────────────────────────────────────────────
@@ -452,19 +467,38 @@ export class MemoryService extends Service {
     this.tokenSeries.push({ turn: this.turns, tokens: r.tokens })
     if (this.tokenSeries.length > 500) this.tokenSeries.shift()
 
-    // 被召回的 cell：t_access 更新、复述增益（§10.6）、进工作记忆（§8.2）
+    // 被召回的 cell：**再巩固**（v0.4，对应方案 §1.2）
+    //   提取即强化（测试效应）+ 预测误差大时进入可塑窗口（confidence 降）
+    //   + 心境一致性轻微改写效价。这三件事以前只有第一件，所以"越聊越深"有，
+    //   "被带偏"和"想起难过的事会难过一会儿"没有。
     const now = this.now()
+    const predErr = this.pendingPredictionError
+    this.pendingPredictionError = 0
+    const moodV = this.affectState?.pad?.v ?? 0
     for (const h of r.hits) {
       const id = BigInt('0x' + h.cellId)
       const cell = this.store.getCell(id)
       if (!cell) continue
-      const dtDays = (now - Number(cell.tAccess)) / DAY
-      const R = retrievabilityFrom(Number(cell.tAccess), cell.stability, now)
-      cell.stability = reinforce(cell.stability, R, dtDays)
-      cell.tAccess = BigInt(now)
-      cell.accessCount++
+      const delta = onRetrieved(cell, {
+        retrievalStrength: h.score,
+        predictionError: predErr,
+        moodCongruence: moodV * cell.valence,
+        nowMs: now,
+      })
+      applyReconsolidation(cell, delta, now)
       this.store.putCell(cell)
       this.working.touch(id, Math.min(1, 0.4 + h.score))
+      if (delta.plastic || Math.abs(delta.dValence) >= 0.005 || Math.abs(delta.dConfidence) >= 0.005) {
+        this.reconsolidationLog.push({
+          at: now,
+          cellId: h.cellId,
+          dStability: delta.dStability,
+          dConfidence: delta.dConfidence,
+          dValence: delta.dValence,
+          plastic: delta.plastic,
+        })
+        if (this.reconsolidationLog.length > 40) this.reconsolidationLog.shift()
+      }
     }
     // 共激活强化（Hebbian）：同一轮被一起想起的东西，之间长出连接。
     // 这是"联想"的物理实现——不是随机连边，是"一起出现过"才连。
@@ -791,28 +825,55 @@ export class MemoryService extends Service {
     }
   }
 
-  /** 冷层降级 + 归档（§8.4）。任何层都不自动物理删除。 */
+  /**
+   * 降档 pass（v0.4 重写，对应方案 §1.3）。
+   *
+   * 判据从「最后访问时间」换成七因子保留度：频率（ACT-R 激活）、重要度、情绪强度、
+   * 关联度、叙事角色、用户锚定、间隔效应，减去冗余。六档处置里**没有物理删除**——
+   * 自动流程最高只到 P1 墓碑（tier=3），P0 只能由用户显式发起。
+   *
+   * 一次 pass 只移动一级（`nextTier`）：跨级会让"为什么它从热层直接掉到归档"
+   * 无法解释，面板的 diff 也变得没法读。
+   */
   demoteDue(): number {
     const now = this.now()
-    let demoted = 0
+    const weights = RETENTION_WEIGHTS[(this.config.preset === 'custom' ? 'balanced' : this.config.preset) as PresetName]
+    const edges = this.store.allEdges()
+    const degree = new Map<bigint, number>()
+    const referenced = new Set<bigint>()
+    const superseded = new Set<bigint>()
+    let maxDegree = 1
+    for (const e of edges) {
+      degree.set(e.src, (degree.get(e.src) ?? 0) + 1)
+      degree.set(e.dst, (degree.get(e.dst) ?? 0) + 1)
+      referenced.add(e.dst)
+      if (e.rel === REL.SUPERSEDES) superseded.add(e.src)
+    }
+    for (const d of degree.values()) if (d > maxDegree) maxDegree = d
+
+    let moved = 0
     this.store.forEachCell((c) => {
       if (c.flags & FLAG.noDecay) return
-      if (c.tier === 0 && now - Number(c.tAccess) > 30 * 60_000) {
-        c.tier = 1
-        this.store.putCell(c)
-        demoted++
-      } else if (c.tier === 1 && shouldDemote(Number(c.tAccess), c.stability * ((c.flags & FLAG.emotional) !== 0 ? 3 : 1), now)) {
-        c.tier = 2
-        c.emb = pq32(c.emb)
-        this.store.putCell(c)
-        demoted++
-      } else if (c.tier === 2 && (c.flags & FLAG.emotional) === 0 && shouldArchive(Number(c.tAccess), c.stability, now)) {
-        c.tier = 3
-        this.store.putCell(c)
-        demoted++
-      }
+      // 30 分钟内的访问仍算"在工作记忆里"，不降档（v0.2 的 hot 语义保留）
+      if (now - Number(c.tAccess) < 30 * 60_000) return
+      const sameAs = c.edges.filter((e) => e.rel === REL.SAME_AS).length
+      const r = evaluateRetention(c, {
+        nowMs: now,
+        weights,
+        degree: degree.get(c.cellId) ?? 0,
+        maxDegree,
+        redundancy: Math.min(1, sameAs / 2),
+        hasSupersedes: superseded.has(c.cellId),
+        referencedByOthers: referenced.has(c.cellId),
+      })
+      const target = nextTier(c.tier, r.tier)
+      if (target === c.tier) return
+      c.tier = target
+      if (target >= 2) c.emb = pq32(c.emb)
+      this.store.putCell(c)
+      moved++
     })
-    return demoted
+    return moved
   }
 
   // ── 面板（host 侧数据源，§12.4 / §12.10 / §20.2） ───────────────
@@ -862,6 +923,85 @@ export class MemoryService extends Service {
         accessCount: c.accessCount,
       }
     })
+  }
+
+  /**
+   * 保留度视图（v0.4）。
+   *
+   * 只算最近 120 条：面板是 3 秒刷新的，全量算保留度会把面板变成 CPU 热点。
+   * 六档计数也只统计这 120 条，并在面板上写明口径——**不假装是全域统计**。
+   */
+  private retentionView(): PanelSnapshot['retention'] {
+    const presetName = (this.config.preset === 'custom' ? 'balanced' : this.config.preset) as PresetName
+    const weights = RETENTION_WEIGHTS[presetName]
+    const now = this.now()
+    const degree = new Map<string, number>()
+    const referenced = new Set<string>()
+    const superseded = new Set<string>()
+    let maxDegree = 1
+    for (const e of this.store.allEdges()) {
+      const s = toHex(e.src, 16)
+      const d = toHex(e.dst, 16)
+      degree.set(s, (degree.get(s) ?? 0) + 1)
+      degree.set(d, (degree.get(d) ?? 0) + 1)
+      referenced.add(d)
+      if (e.rel === REL.SUPERSEDES) superseded.add(s)
+    }
+    for (const v of degree.values()) if (v > maxDegree) maxDegree = v
+
+    const sample = this.store.listCells({ limit: 120, order: 'recent' })
+    const shortIds = assignShortIds(sample.map((cell) => ({ cell })))
+    const byDisposition: Record<string, number> = { P5: 0, P4: 0, P3: 0, P2: 0, P1: 0 }
+    const entries: PanelRetentionEntry[] = []
+    sample.forEach((c, i) => {
+      const key = toHex(c.cellId, 16)
+      const sameAs = c.edges.filter((e) => e.rel === REL.SAME_AS).length
+      const r = evaluateRetention(c, {
+        nowMs: now,
+        weights,
+        degree: degree.get(key) ?? 0,
+        maxDegree,
+        redundancy: Math.min(1, sameAs / 2),
+        hasSupersedes: superseded.has(key),
+        referencedByOthers: referenced.has(key),
+      })
+      byDisposition[r.disposition] = (byDisposition[r.disposition] ?? 0) + 1
+      entries.push({
+        cellId: key,
+        shortId: shortIds[i],
+        digest: c.digest || kvPairs(c).map(([k, v]) => `${k}=${v}`).join(' '),
+        kind: c.kind,
+        tier: c.tier,
+        score: r.score,
+        disposition: r.disposition,
+        protectedBy: r.protectedBy,
+        parts: { ...r.parts } as unknown as Record<string, number>,
+        contributions: { ...r.contributions } as unknown as Record<string, number>,
+        anniversary: r.anniversary,
+        why: retentionWhy(r, KIND_NAME[c.kind] ?? '记忆'),
+      })
+    })
+    entries.sort((a, b) => b.score - a.score)
+
+    const aff = this.affectState
+    const nm = neuromodulate({
+      arousal: aff?.pad?.a ?? 0.2,
+      load: aff?.intero?.load ?? 0,
+      conflict: aff?.intero?.conflict ?? 0,
+      novelty: 0.2,
+      predictionError: this.pendingPredictionError,
+    })
+
+    return {
+      byDisposition,
+      floors: { P5: DISPOSITION_FLOOR.P5, P4: DISPOSITION_FLOOR.P4, P3: DISPOSITION_FLOOR.P3, P2: DISPOSITION_FLOOR.P2 },
+      entries: entries.slice(0, 40),
+      neuromod: nm,
+      mode: modeOf(nm),
+      temperature: retrievalTemperature(nm),
+      weights: { ...weights } as unknown as Record<string, number>,
+      reconsolidation: [...this.reconsolidationLog].reverse().slice(0, 12),
+    }
   }
 
   panelSnapshot(): PanelSnapshot {
@@ -943,6 +1083,7 @@ export class MemoryService extends Service {
       recentUpdated: byAccess.filter((c) => c.accessCount > 0).slice(0, 6),
       pending,
       consolidation: this.lastConsolidation,
+      retention: this.retentionView(),
     }
   }
 

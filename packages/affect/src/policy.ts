@@ -21,6 +21,8 @@ export interface PolicyInput {
   turns: number
   /** 本会话是否已有 goal；无 goal 时 progress 规则不适用 */
   hasGoal?: boolean
+  /** v0.4：未平复的情绪事件数（强制关怀槽） */
+  neglect?: number
 }
 
 export function derivePolicy(input: PolicyInput): AffectPolicy {
@@ -75,6 +77,29 @@ export function derivePolicy(input: PolicyInput): AffectPolicy {
 
   if (mood.v < 0) reasons.push(`心境效价 ${mood.v.toFixed(2)} < 0：检索的心境一致权重线性下降`)
 
+  /**
+   * 反漠视（v0.4 规则 3，对标 H2HTalk 的失效模式：漠视 / 突然换话题）。
+   *
+   * 两条触发：本句话本身是负的（pad.v < −0.3），或存在没接住的旧事件。
+   * 命中后：必须接住、不许发散、至少问一句。这是**硬约束**，不是建议。
+   */
+  const neglect = Math.max(0, input.neglect ?? 0)
+  let requireAcknowledgment = false
+  if (input.pad.v < -0.3) {
+    requireAcknowledgment = true
+    reasons.push(`本轮效价 ${input.pad.v.toFixed(2)} < −0.3：先接住情绪，再谈任务`)
+  }
+  if (neglect > 0) {
+    requireAcknowledgment = true
+    clarification = Math.max(clarification, 1)
+    reasons.push(`有 ${neglect} 个未平复的情绪事件：必须回到它，不许换话题`)
+  }
+  if (requireAcknowledgment) {
+    disableDivergence = true
+    // 情绪场景不要"精简成结论"——那会被读成敷衍
+    if (verbosity === -1) verbosity = 0
+  }
+
   // temperature 偏移只做微调，不做"情绪化输出"——情感不得降低真实性
   const temperatureDelta = clamp(-0.1, 0.1, 0.08 * input.pad.a - 0.04 * Math.max(0, -mood.v))
 
@@ -87,6 +112,8 @@ export function derivePolicy(input: PolicyInput): AffectPolicy {
     disableDivergence,
     restateGoal,
     temperatureDelta: Math.round(temperatureDelta * 100) / 100,
+    requireAcknowledgment,
+    neglect,
     reasons,
   }
 }

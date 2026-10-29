@@ -69,6 +69,14 @@ export interface Store {
 
   putCell(cell: MemCell): void
   getCell(id: bigint): MemCell | null
+  /**
+   * 按 32 位前缀找一条 cell（边表只存 6 字节前缀，读旧库时需要回解）。
+   *
+   * v0.4 之前是 `forEachCell` 全表扫描——2000 cell / 4 条边实测 425 ms，
+   * 因为它对**每条边**都解一遍全部 blob。现在 SqliteStore 走
+   * `substr(cell_id, 9)` 表达式索引（低 32 位 = 末 8 位 hex），O(log n)。
+   */
+  findByPrefix(prefix: number): bigint | null
   deleteCell(id: bigint): void
   listCells(filter?: CellFilter): MemCell[]
   countCells(): number
@@ -225,6 +233,13 @@ export class MemoryStore implements Store {
   getCell(id: bigint): MemCell | null {
     const c = this.cells.get(idKey(id))
     return c ? cloneCell(c) : null
+  }
+  findByPrefix(prefix: number): bigint | null {
+    const want = prefix >>> 0
+    for (const c of this.cells.values()) {
+      if (Number(c.cellId & 0xffffffffn) === want) return c.cellId
+    }
+    return null
   }
   deleteCell(id: bigint): void {
     const victim = this.cells.get(idKey(id))
@@ -447,6 +462,9 @@ CREATE INDEX IF NOT EXISTS idx_scope ON cells(scope, kind);
 CREATE INDEX IF NOT EXISTS idx_time  ON cells(t_from, t_to);
 CREATE INDEX IF NOT EXISTS idx_tier  ON cells(tier);
 CREATE INDEX IF NOT EXISTS idx_kind  ON cells(kind);
+-- 低 32 位前缀索引：cell_id 是 16 位 hex，末 8 位就是 Edge.targetPrefix。
+-- 没有它，resolveByPrefix 只能全表扫描（每条边一次），见 v0.4 方案 §1.4。
+CREATE INDEX IF NOT EXISTS idx_cells_prefix ON cells(substr(cell_id, 9));
 
 CREATE TABLE IF NOT EXISTS edges (
   src TEXT NOT NULL, dst TEXT NOT NULL,
@@ -586,6 +604,21 @@ export class SqliteStore implements Store {
     const row = this.prep(`${SELECT_CELL} WHERE cell_id = ?`).get(idKey(id)) as Record<string, unknown> | undefined
     if (!row) return null
     return this.hydrate(row)
+  }
+
+  /**
+   * 32 位前缀查询：只取 id，不解 blob。
+   *
+   * 前缀是 cellId 的低 32 位，也就是 16 位 hex 的**末 8 位**，所以
+   * `substr(cell_id, 9)` 正好命中 `idx_cells_prefix`（SQLite 的表达式索引）。
+   * 之前这里用 forEachCell 全表扫描 + 每条解 blob，是 v0.3 最贵的一条路径。
+   */
+  findByPrefix(prefix: number): bigint | null {
+    const hex = (prefix >>> 0).toString(16).padStart(8, '0')
+    const row = this.prep('SELECT cell_id FROM cells WHERE substr(cell_id, 9) = ? LIMIT 1').get(hex) as
+      | Record<string, unknown>
+      | undefined
+    return row ? BigInt('0x' + String(row.cell_id)) : null
   }
 
   /**

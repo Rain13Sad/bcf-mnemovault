@@ -19,12 +19,13 @@ import { Overview } from './views/Overview.js'
 import { Search } from './views/Search.js'
 import { Organize } from './views/Organize.js'
 import { Inbox } from './views/Inbox.js'
+import { Retention } from './views/Retention.js'
 import { Affect } from './views/Affect.js'
 import { Settings } from './views/Settings.js'
 import { Timeline } from './views/Timeline.js'
 import { Status } from './ui.js'
 
-export type TabKey = 'overview' | 'search' | 'organize' | 'inbox' | 'affect' | 'settings'
+export type TabKey = 'overview' | 'search' | 'organize' | 'retention' | 'inbox' | 'affect' | 'settings'
 
 export interface PanelProps {
   source: MnemoDataSource
@@ -47,6 +48,7 @@ const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: '记忆总览' },
   { key: 'search', label: '记忆检索' },
   { key: 'organize', label: '记忆整理' },
+  { key: 'retention', label: '保留度' },
   { key: 'inbox', label: '收件箱' },
   { key: 'affect', label: '情感状态' },
   { key: 'settings', label: '设置' },
@@ -203,150 +205,215 @@ export function MnemoPanel(props: PanelProps): ReactNode {
   const rt = snapshot.runtime
   const pendingN = (snapshot.pending ?? []).length
   const conflicts = s.contradictions + s.disputed
+  const lowRetention = snapshot.retention
+    ? (snapshot.retention.byDisposition.P1 ?? 0) + (snapshot.retention.byDisposition.P2 ?? 0)
+    : 0
+
+  // 页签/导航的角标：只标"需要人处理"的计数，不给每个页签都挂数字
+  const badgeOf = (key: TabKey): number | null => {
+    if (key === 'inbox' && pendingN > 0) return pendingN
+    if (key === 'retention' && lowRetention > 0) return lowRetention
+    return null
+  }
 
   return h(
     'div',
     { className: 'mnv-root' },
-
-    // ── 顶栏：库在哪 + 三个计数 + 刷新 ────────────────────────────
-    // 两行而不是一行：侧栏面板只有 300–420 px，把标题、路径、三个计数塞进一行
-    // 的结果就是每个字都换行（实测第一版就是这样，标题竖排成了"长/期/记/忆"）。
     h(
       'div',
-      { className: 'mnv-header' },
+      { className: 'mnv-shell' },
+
+      // ── 左侧导航（≥760px 显示；窄宽度由 .mnv-tabs 接管） ──────────
       h(
-        'div',
-        { className: 'mnv-header-row' },
-        h('span', { className: 'mnv-title' }, '长期记忆'),
-        h('span', { className: 'mnv-badge', title: '当前数据源' }, sourceLabel(props.source.kind)),
-        h('span', { className: 'mnv-spacer' }),
-        h('button', { className: 'mnv-btn', 'data-tone': 'ghost', disabled: busy, onClick: () => void load() }, '刷新'),
-      ),
-      h(
-        'div',
-        { className: 'mnv-header-row' },
+        'aside',
+        { className: 'mnv-rail' },
         h(
-          'span',
-          { className: 'mnv-muted', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: rt?.dbPath },
-          rt?.storeKind === 'sqlite' ? 'SQLite 晶格 · ' : '内存晶格 · ',
-          rt?.dbPath ?? '（未配置）',
+          'div',
+          { className: 'mnv-brand' },
+          h('b', null, '长期记忆'),
+          h('span', { className: 'mnv-badge' }, sourceLabel(props.source.kind)),
+        ),
+        h(
+          'nav',
+          { className: 'mnv-nav' },
+          ...TABS.map((t) => {
+            const n = badgeOf(t.key)
+            return h(
+              'button',
+              { key: t.key, className: 'mnv-nav-btn', 'data-active': tab === t.key, onClick: () => setTab(t.key) },
+              t.label,
+              n !== null
+                ? h('span', { className: 'mnv-nav-count', style: t.key === 'inbox' ? { color: 'var(--mnv-warn)' } : undefined }, String(n))
+                : null,
+            )
+          }),
+        ),
+        h(
+          'div',
+          { className: 'mnv-rail-foot' },
+          h(Status, { ok: conflicts === 0, text: conflicts === 0 ? '运行正常' : `${conflicts} 处需处理` }),
+          h('span', null, `${s.cells} 条记忆 · ${s.edges} 条边`),
+          h('span', { title: rt?.dbPath }, rt?.storeKind === 'sqlite' ? 'SQLite 晶格' : '内存晶格'),
+          h('span', null, `布局 v${rt?.layoutVersion ?? 3} · ${rt?.preset ?? 'balanced'}`),
         ),
       ),
+
+      // ── 主内容区 ────────────────────────────────────────────────
       h(
         'div',
-        { className: 'mnv-header-row', style: { flexWrap: 'wrap' } },
-        h('span', { className: 'mnv-badge', title: '全部 cell' }, `记忆总数 ${s.cells}`),
-        h('span', { className: 'mnv-badge', title: 'support=1 且重要性不低，或存在争议', style: pendingN ? { color: 'var(--mnv-warn)' } : undefined }, `待确认 ${pendingN}`),
-        h('span', { className: 'mnv-badge', title: '矛盾边 + 争议 cell', style: conflicts ? { color: 'var(--mnv-danger)' } : undefined }, `冲突/异常 ${conflicts}`),
-        h(Status, { ok: conflicts === 0, text: conflicts === 0 ? '正常' : '需处理' }),
-      ),
-    ),
+        { className: 'mnv-main' },
 
-    // ── 页签 ────────────────────────────────────────────────────
-    h(
-      'div',
-      { className: 'mnv-tabs' },
-      ...TABS.map((t) =>
+        // 顶栏：宽屏是一行（标题→路径→计数→刷新），窄屏仍是三行
         h(
-          'button',
-          { key: t.key, className: 'mnv-tab', 'data-active': tab === t.key, onClick: () => setTab(t.key) },
-          t.label,
-          t.key === 'inbox' && pendingN > 0 ? h('span', { className: 'mnv-flag' }, ` ${pendingN}`) : null,
-        ),
-      ),
-    ),
-
-    // ── 内容 ────────────────────────────────────────────────────
-    h(
-      'div',
-      { className: 'mnv-body' },
-      tab === 'overview'
-        ? h(Overview, {
-            snapshot,
-            onAct: (a) => void act(a),
-            onCommand: (line) => void command(line),
-            onOpen: (id, target) => openCell(id, target === 'inbox' ? 'inbox' : 'search'),
-            busy,
-          })
-        : null,
-      tab === 'search'
-        ? h(
+          'div',
+          { className: 'mnv-header' },
+          h(
             'div',
-            null,
-            h(Search, {
-              snapshot,
-              cells,
-              query,
-              onQuery: setQuery,
-              kind,
-              onKind: setKind,
-              lens,
-              onLens: setLens,
-              selectedId: selected,
-              onSelect: setSelected,
-              onExplain,
-              onAct: (a) => void act(a),
-              onCommand: (line) => void command(line),
-              explain,
-              busy,
-            }),
-            // 无查询词时把时间线接在下面：检索页同时承担"翻一翻"的用途
-            query.trim()
-              ? null
-              : h(
-                  'div',
-                  { style: { marginTop: 12 } },
-                  h('div', { className: 'mnv-subhead' }, h('b', null, '全部记忆（时间线）')),
-                  h(Timeline, {
-                    cells,
-                    pageSize: props.pageSize ?? 50,
-                    selectedId: selected,
-                    onSelect: setSelected,
-                    onAct: (a) => void act(a),
-                    onExplain,
-                    explain,
-                    busy,
-                  }),
-                ),
-          )
-        : null,
-      tab === 'organize'
-        ? h(Organize, {
-            snapshot,
-            onAct: (a) => void act(a),
-            onCommand: (line) => void command(line),
-            onOpen: (id) => openCell(id, 'search'),
-            busy,
-            graphMaxNodes: props.graphMaxNodes ?? 200,
-          })
-        : null,
-      tab === 'inbox'
-        ? h(Inbox, {
-            snapshot,
-            onAct: (a) => void act(a),
-            onCommand: (line) => void command(line),
-            onOpen: (id) => openCell(id, 'search'),
-            busy,
-          })
-        : null,
-      tab === 'affect'
-        ? h(Affect, {
-            snapshot,
-            cells: snapshot.cells,
-            onSelect: (id) => openCell(id, 'search'),
-            enabled: props.affectEnabled ?? snapshot.affect?.enabled ?? false,
-          })
-        : null,
-      tab === 'settings'
-        ? h(Settings, {
-            snapshot,
-            onAct: (a) => void act(a),
-            onCommand: (line) => void command(line),
-            onPresetChange: props.onPresetChange,
-            onSurfaceModeChange: props.onSurfaceModeChange,
-            busy,
-          })
-        : null,
+            { className: 'mnv-header-row mnv-h-row1' },
+            h('span', { className: 'mnv-title mnv-h-title' }, '长期记忆'),
+            h('span', { className: 'mnv-badge', title: '当前数据源' }, sourceLabel(props.source.kind)),
+            h('span', { className: 'mnv-spacer' }),
+            h('button', { className: 'mnv-btn', 'data-tone': 'ghost', disabled: busy, onClick: () => void load() }, '刷新'),
+          ),
+          h(
+            'div',
+            { className: 'mnv-header-row mnv-h-row2' },
+            h(
+              'span',
+              { className: 'mnv-muted', style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: rt?.dbPath },
+              rt?.storeKind === 'sqlite' ? 'SQLite 晶格 · ' : '内存晶格 · ',
+              rt?.dbPath ?? '（未配置）',
+            ),
+          ),
+          h(
+            'div',
+            { className: 'mnv-header-row mnv-h-row3', style: { flexWrap: 'wrap' } },
+            h('span', { className: 'mnv-badge', title: '全部 cell' }, `记忆总数 ${s.cells}`),
+            h(
+              'span',
+              { className: 'mnv-badge', title: 'support=1 且重要性不低，或存在争议', style: pendingN ? { color: 'var(--mnv-warn)' } : undefined },
+              `待确认 ${pendingN}`,
+            ),
+            h(
+              'span',
+              { className: 'mnv-badge', title: '矛盾边 + 争议 cell', style: conflicts ? { color: 'var(--mnv-danger)' } : undefined },
+              `冲突/异常 ${conflicts}`,
+            ),
+            h(Status, { ok: conflicts === 0, text: conflicts === 0 ? '正常' : '需处理' }),
+          ),
+        ),
+
+        // 页签：只在窄容器里出现（宽屏由左侧栏承担导航）
+        h(
+          'div',
+          { className: 'mnv-tabs' },
+          ...TABS.map((t) => {
+            const n = badgeOf(t.key)
+            return h(
+              'button',
+              { key: t.key, className: 'mnv-tab', 'data-active': tab === t.key, onClick: () => setTab(t.key) },
+              t.label,
+              n !== null ? h('span', { className: 'mnv-flag' }, ` ${n}`) : null,
+            )
+          }),
+        ),
+
+        // 内容
+        h(
+          'div',
+          { className: 'mnv-body' },
+          tab === 'overview'
+            ? h(Overview, {
+                snapshot,
+                onAct: (a) => void act(a),
+                onCommand: (line) => void command(line),
+                onOpen: (id, target) => openCell(id, target === 'inbox' ? 'inbox' : 'search'),
+                busy,
+              })
+            : null,
+          tab === 'search'
+            ? h(
+                'div',
+                null,
+                h(Search, {
+                  snapshot,
+                  cells,
+                  query,
+                  onQuery: setQuery,
+                  kind,
+                  onKind: setKind,
+                  lens,
+                  onLens: setLens,
+                  selectedId: selected,
+                  onSelect: setSelected,
+                  onExplain,
+                  onAct: (a) => void act(a),
+                  onCommand: (line) => void command(line),
+                  explain,
+                  busy,
+                }),
+                // 无查询词时把时间线接在下面：检索页同时承担"翻一翻"的用途
+                query.trim()
+                  ? null
+                  : h(
+                      'div',
+                      { style: { marginTop: 12 } },
+                      h('div', { className: 'mnv-subhead' }, h('b', null, '全部记忆（时间线）')),
+                      h(Timeline, {
+                        cells,
+                        pageSize: props.pageSize ?? 50,
+                        selectedId: selected,
+                        onSelect: setSelected,
+                        onAct: (a) => void act(a),
+                        onExplain,
+                        explain,
+                        busy,
+                      }),
+                    ),
+              )
+            : null,
+          tab === 'organize'
+            ? h(Organize, {
+                snapshot,
+                onAct: (a) => void act(a),
+                onCommand: (line) => void command(line),
+                onOpen: (id) => openCell(id, 'search'),
+                busy,
+                graphMaxNodes: props.graphMaxNodes ?? 200,
+              })
+            : null,
+          tab === 'retention'
+            ? h(Retention, { snapshot, onOpen: (id) => openCell(id, 'search') })
+            : null,
+          tab === 'inbox'
+            ? h(Inbox, {
+                snapshot,
+                onAct: (a) => void act(a),
+                onCommand: (line) => void command(line),
+                onOpen: (id) => openCell(id, 'search'),
+                busy,
+              })
+            : null,
+          tab === 'affect'
+            ? h(Affect, {
+                snapshot,
+                cells: snapshot.cells,
+                onSelect: (id) => openCell(id, 'search'),
+                enabled: props.affectEnabled ?? snapshot.affect?.enabled ?? false,
+              })
+            : null,
+          tab === 'settings'
+            ? h(Settings, {
+                snapshot,
+                onAct: (a) => void act(a),
+                onCommand: (line) => void command(line),
+                onPresetChange: props.onPresetChange,
+                onSurfaceModeChange: props.onSurfaceModeChange,
+                busy,
+              })
+            : null,
+        ),
+      ),
     ),
 
     toast ? h('div', { className: 'mnv-toast', style: toastStyle }, toast) : null,

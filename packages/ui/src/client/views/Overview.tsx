@@ -39,7 +39,7 @@ export function Overview(props: OverviewProps): ReactNode {
 
   return h(
     'div',
-    null,
+    { className: 'mnv-wide-2' },
 
     // ① 存储路径
     h(
@@ -151,7 +151,7 @@ export function Overview(props: OverviewProps): ReactNode {
     // ⑥ 四列最近
     h(
       'div',
-      { className: 'mnv-panel' },
+      { className: 'mnv-panel mnv-wide-span' },
       h(
         'div',
         { className: 'mnv-cols' },

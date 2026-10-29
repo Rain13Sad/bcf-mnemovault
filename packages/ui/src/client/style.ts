@@ -49,6 +49,9 @@ export const CSS = `
   min-height: 0;
   /* 作为 flex 子项时 min-width 默认是 min-content，侧栏 300–420 px 会被内容顶宽 */
   min-width: 0;
+  /* v0.4 横屏布局的判据是**容器自身宽度**而不是视口：
+     同一个面板可能被塞进 320 px 侧栏，也可能全屏占 1400 px。 */
+  container-type: inline-size;
 }
 @media (prefers-color-scheme: dark) {
   .mnv-root {
@@ -317,5 +320,75 @@ export const CSS = `
   .mnv-stats { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
   .mnv-kvrow { grid-template-columns: 80px 1fr; }
   .mnv-cols { grid-template-columns: 1fr; }
+}
+
+/* ── v0.4 横屏外壳：左侧导航栏 + 主内容区 ─────────────────────────
+ * 窄宽度下退化为 v0.3 的"顶部页签"形态（.mnv-rail 不显示），
+ * 因此同一个组件在侧栏与全屏两种宿主里都能用。
+ * 判据用 @container 而不是 @media —— 见 .mnv-root 的注释。 */
+.mnv-shell { flex: 1; display: flex; min-height: 0; min-width: 0; }
+.mnv-main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.mnv-rail { display: none; }
+
+.mnv-brand { display: flex; align-items: center; gap: 6px; padding: 2px 8px 10px; }
+.mnv-brand > b { font-size: 13px; font-weight: 600; letter-spacing: .2px; }
+.mnv-nav { display: flex; flex-direction: column; gap: 1px; }
+.mnv-nav-btn {
+  display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box;
+  border: 0; background: transparent; color: var(--mnv-fg-soft); font: inherit; font-size: 12.5px;
+  padding: 7px 9px; border-radius: 8px; cursor: pointer; text-align: left;
+  transition: background .14s ease, color .14s ease;
+}
+.mnv-nav-btn:hover { background: var(--mnv-bg-sunken); color: var(--mnv-fg); }
+.mnv-nav-btn[data-active="true"] { background: var(--mnv-accent-soft); color: var(--mnv-accent); font-weight: 600; }
+.mnv-nav-btn > i { font-style: normal; width: 14px; text-align: center; opacity: .85; font-size: 12px; }
+.mnv-nav-count { margin-left: auto; font-size: 10.5px; color: var(--mnv-fg-faint); font-variant-numeric: tabular-nums; }
+.mnv-rail-foot {
+  margin-top: auto; padding: 10px 8px 4px; border-top: 1px solid var(--mnv-border);
+  display: flex; flex-direction: column; gap: 6px; font-size: 10.5px; color: var(--mnv-fg-faint); line-height: 1.6;
+}
+
+/* 保留度视图的因子条 */
+.mnv-factors { display: flex; align-items: flex-end; gap: 3px; height: 22px; margin-top: 6px; }
+.mnv-factors > i { flex: 0 0 18px; max-width: 18px; border-radius: 2px 2px 0 0; background: var(--mnv-accent); opacity: .55; }
+.mnv-factors > i[data-neg="true"] { background: var(--mnv-warn); }
+.mnv-tierbar { display: flex; height: 10px; border-radius: 5px; overflow: hidden; background: var(--mnv-bg-sunken); margin: 6px 0 8px; }
+.mnv-tierbar > i { display: block; height: 100%; transition: width .3s ease; }
+.mnv-rbadge {
+  font-size: 10.5px; padding: 1px 7px; border-radius: 5px; flex: none;
+  background: var(--mnv-bg-sunken); color: var(--mnv-fg-soft); font-variant-numeric: tabular-nums;
+}
+.mnv-rbadge[data-d="P5"] { color: var(--mnv-pos); }
+.mnv-rbadge[data-d="P4"] { color: var(--mnv-accent); }
+.mnv-rbadge[data-d="P2"] { color: var(--mnv-warn); }
+.mnv-rbadge[data-d="P1"] { color: var(--mnv-danger); }
+.mnv-gauge { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 6px; }
+.mnv-gauge > div { text-align: center; padding: 6px 2px; border-radius: var(--mnv-radius-sm); background: var(--mnv-bg-soft); }
+.mnv-gauge b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+.mnv-gauge span { display: block; font-size: 10px; color: var(--mnv-fg-faint); margin-top: 1px; }
+
+@container (min-width: 760px) {
+  .mnv-rail {
+    display: flex; flex-direction: column; flex: none; width: 184px;
+    padding: 12px 8px 8px; border-right: 1px solid var(--mnv-border); background: var(--mnv-bg-soft);
+    min-height: 0; overflow-y: auto;
+  }
+  /* 宽屏用左侧栏导航，顶部页签隐去 */
+  .mnv-tabs { display: none; }
+  .mnv-header { flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 18px; }
+  /* 宽屏顶栏：路径 → 计数 → 刷新。数据源徽章已经在左侧栏里，这里不再重复 */
+  .mnv-h-row1 { order: 3; flex: none; }
+  .mnv-h-row1 > .mnv-badge, .mnv-h-row1 > .mnv-spacer { display: none; }
+  .mnv-h-row2 { order: 1; flex: 1 1 220px; min-width: 0; }
+  .mnv-h-row3 { order: 2; flex: none; }
+  /* 四列"最近"面板在宽屏跨两栏：塞进单栏会把每列压到 100px 以下 */
+  .mnv-wide-span { grid-column: 1 / -1; }
+  .mnv-h-title { display: none; }
+  .mnv-body { padding: 16px 18px 28px; }
+  /* 宽屏双列：左右各自成列，读起来像文档而不是一条长滚动条 */
+  .mnv-wide-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+  .mnv-wide-2 > .mnv-panel { margin-bottom: 0; }
+  .mnv-wide-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+  .mnv-cols { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 `

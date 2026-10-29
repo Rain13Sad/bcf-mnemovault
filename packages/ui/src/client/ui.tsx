@@ -8,6 +8,7 @@ export const KIND_LABEL: Record<number, string> = {
   3: '图式',
   4: '人格锚',
   5: '关系',
+  6: '叙事',
 }
 
 export const TIER_LABEL: Record<number, string> = { 0: '热', 1: '温', 2: '冷', 3: '归档' }
