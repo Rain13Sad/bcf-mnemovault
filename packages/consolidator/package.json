@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-consolidator",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "离线巩固：NREM / REM pass + 锁 + 遗忘",
   "keywords": [
     "dsh",
@@ -52,8 +52,8 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "@rain13sad/dsh-mnemo-core": "^0.5.1",
-    "@rain13sad/dsh-mnemo-affect": "^0.5.1"
+    "@rain13sad/dsh-mnemo-core": "^0.5.2",
+    "@rain13sad/dsh-mnemo-affect": "^0.5.2"
   },
   "publishConfig": {
     "access": "public"

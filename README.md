@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.1 -->
+<!-- DOC-VERSION: 0.5.2 -->
 
 # MnemoVault
 
@@ -16,7 +16,7 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -27,21 +27,21 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 > Memory should not be text. Text is a projection for humans, not a storage format for machines.
 >
 > This README is the English summary. The **Chinese documentation is canonical** — it is where the
-> design rationale, the 19 known weaknesses (D1–D19, [`PROJECT-GUIDE`](docs/PROJECT-GUIDE.md) §12)
+> design rationale, the 28 known weaknesses (D1–D28, [`PROJECT-GUIDE`](docs/PROJECT-GUIDE.md) §12)
 > and the measured numbers live.
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.5.1** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 10 packages · 56 source files / ~17,300 lines of TS (`.ts` + `.tsx`, UI included) · 160 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
+| **Status** | **v0.5.2** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 10 packages · 59 source files / ~18,700 lines of TS (`.ts` + `.tsx`, UI included) · 176 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
-| **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (19 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
+| **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (28 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
 ---
 
 ## Table of contents
 
-- [What's new in 0.5.1](#whats-new-in-051) · [How deletion actually works](#how-deletion-actually-works)
+- [What's new in 0.5.2](#whats-new-in-052) · [How deletion actually works](#how-deletion-actually-works)
 - [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not) · [Data flow](#data-flow)
 - [Quick start](#quick-start) · [Five minutes to first call](#five-minutes-to-first-call) · [Benchmarks](#benchmarks)
 - [Packages](#packages) · [Panel](#panel) · [How it compares](#how-it-compares)
@@ -50,38 +50,80 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 
 ---
 
-## What's new in 0.5.1
+## What's new in 0.5.2
 
-0.5.0 made the decision chain fire. 0.5.1 fixes what that exposed — plus one bug that had been there
-since 0.2 and that nobody had noticed because every test used a positive number.
+0.5.0 made the decision chain fire. 0.5.1 made it compute correctly. **0.5.2 makes it hold at scale** —
+and it turned out the bottleneck was not where the audit said it was.
 
-| Bug | What it did | Fix |
-| :--- | :--- | :--- |
-| **Sign lost on the i8 boundary** | `buf[0x2c] = -68` on a `Uint8Array` wraps to `188`; decoding did `188 / 127` → **every negative valence/arousal/dominance came back positive**. A `-0.54` sad memory read as `+1.48`, and `clamp01(|v|)` then pinned affect intensity at 1.0 | Write with `& 0xff`, decode with `<< 24 >> 24` (sign-extended). **No rebuild needed** — the bytes were always two's complement, only the reader was wrong |
-| **Anniversary boost broke monotonicity** | The boost was added *after* the staleness envelope and was larger than a band (0.25 vs ~0.18), so a compacted **tombstone got promoted back to archive** on its 4th anniversary — with its text already released | Anniversary now applies only to valid, non-tombstone cells, is multiplied by the envelope, and is capped at the **current band's ceiling** — it can nudge, never cross |
-| **`includeTombstones` was a dead switch** | Compaction drops `emb` and `residual`, so the semantic channel scored 0; the symbolic channel only ever looked at entity SDRs. A tombstone whose id you forgot was **unfindable** | New catalogue channel: query tokens vs `digest` overlap, enabled only by `includeTombstones`, capped at 0.85. `memory_recall` gained `include_tombstones` |
-| **`demoteDue` could promote** | `nextTier` is bidirectional, so pure time could warm a memory back up (`tier 2 → 1` at +365 days) | Demotion pass is now **downward only**. Promotion comes from use: a strong recall hit, or sleep replay |
-| **Test clock didn't reach the service** | `createHarness({ now })` fed event timestamps but `MemoryService` still read `Date.now()`, so every time-travel test silently tested nothing | `MemoryService.setClock()`; the harness now wires it. `h.now() === memory.nowMs()` is asserted |
-| **PAD wasn't clamped at encode** | Affected the same `1.48` symptom from the other side | `valence / arousal / dominance` clamped to [-1, 1] at the encoder |
+The audit fitted three points (200/400/800 turns → 3.24/4.76/9.45 ms per turn) and concluded
+"writes are O(n), so extrapolate to 6.4 hours for 100k cells". Writes *were* O(n). But profiling the
+whole turn showed a bigger, dumber cost: **to compute 128 multiply-adds, every recall decoded every
+MC03 blob in the library.** Decoding dominated by two orders of magnitude.
 
-New tests are **scan-based**, not point samples — the 0.5.0 suite tested day 400 and day 900 and managed
-to miss both anniversary windows (365 / 730) entirely:
+| Before (0.5.1) | Now (0.5.2) | Measured |
+| :--- | :--- | ---: |
+| Q1 decoded the whole library to run `cosine` | **In-memory vector matrix** (contiguous `Int8Array`, cold PQ vectors expanded on insert with the *same* `expandEmb`, so scores are bit-identical) | recall p50 @822: 18 → **4 ms** |
+| Dedupe and conflict detection each scanned every cell | **SDR inverted index** — thresholds derived from the Jaccard/containment gate (`o = J(|a|+\|b\|)/(1+J)`), so candidates are a **superset**, not an approximation | ingest @822: 46 → **1.8 ms** |
+| `findConflict` bucketed by `agent|pred` — which is 1/6 of the library | Bucketed by `agent|pred|manner|patient|polarity`; same-patient only needs *opposite* polarity | `getCell` per 5 turns: 2026 → **16** |
+| Q4 scanned the whole table although `idx_time` had existed since v0.2 | SQL range query | same results, verified against full scan |
+| `stats()` decoded the library to count rows | SQL `GROUP BY` | @10k: 20 → **0.8 ms** |
+| `doctor()` ran three full decodes per panel refresh | One merged pass + 30 s cache | @10k: ~700 → **~250 ms** |
+| `demoteDue` recomputed all seven factors every tick, one WAL commit per cell | Retention **persisted** (`retention` table, no `cells` change), incremental sweep, monotonic pruning, **one transaction** | 10k pass: 2066 → **658 ms** |
+| Consolidation held one transaction for the whole pass | Committed per phase | lock per phase, not per pass |
+| README's "10k cells, p95 ≤ 40 ms" was never asserted anywhere | `ci-assert-scale.mjs` in CI | **25 ms** |
+
+The trend matters more than any single number — **it stopped growing**:
 
 ```text
-property 1 (monotone)  step the clock 10 years, 7 days at a time: tier must never go up
-property 2 (reachable) it must reach tier 4, and never come back
-property 3 (invariant) tInvalid older than the grace window ⇒ effective P2, whatever the anniversary says
+turn ms (real ingest)     222 cells 4.0   ·   422 cells 2.8   ·   822 cells 3.1
+steady ingest ms          222 cells 2.1   ·   422 cells 2.1   ·   822 cells 1.8
+recall p50 ms             222 cells 4     ·   422 cells 4     ·   822 cells 4
 ```
+
+Plus nine deterministic fixes that the audit found by reading the source (all real, all now tested):
+
+| # | Bug | Fix |
+| :--- | :--- | :--- |
+| D20 | `explain()` ran a **non-readOnly** recall, so `/mnemo why` raised the target's `tAccess` | `readOnly: true` — observation must not mutate what is observed |
+| D21 | Schema cells were written with `flags: FLAG.noDecay & 0` (always 0), so schemas were decayed like ordinary episodes | `FLAG.noDecay`; schemas now hold P5 |
+| D22 | `maxResidualBytes` truncated by UTF-16 code unit, so "8192" stored ~24 KB of Chinese | truncate by UTF-8 bytes on code-point boundaries |
+| D23 | Two copies of short-id resolution, both **silently taking the first match** — on an irreversible `forget --hard` | merged into `tools/src/id.ts`; >1 match throws `AmbiguousCellIdError` |
+| D24 | Retention was never persisted | see the table above |
+| D25 | Main benchmark used `MemoryStore`; scale bench was not in CI | scale gate + explicit "MemoryStore, not SQLite" banner |
+| D26 | Two drivers disagree on residual refcount semantics | **not fixed** — small blast radius, needs a semantics decision (documented) |
+| D27 | Write path used `conn.prepare()` instead of the statement cache | all write paths go through `prep()` |
+| D28 | Docs drifted: command count (15 stated, 22 real), `trace` documented but not implemented, byte size wrong | `check-readme` now verifies **command count** and **command existence**; `trace` implemented; 342 B measured |
+
+Two bugs were caught *by the new tests while writing them*, which is the honest way to report them:
+
+- the inverted index returned `overlap: threshold` instead of the true overlap, so Jaccard was
+  under-computed and **dedupe silently stopped merging** (test: "same sentence twice → one cell");
+- the index rebuild path forgot to carry `kind`, so after any external write every candidate looked
+  like `kind 0` and the next ingest created a duplicate (test: "index self-heals after external write").
+
+<details>
+<summary>What 0.5.1 fixed (sign loss, anniversary oscillation, dead switch)</summary>
+
+- **i8 sign lost on the `Uint8Array` boundary** — every negative valence/arousal/dominance read back positive
+  (`-0.54` → `+1.48`). Fixed with `& 0xff` on write and sign-extending decode; **no rebuild needed**.
+- **Anniversary boost broke monotonicity** — it was added after the staleness envelope and was wider than a
+  band, so a compacted tombstone got promoted back to archive. Now capped at the current band's ceiling.
+- **`includeTombstones` was a dead switch** — compaction drops `emb`, so the semantic channel scored 0.
+  Added a catalogue channel over `digest` tokens.
+- **`demoteDue` could promote** — now downward only.
+- **Test clock never reached the service** — `createHarness({ now })` silently tested nothing.
+- **PAD not clamped at encode.**
+
+</details>
 
 <details>
 <summary>What 0.5.0 fixed (the decision chain was inert)</summary>
 
-Ten ordinary user statements, aged 400 days, produced **zero** demotions, because three defects stacked:
-an always-true gate (`trust >= 240` *is* `TRUST_BY_PROVENANCE[0]`) that also rewrote the score;
-six of seven factors being static; and one-tier-per-pass colliding with a P3 floor.
-0.5.0 replaced the gate with a **tier cap** instead of a score floor, added the staleness envelope,
-wired `tInvalid` in, fixed the `SUPERSEDES` direction, made `tier 4` a real tombstone, and decoupled
-`confidence` from retrieval count.
+Ten ordinary user statements, aged 400 days, produced **zero** demotions: an always-true gate
+(`trust >= 240` *is* `TRUST_BY_PROVENANCE[0]`) that also rewrote the score; six of seven factors static;
+one-tier-per-pass colliding with a P3 floor. 0.5.0 replaced the gate with a **tier cap**, added the
+staleness envelope, wired `tInvalid` in, fixed the `SUPERSEDES` direction, made `tier 4` a real
+tombstone, and decoupled `confidence` from retrieval count.
 
 </details>
 
@@ -181,7 +223,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 160 tests
+npm test             # 176 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)
@@ -289,8 +331,8 @@ Measured on Node 22.22 / Windows; reproducible from `artifacts/bench.json` (`npm
 | Temporal reasoning | **1.00** | ≥ 0.75 | `pnpm → npm → bun` across three versions |
 | tokens / turn | **106.4** | ≤ 240 | legend amortised |
 | Recall p95 | **15 ms** | ≤ 40 ms @1M | 42 cells locally, not a million |
-| Bytes per cell | **341 B** | — | MC03: 112 B header + sparse SDR + 128-dim vector (844 B in v0.2) |
-| Storage ratio (short config-style DB) | 5.32× | diagnostic only | ~98 B turns (“我用 pnpm。”) — the fixed 341 B per cell dominates |
+| Bytes per cell | **342 B** | — | MC03: 112 B header + sparse SDR + 128-dim vector (844 B in v0.2) |
+| Storage ratio (short config-style DB) | 5.32× | diagnostic only | ~98 B turns (“我用 pnpm。”) — the fixed 342 B per cell dominates |
 | Storage ratio (800-char turn, default split) | **0.839×** | ≤ 0.90 | 762 chars/turn, 2.25 cells/turn |
 | Storage ratio (800-char turn, one cell) | **0.678×** | ≤ 0.72 | coarse control, shows split-granularity sensitivity |
 
@@ -301,9 +343,31 @@ cost, latency is paid on every recall, so v0.3.1 also removed three storage-laye
 "rebuild the whole panel snapshot on every recall" waste — recall p50 at 500 cells went from 90 ms
 back to 26 ms. Reporting only one of the two numbers would be telling half the story.
 
+### At scale
+
+The table above measures **quality** on a 300-turn corpus. Scale is a different question, so it gets a
+different script, a different corpus and — importantly — a different claim:
+
+| Cells | recall p50 | recall p95 | steady ingest p50 | index build | index memory |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 222 | 4 ms | 9 ms | 2.1 ms | 10 ms | 72 KB |
+| 422 | 4 ms | 7 ms | 2.1 ms | 12 ms | 137 KB |
+| 822 | 4 ms | 7 ms | 1.8 ms | 20 ms | 266 KB |
+| 10,000 | 20 ms | **25 ms** | 10 ms | 287 ms | 1.6 MB |
+
+Index on vs off, same 10k corpus: **recall 11× faster, ingest 21× faster**
+(`node scripts/bench-scale.mjs --corpus 10000 --ab`).
+
+> **This corpus is synthetic, and the number is only about latency.** It is built by batch `putCell`
+> plus synthetic edges — no residuals, uniform access history. Recall on it is **not comparable** to a
+> real vault. The `caveat` field in `artifacts/bench-scale.json` says so, and so does the console output,
+> because the failure mode here is a future reader quoting it as if it were real (that is D13's path).
+
 CI turns these into failing assertions via [`scripts/ci-assert-bench.mjs`](scripts/ci-assert-bench.mjs)
 (Recall@8 ≥ 0.80 / MRR ≥ 0.60 / tokens ≤ 240 / both storage profiles). Since v0.3 the storage ratio
 **is gated** — but against the measured, reachable target, not the arithmetically impossible 0.60.
+Scale is gated separately by [`scripts/ci-assert-scale.mjs`](scripts/ci-assert-scale.mjs):
+10k cells, `recall p95 ≤ 40 ms`, index build ≤ 3 s, index memory ≤ 4 MB.
 
 <details>
 <summary><b>Why 0.45–0.60× was unreachable, and what v0.3 actually fixed</b></summary>
@@ -374,7 +438,7 @@ Tests 109 → 115. `npm run verify` green. `storageRatioRealistic` unchanged at 
 | [`…-encoder`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-encoder) | write side | Preview | `Encoder` (subscribes to `session/event`) |
 | [`…-recall`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-recall) | read side | Preview | `agent/pre-step` gating and injection |
 | [`…-consolidator`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-consolidator) | offline consolidation + sleep replay | Preview | `Consolidator` (NREM / REM / replay / forgetting) |
-| [`…-tools`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-tools) | tools + commands | Stable-ish | 6 tools, 15 `/mnemo` subcommands, egress guard |
+| [`…-tools`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-tools) | tools + commands | Stable-ish | 6 tools, 22 subcommands, egress guard |
 | [`…-proactive`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-proactive) | speaking up first | Experimental | `ctx.mnemoProactive`, `candidate()`, `tick()` |
 | [`…-settings`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-settings) | settings panel | Experimental | `ctx.mnemoSettings`, effect matrix |
 | [`…-ui`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-ui) | panel (client, React) | Experimental — needs `react` | `main` + `sidebar.panellist` slot registration |
@@ -454,8 +518,10 @@ rule-based and deterministic, which is why the same dialogue replays to the same
 
 ## Known limitations
 
-The full catalogue is **19 known weaknesses (D1–D19)** in [`PROJECT-GUIDE` §12](docs/PROJECT-GUIDE.md),
-each with evidence and a severity. Below are the 17 that bite users in practice.
+The full catalogue is **28 known weaknesses (D1–D28)** in [`PROJECT-GUIDE` §12](docs/PROJECT-GUIDE.md),
+each with evidence and a severity. Nine of them (D20–D28) were found by the v0.5.2 audit and are already
+fixed — they are listed there because *they existed*, and because three of them were the silent kind.
+Below are the 17 that still bite users in practice.
 
 1. **Embeddings are not a semantic model.** Bigram backbone + 24 synonym families + whole-identifier
    tokens, but no word vectors and no context. Real semantics needs the host's embedding service
@@ -504,8 +570,10 @@ Long-form docs are in Chinese; the design doc and the project guide are the two 
 | Doc | What it is |
 | :--- | :--- |
 | [`docs/README.md`](docs/README.md) | Documentation map — pick by intent, not by order |
-| [`docs/PROJECT-GUIDE.md`](docs/PROJECT-GUIDE.md) | What the code actually does; 15 weaknesses with evidence; 12 improvements ranked P0–P2 |
+| [`docs/PROJECT-GUIDE.md`](docs/PROJECT-GUIDE.md) | What the code actually does; 28 weaknesses with evidence; 12 improvements ranked P0–P2 |
 | [`docs/design/MNEMOVAULT-DESIGN.md`](docs/design/MNEMOVAULT-DESIGN.md) | Full derivation: sparse-code algebra, four-channel recall, MRS rendering, biphasic consolidation |
+| [`docs/design/V0.5.2-PLAN.md`](docs/design/V0.5.2-PLAN.md) | 0.5.2: the nine defects, the scale work, and the measured numbers |
+| [`docs/releases/v0.5.2.md`](docs/releases/v0.5.2.md) | Release note for 0.5.2 |
 | [`docs/design/V0.5-PLAN.md`](docs/design/V0.5-PLAN.md) | 0.5.0: the eleven confirmed defects, the fixes, and the verification numbers |
 | [`docs/design/V0.4-PLAN.md`](docs/design/V0.4-PLAN.md) | 0.4.0 scope: what was taken from the v0.4 proposal, what was deferred, and the formulas |
 | [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md) | Where the real DSH `0.2.1-rc.3` packages differ from the design doc |

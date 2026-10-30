@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.1 -->
+<!-- DOC-VERSION: 0.5.2 -->
 
 # MnemoVault
 
@@ -16,7 +16,7 @@
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#빠른-시작)
-[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · **한국어** · [Español](README.es.md)
 
@@ -27,8 +27,8 @@
 
 | | |
 | :--- | :--- |
-| **상태** | **v0.5.1** · Developer Preview (기준 DSH `0.2.1-rc.3`) |
-| **규모** | 10개 패키지 · 56개 소스 파일 / 약 17,300줄 (`.ts` + `.tsx`) · 160개 테스트 |
+| **상태** | **v0.5.2** · Developer Preview (기준 DSH `0.2.1-rc.3`) |
+| **규모** | 10개 패키지 · 59개 소스 파일 / 약 18,700줄 (`.ts` + `.tsx`) · 176개 테스트 |
 | **의존성** | 실행 시 **`@deepseek-ai/*` 이외의 서드파티 패키지에 의존하지 않습니다** (유일한 외부 패키지는 설정 스키마용 `schemastery`, 나머지는 Node 내장 `node:sqlite` / `node:zlib`) |
 | **요구 사항** | Node ≥ 22.13 · npm ≥ 10. 테스트 실행에 DSH 호스트는 필요 없습니다 |
 
@@ -57,13 +57,18 @@
 - **tier 4 = 묘비**: 잔차와 벡터를 해제하고 검색에서 제외되며, 패널에서 되살릴 수 있습니다(원문은 돌아오지 않습니다).
 - **v0.5.1**: i8 부호 손실(음수 정서값이 양수로 바뀜), 기념일 보너스로 인한 계층 되돌림,
   묘비를 찾을 수 없던 "죽은 스위치"를 수정했습니다.
+- **v0.5.2**: 실제 규모에서 성립하게 만들었습니다. 병목은 "쓰기가 O(n)"이 아니라
+  **"128번의 곱셈을 위해 매번 라이브러리 전체 blob을 디코딩하던 것"**이었습니다.
+  822 cell에서 턴당 25.4 ms → **3.1 ms**(증가가 멈췄습니다), 1만 cell의 recall p95는 **25 ms**.
+  SDR 역색인(임계값은 판정식에서 역산한 **필요조건**이라 후보는 초집합), 메모리 벡터 행렬,
+  시간 색인, 보유도 영속화 + 단조성 가지치기를 넣었습니다.
 
 ## 빠른 시작
 
 ```bash
 npm ci               # devDependencies만 (typescript / react / 타입 정의)
 npm run build        # 10개 패키지를 의존 순서로 tsc 빌드 (번들러 없음)
-npm test             # 160개 테스트
+npm test             # 176개 테스트
 npm run demo         # 26턴 중국어 대화: 주입 / 통합 / 통계 / egress 가드
 npm run bench:eval   # Recall@8 / MRR / 중복 제거 / 시간 추론 / token 비용
 npm run panel        # 패널 미리보기 → http://127.0.0.1:5178/

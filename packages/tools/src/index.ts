@@ -29,6 +29,7 @@ import {
 } from '@rain13sad/dsh-mnemo-core'
 import { buildGuard, isEgressTool, type EgressGuard } from './guard.js'
 import { runCommand, type CommandDeps } from './commands.js'
+import { tryResolveCellId } from './id.js'
 import { attachCommandFace, registerCommandBridge, registerRemoteFace, registerSnapshotBridge } from './bridge.js'
 import type { RuntimeStatus } from '@rain13sad/dsh-mnemo-core'
 
@@ -252,8 +253,9 @@ export function apply(ctx: Context, config: Config) {
       },
       async execute(args: unknown) {
         const a = args as { cell_id: string; level: 0 | 1 | 2 }
-        const id = a.cell_id.length >= 16 ? a.cell_id : resolveShort(memory, a.cell_id)
-        return memory.expand(id, a.level)
+        const resolved = a.cell_id.length >= 16 ? ({ ok: true as const, id: a.cell_id }) : tryResolveCellId(memory, a.cell_id)
+        if (!resolved.ok) return { error: resolved.message }
+        return memory.expand(resolved.id, a.level)
       },
     }),
   )
@@ -401,7 +403,10 @@ export function apply(ctx: Context, config: Config) {
       },
       async execute(args: unknown, exec?: { agent?: unknown; callId?: unknown; signal?: AbortSignal }) {
         const a = args as { cell_id: string; mode: 'soft' | 'hard'; reason?: string }
-        const id = a.cell_id.length >= 16 ? a.cell_id : resolveShort(memory, a.cell_id)
+        // 短 id 有歧义时**必须**停下来：`forget --hard` 不可撤销，猜错等于删错
+        const resolved = a.cell_id.length >= 16 ? ({ ok: true as const, id: a.cell_id }) : tryResolveCellId(memory, a.cell_id)
+        if (!resolved.ok) return { cellId: a.cell_id, mode: a.mode, ok: false, message: resolved.message }
+        const id = resolved.id
         const sid = String((exec?.agent as { session?: { id?: string } } | undefined)?.session?.id ?? 'default')
 
         /**
@@ -601,16 +606,6 @@ export function apply(ctx: Context, config: Config) {
 
   ctx.logger('mnemo-tools').info(`tools ready (egress guard=${config.blockMemoryInEgress})`)
   return { runCommand: (argv: string[]) => runCommand(argv, deps), deps }
-}
-
-function resolveShort(memory: MemoryService, short: string): string {
-  const clean = short.replace(/^#/, '').replace(/^0x/, '').toLowerCase()
-  let found = ''
-  memory.store.forEachCell((c) => {
-    if (found) return
-    if (toHex(c.cellId, 16).endsWith(clean)) found = toHex(c.cellId, 16)
-  })
-  return found || clean.padStart(16, '0')
 }
 
 export { runCommand, isEgressTool, buildGuard }

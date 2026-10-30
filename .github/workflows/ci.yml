@@ -17,6 +17,7 @@ jobs:
   verify:
     name: verify · ${{ matrix.os }} · node ${{ matrix.node }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -63,6 +64,12 @@ jobs:
       - name: 基准门槛
         run: node scripts/ci-assert-bench.mjs
 
+      # v0.5.2：规模门槛（D15/D25）。
+      # 1 万 cell 合成语料 · recall p95 ≤ 40 ms · 索引构建 ≤ 3 s · 索引内存 ≤ 4 MB。
+      # 这个数 README 从 v0.3 就写着，而 CI 里从来没有断言过它。
+      - name: 规模门槛（1 万 cell）
+        run: npm run ci:assert-scale
+
       - name: 上传基准报告
         if: always()
         uses: actions/upload-artifact@v4
@@ -79,6 +86,7 @@ jobs:
   npm-latest:
     name: npm@latest · ubuntu-latest
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -95,5 +103,16 @@ jobs:
       - name: 版本与依赖一致性门禁（含平台中立性）
         run: node scripts/ci-check-publish.mjs
 
+      # v0.5.2 修的一处 CI 红灯：这个 job 原来**没有 build**，
+      # 而 `check:readme` 默认会跑一遍测试拿真实条数——lib/ 不在，测试全失败，
+      # 于是报"拿不到 # tests N"，job 红。两个修法一起上：
+      #   ① 这里补 build（本来也该验证"能不能编译"）；
+      #   ② check-readme 在 lib 缺席时退回静态计数（见脚本注释）。
+      - name: 编译 10 个包
+        run: npm run build
+
       - name: README 数字校验
         run: npm run check:readme
+
+      - name: 类型检查
+        run: npm run typecheck

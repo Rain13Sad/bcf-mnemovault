@@ -1,23 +1,26 @@
 {
-  "generatedAt": "2026-10-29T09:49:58.945Z",
+  "generatedAt": "2026-10-30T18:58:02.978Z",
+  "node": "v22.22.2",
+  "platform": "win32-x64",
+  "mode": "synthetic-corpus",
+  "caveat": "合成语料：批量 putCell + 合成边，无残差、访问历史均匀。仅用于延迟/吞吐，Recall 不可与真实库比较。",
   "rows": [
     {
-      "cells": 202,
-      "driver": "sqlite",
-      "loadSec": 1.4,
-      "writeMsPerCell": 7.1,
-      "recallP50Ms": 15,
-      "recallP95Ms": 20,
-      "forEachCellMs": 5
-    },
-    {
-      "cells": 502,
-      "driver": "sqlite",
-      "loadSec": 6.3,
-      "writeMsPerCell": 12.6,
-      "recallP50Ms": 26,
-      "recallP95Ms": 35,
-      "forEachCellMs": 8
+      "mode": "corpus",
+      "corpus": 10000,
+      "corpusEdges": 40000,
+      "corpusBuildMs": 1980,
+      "sdrIndex": true,
+      "indexCells": 10000,
+      "indexBytes": 1671272,
+      "indexBuildMs": 287,
+      "cells": 10022,
+      "recallP50Ms": 20,
+      "recallP95Ms": 25.33,
+      "ingestP50Ms": 11.04,
+      "demoteMs": 702,
+      "panelMs": 672,
+      "caveat": "synthetic: batch putCell + synthetic edges; no residuals, uniform access history — latency only, not Recall"
     }
   ]
 }

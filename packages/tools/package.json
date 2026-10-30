@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-tools",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "工具面（6）+ 命令面（13）+ egress 守卫",
   "keywords": [
     "dsh",
@@ -53,8 +53,8 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "@rain13sad/dsh-mnemo-core": "^0.5.1",
-    "@rain13sad/dsh-mnemo-affect": "^0.5.1"
+    "@rain13sad/dsh-mnemo-core": "^0.5.2",
+    "@rain13sad/dsh-mnemo-affect": "^0.5.2"
   },
   "publishConfig": {
     "access": "public"

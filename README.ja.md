@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.1 -->
+<!-- DOC-VERSION: 0.5.2 -->
 
 # MnemoVault
 
@@ -16,7 +16,7 @@
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#クイックスタート)
-[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **日本語** · [한국어](README.ko.md) · [Español](README.es.md)
 
@@ -28,8 +28,8 @@
 
 | | |
 | :--- | :--- |
-| **状態** | **v0.5.1** · Developer Preview（基線 DSH `0.2.1-rc.3`） |
-| **規模** | 10 パッケージ · 56 ソースファイル / 約 17,300 行（`.ts` + `.tsx`）· 160 テスト |
+| **状態** | **v0.5.2** · Developer Preview（基線 DSH `0.2.1-rc.3`） |
+| **規模** | 10 パッケージ · 59 ソースファイル / 約 18,700 行（`.ts` + `.tsx`）· 176 テスト |
 | **依存** | 実行時に **`@deepseek-ai/*` 以外の第三者パッケージに依存しません**（唯一の外部は設定スキーマ用の `schemastery`、残りは Node 組み込みの `node:sqlite` / `node:zlib`） |
 | **要件** | Node ≥ 22.13 · npm ≥ 10。テストの実行に DSH ホストは不要 |
 
@@ -58,13 +58,18 @@
 - **tier 4 = 墓碑**：残差とベクトルを解放し、検索から外れ、パネルから復活できます（原文は戻りません）。
 - **v0.5.1**：i8 の符号欠落（負の感情値が正に化ける）、周年ボーナスによる階層の揺り戻し、
   墓碑が検索できない「死んだスイッチ」を修正しました。
+- **v0.5.2**：実規模で成立させました。ボトルネックは「書き込みが O(n)」ではなく
+  **「128 回の乗算のために毎回ライブラリ全体の blob をデコードしていたこと」**でした。
+  822 cell で 1 ターン 25.4 ms → **3.1 ms**（成長が止まりました）、1 万 cell の recall p95 は **25 ms**。
+  SDR 転置索引（しきい値は判定式から逆算した**必要条件**なので候補は超集合）、
+  メモリ上のベクトル行列、時間索引、保持度の永続化＋単調性枝刈りを入れています。
 
 ## クイックスタート
 
 ```bash
 npm ci               # devDependencies のみ（typescript / react / 型定義）
 npm run build        # 10 パッケージを依存順に tsc でビルド（バンドラなし）
-npm test             # 160 テスト
+npm test             # 176 テスト
 npm run demo         # 26 ターンの中国語対話：注入 / 統合 / 統計 / egress ガード
 npm run bench:eval   # Recall@8 / MRR / 重複排除 / 時間推論 / token コスト
 npm run panel        # パネルのプレビュー → http://127.0.0.1:5178/

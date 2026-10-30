@@ -34,7 +34,7 @@ README 已经改成英文为主（`README.md`）+ 四份译文（`README.zh-CN.m
 | **About → Description** | `Long-term memory & affect for DeepSeek Harness — sparse-code cells, 4-channel recall, ~116 tokens/turn. Zero runtime deps.` |
 | **About → Topics** | `dsh` `deepseek-harness` `cordis` `agent-memory` `long-term-memory` `sparse-distributed-representations` `hyperdimensional-computing` `affective-computing` `companion-ai` `typescript` |
 | **About → Website** | 留空（没有独立站点，README 就是入口） |
-| **Social preview** | 上传 `docs/assets/social-preview.png`（1280×640，已生成） |
+| **Social preview** | 把 `docs/assets/social-preview.svg` 导出成 **1280×640 PNG** 再上传（GitHub 的 Social preview 只收 PNG/JPG） |
 | **Settings → General → Default branch** | `main` |
 | **Settings → Features** | 开 Issues；Discussions 可选 |
 | **Settings → Code security** | 开 Dependabot alerts、Secret scanning、Push protection |

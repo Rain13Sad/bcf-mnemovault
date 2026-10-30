@@ -70,6 +70,31 @@ export interface Store {
   putCell(cell: MemCell): void
   getCell(id: bigint): MemCell | null
   /**
+   * `t_from` 落在 [from, to] 的 cell id（Q4 时间路）。
+   *
+   * v0.5.1 之前 Q4 也是 `forEachCell` 全表扫——而 `idx_time(t_from,t_to)` 一直就建着，
+   * 只是没人用。这是全项目收益/成本比最高的一处：不新增数据结构，只把"扫全表"换成"走索引"。
+   *
+   * 口径：只按 `t_from` 过滤，**不看 `t_to`**。这不是漏了——原来的 Q4 也只比 `tFrom`，
+   * 这里必须保持行为等价，否则"改成走索引"会顺手改掉检索结果。
+   */
+  cellsInTimeRange(from: number, to: number): bigint[]
+  /** 保留度缓存（v0.5.2）：只存 score/band/at，不存七因子分解（见 setRetention 注释）。 */
+  setRetention(cellId: bigint, score: number, band: number, at: number): void
+  retentionOf(cellId: bigint): { score: number; band: number; at: number } | null
+  /**
+   * 缓存已判定"该降档"的 cell（单调性剪枝的快路径）。
+   *
+   * 依据：无访问 → ACT-R 激活单调减；无结构变更 → 其余六因子不变；`stale` 单调减；
+   * 周年加成已被 v0.5.1 封顶在本档上沿。所以 t₀ 时判定的"该降"在 t>t₀ 仍成立。
+   * 反向不成立，所以未命中的仍要重算——剪枝是保守方向。
+   */
+  demotableByCache(limit: number): bigint[]
+  /** 最久未被评估的 cell（增量扫描：一次 pass 只算一批，不让 tick 变成 CPU 热点）。 */
+  stalestForRetention(limit: number, before: number): bigint[]
+  invalidateRetention(cellId: bigint): void
+  clearRetention(): void
+  /**
    * 按 32 位前缀找一条 cell（边表只存 6 字节前缀，读旧库时需要回解）。
    *
    * v0.4 之前是 `forEachCell` 全表扫描——2000 cell / 4 条边实测 425 ms，
@@ -77,6 +102,19 @@ export interface Store {
    * `substr(cell_id, 9)` 表达式索引（低 32 位 = 末 8 位 hex），O(log n)。
    */
   findByPrefix(prefix: number): bigint | null
+  /**
+   * 按 id **后缀**找 cell（v0.5.2）。
+   *
+   * 短 id 是 16 位 hex 的末 4~8 位，于是"4 位短 id"天然可能撞车。
+   * v0.5.1 的两个实现都在撞车时**静默取第一个**——对 `forget --hard` 这种
+   * 不可撤销操作，这意味着"我以为删的是 A，删的是 B"。
+   * 现在返回**全部**匹配，由调用方决定是否报歧义。
+   *
+   * 走 SQL `LIKE`：仍然是扫一遍 id 列，但不解 blob——
+   * 对比 `forEachCell` 的"解 10 万个 blob"，差一到两个数量级。
+   */
+  findBySuffix(suffix: string, limit?: number): bigint[]
+
   deleteCell(id: bigint): void
   listCells(filter?: CellFilter): MemCell[]
   countCells(): number
@@ -86,7 +124,21 @@ export interface Store {
   putEdge(e: EdgeRecord): void
   edgesFrom(id: bigint): EdgeRecord[]
   edgesTo(id: bigint): EdgeRecord[]
-  allEdges(): EdgeRecord[]
+  /** 边表。给了 `limit` 就只取前 N 条——面板不需要把 50 万条边读进内存再切片。 */
+  allEdges(limit?: number): EdgeRecord[]
+  /**
+   * 聚合计数（v0.5.2）。面板每 3 秒刷新一次，而 `stats()` 原来是 `forEachCell`
+   * ——为了数几个数把全库 blob 解一遍。10 万 cell 下这是 500 ms 级的工作，
+   * 而 SQL 的 `GROUP BY` 是毫秒级。
+   */
+  counts(): {
+    byKind: Record<string, number>
+    byTier: Record<string, number>
+    supportOne: number
+    disputed: number
+    invalidated: number
+    contradictions: number
+  }
   setEdgeWeight(src: bigint, dst: bigint, rel: number, weight: number): void
   deleteEdge(src: bigint, dst: bigint, rel: number): void
 
@@ -221,6 +273,7 @@ export class MemoryStore implements Store {
   private shadow = new Set<string>()
   private evicts: EvictRecord[] = []
   private kv = new Map<string, string>()
+  private retention = new Map<string, { score: number; band: number; at: number }>()
 
   constructor(private readonly space: SdrSpace) {}
 
@@ -240,6 +293,58 @@ export class MemoryStore implements Store {
       if (Number(c.cellId & 0xffffffffn) === want) return c.cellId
     }
     return null
+  }
+  findBySuffix(suffix: string, limit = 8): bigint[] {
+    const clean = suffix.toLowerCase()
+    const out: bigint[] = []
+    for (const [k, c] of this.cells) {
+      if (k.endsWith(clean)) out.push(c.cellId)
+      if (out.length >= limit) break
+    }
+    return out
+  }
+  cellsInTimeRange(from: number, to: number): bigint[] {
+    const out: bigint[] = []
+    for (const c of this.cells.values()) {
+      const tf = Number(c.tFrom)
+      if (tf >= from && tf <= to) out.push(c.cellId)
+    }
+    return out
+  }
+  setRetention(cellId: bigint, score: number, band: number, at: number): void {
+    this.retention.set(idKey(cellId), { score, band, at })
+  }
+  retentionOf(cellId: bigint): { score: number; band: number; at: number } | null {
+    return this.retention.get(idKey(cellId)) ?? null
+  }
+  demotableByCache(limit: number): bigint[] {
+    const out: Array<{ id: bigint; at: number }> = []
+    for (const [k, r] of this.retention) {
+      const c = this.cells.get(k)
+      if (!c) continue
+      if (c.tier >= 4) continue
+      if (5 - r.band > c.tier) out.push({ id: c.cellId, at: r.at })
+    }
+    out.sort((a, b) => a.at - b.at)
+    return out.slice(0, limit).map((x) => x.id)
+  }
+  stalestForRetention(limit: number, before: number): bigint[] {
+    const out: Array<{ id: bigint; at: number }> = []
+    for (const [k, c] of this.cells) {
+      if (c.flags & 2) continue // FLAG.noDecay：永不评估
+      if (c.tier >= 4) continue
+      const at = this.retention.get(k)?.at ?? 0
+      if (at >= before) continue
+      out.push({ id: c.cellId, at })
+    }
+    out.sort((a, b) => a.at - b.at)
+    return out.slice(0, limit).map((x) => x.id)
+  }
+  invalidateRetention(cellId: bigint): void {
+    this.retention.delete(idKey(cellId))
+  }
+  clearRetention(): void {
+    this.retention.clear()
   }
   deleteCell(id: bigint): void {
     const victim = this.cells.get(idKey(id))
@@ -276,8 +381,31 @@ export class MemoryStore implements Store {
   edgesTo(id: bigint): EdgeRecord[] {
     return this.edgeList.filter((e) => e.dst === id)
   }
-  allEdges(): EdgeRecord[] {
-    return this.edgeList.map((e) => ({ ...e }))
+  allEdges(limit?: number): EdgeRecord[] {
+    const list = limit ? this.edgeList.slice(0, limit) : this.edgeList
+    return list.map((e) => ({ ...e }))
+  }
+  counts(): ReturnType<Store['counts']> {
+    const byKind: Record<string, number> = {}
+    const byTier: Record<string, number> = {}
+    let supportOne = 0
+    let disputed = 0
+    let invalidated = 0
+    for (const c of this.cells.values()) {
+      byKind[String(c.kind)] = (byKind[String(c.kind)] ?? 0) + 1
+      byTier[String(c.tier)] = (byTier[String(c.tier)] ?? 0) + 1
+      if (c.support <= 1) supportOne++
+      if (c.flags & 4) disputed++
+      if (Number(c.tInvalid ?? 0) !== 0) invalidated++
+    }
+    return {
+      byKind,
+      byTier,
+      supportOne,
+      disputed,
+      invalidated,
+      contradictions: this.edgeList.filter((e) => e.rel === 8).length,
+    }
   }
   setEdgeWeight(src: bigint, dst: bigint, rel: number, weight: number): void {
     const e = this.edgeList.find((x) => x.src === src && x.dst === dst && x.rel === rel)
@@ -397,6 +525,7 @@ export class MemoryStore implements Store {
     for (const [k, c] of [...this.cells]) if (!keep.has(c.kind)) this.cells.delete(k)
     this.edgeList = []
     this.sources.clear()
+    for (const k of [...this.retention.keys()]) if (!this.cells.has(k)) this.retention.delete(k)
   }
 
   write<T>(fn: () => T): T {
@@ -505,6 +634,17 @@ CREATE TABLE IF NOT EXISTS evict_log (
 
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
 
+-- 保留度缓存（v0.5.2）。**不进 MC03 blob、不改 cells 表**，所以旧库不需要 rebuild。
+-- 只存 score/band/at：七因子分解是面板逐条展示的内容，缓存成 JSON 会让存储涨约 20%，
+-- 而面板只算最近 120 条（实测 2 ms），不值得为它付这个代价。
+CREATE TABLE IF NOT EXISTS retention (
+  cell_id TEXT PRIMARY KEY,
+  score   REAL    NOT NULL,
+  band    INTEGER NOT NULL,
+  at      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_retention_at ON retention(at);
+
 -- 会话日志的影子副本：只存"重建晶格所需的最小信息"（§14.11 晶格可重建）。
 -- 它不替代 DSH 的 Session Log，只是让 /mnemo rebuild 不必依赖宿主回放接口。
 CREATE TABLE IF NOT EXISTS session_log (
@@ -570,8 +710,7 @@ export class SqliteStore implements Store {
 
   putCell(cell: MemCell): void {
     const r = rowFromCell(cell) as CellRow & { blob: Uint8Array }
-    this.conn
-      .prepare(
+    this.prep(
         `INSERT INTO cells (cell_id,kind,tier,flags,t_from,t_to,t_ingest,t_access,access_cnt,
            stability,importance,valence,arousal,dominance,salience,provenance,trust,
            confidence,support,topic,digest,residual_sha,residual_off,residual_len,t_invalid,scope,session,lens,blob)
@@ -619,6 +758,69 @@ export class SqliteStore implements Store {
       | Record<string, unknown>
       | undefined
     return row ? BigInt('0x' + String(row.cell_id)) : null
+  }
+
+  findBySuffix(suffix: string, limit = 8): bigint[] {
+    return this.prep('SELECT cell_id FROM cells WHERE cell_id LIKE ? LIMIT ?')
+      .all(`%${suffix.toLowerCase()}`, Math.max(1, limit))
+      .map((r) => BigInt('0x' + String(r.cell_id)))
+  }
+
+  /**
+   * 时间区间查询（Q4 时间路）。
+   *
+   * `idx_time(t_from,t_to)` 从 v0.2 就建着，但 Q4 一直 `forEachCell` 全表扫。
+   * 换成这条 SQL 之后，10 万 cell 下 Q4 从"解 10 万个 blob"变成"取几十个 id"。
+   */
+  cellsInTimeRange(from: number, to: number): bigint[] {
+    return this.prep('SELECT cell_id FROM cells WHERE t_from >= ? AND t_from <= ?')
+      .all(from, to)
+      .map((r) => BigInt('0x' + String(r.cell_id)))
+  }
+
+  setRetention(cellId: bigint, score: number, band: number, at: number): void {
+    this.prep(
+      'INSERT INTO retention (cell_id,score,band,at) VALUES (?,?,?,?) ON CONFLICT(cell_id) DO UPDATE SET score=excluded.score, band=excluded.band, at=excluded.at',
+    ).run(idKey(cellId), score, band, at)
+  }
+
+  retentionOf(cellId: bigint): { score: number; band: number; at: number } | null {
+    const r = this.prep('SELECT score,band,at FROM retention WHERE cell_id = ?').get(idKey(cellId))
+    return r ? { score: Number(r.score), band: Number(r.band), at: Number(r.at) } : null
+  }
+
+  /**
+   * 单调性剪枝的快路径：缓存里已经判定"该降"的，直接降，不再算七因子。
+   *
+   * `(5 - band) > tier` 把"档位编号"翻成"tier 编号"（P5→0 … P1→4）再比。
+   * `tier < 4` 排除墓碑：墓碑不参与任何自动流转（复活只能由用户发起）。
+   */
+  demotableByCache(limit: number): bigint[] {
+    return this.prep(
+      `SELECT c.cell_id AS id FROM retention r JOIN cells c ON c.cell_id = r.cell_id
+        WHERE (5 - r.band) > c.tier AND c.tier < 4 AND (c.flags & 2) = 0
+        ORDER BY r.at ASC LIMIT ?`,
+    )
+      .all(Math.max(1, limit))
+      .map((r) => BigInt('0x' + String(r.id)))
+  }
+
+  stalestForRetention(limit: number, before: number): bigint[] {
+    return this.prep(
+      `SELECT c.cell_id AS id FROM cells c LEFT JOIN retention r ON r.cell_id = c.cell_id
+        WHERE c.tier < 4 AND (c.flags & 2) = 0 AND COALESCE(r.at, 0) < ?
+        ORDER BY COALESCE(r.at, 0) ASC LIMIT ?`,
+    )
+      .all(before, Math.max(1, limit))
+      .map((r) => BigInt('0x' + String(r.id)))
+  }
+
+  invalidateRetention(cellId: bigint): void {
+    this.prep('DELETE FROM retention WHERE cell_id = ?').run(idKey(cellId))
+  }
+
+  clearRetention(): void {
+    this.conn.exec('DELETE FROM retention')
   }
 
   /**
@@ -705,26 +907,24 @@ export class SqliteStore implements Store {
   }
 
   putEdge(e: EdgeRecord): void {
-    this.conn
-      .prepare('INSERT INTO edges (src,dst,rel,weight) VALUES (?,?,?,?) ON CONFLICT(src,dst,rel) DO UPDATE SET weight=excluded.weight')
-      .run(idKey(e.src), idKey(e.dst), e.rel, e.weight)
+    this.prep(
+      'INSERT INTO edges (src,dst,rel,weight) VALUES (?,?,?,?) ON CONFLICT(src,dst,rel) DO UPDATE SET weight=excluded.weight',
+    ).run(idKey(e.src), idKey(e.dst), e.rel, e.weight)
   }
   edgesFrom(id: bigint): EdgeRecord[] {
-    return this.conn
-      .prepare('SELECT src,dst,rel,weight FROM edges WHERE src = ?')
+    return this.prep('SELECT src,dst,rel,weight FROM edges WHERE src = ?')
       .all(idKey(id))
       .map((r) => ({ src: BigInt('0x' + String(r.src)), dst: BigInt('0x' + String(r.dst)), rel: Number(r.rel), weight: Number(r.weight) }))
   }
   edgesTo(id: bigint): EdgeRecord[] {
-    return this.conn
-      .prepare('SELECT src,dst,rel,weight FROM edges WHERE dst = ?')
+    return this.prep('SELECT src,dst,rel,weight FROM edges WHERE dst = ?')
       .all(idKey(id))
       .map((r) => ({ src: BigInt('0x' + String(r.src)), dst: BigInt('0x' + String(r.dst)), rel: Number(r.rel), weight: Number(r.weight) }))
   }
-  allEdges(): EdgeRecord[] {
-    return this.conn
-      .prepare('SELECT src,dst,rel,weight FROM edges')
-      .all()
+  allEdges(limit?: number): EdgeRecord[] {
+    const sql = limit ? 'SELECT src,dst,rel,weight FROM edges LIMIT ?' : 'SELECT src,dst,rel,weight FROM edges'
+    return this.prep(sql)
+      .all(...(limit ? [Math.max(1, limit)] : []))
       .map((r) => ({ src: BigInt('0x' + String(r.src)), dst: BigInt('0x' + String(r.dst)), rel: Number(r.rel), weight: Number(r.weight) }))
   }
   setEdgeWeight(src: bigint, dst: bigint, rel: number, weight: number): void {
@@ -740,9 +940,14 @@ export class SqliteStore implements Store {
     const max = this.prep('SELECT COALESCE(MAX(offset), -1) AS m FROM residuals').get()
     const off = Number(max?.m ?? -1) + 1
     const c = compress(raw)
-    this.conn
-      .prepare('INSERT INTO residuals (sha,offset,raw_len,comp_len,ref_cnt,codec,data) VALUES (?,?,?,?,1,?,?)')
-      .run(sha, off, c.rawLen, c.bytes.length, c.codec, c.bytes)
+    this.prep('INSERT INTO residuals (sha,offset,raw_len,comp_len,ref_cnt,codec,data) VALUES (?,?,?,?,1,?,?)').run(
+      sha,
+      off,
+      c.rawLen,
+      c.bytes.length,
+      c.codec,
+      c.bytes,
+    )
     return off
   }
   /** 残差正文与索引同库（冷层可外迁到对象存储，接口不变）。 */
@@ -767,8 +972,7 @@ export class SqliteStore implements Store {
   }
 
   orphanResiduals(): Array<{ sha: string; bytes: number; rawLen: number }> {
-    const rows = this.conn
-      .prepare(
+    const rows = this.prep(
         `SELECT r.sha AS sha, r.comp_len AS b, r.raw_len AS raw FROM residuals r
          WHERE NOT EXISTS (SELECT 1 FROM cells c WHERE c.residual_sha = r.sha)`,
       )
@@ -785,28 +989,31 @@ export class SqliteStore implements Store {
   }
 
   putSource(cellId: bigint, session: string, seq: number): void {
-    this.conn
-      .prepare('INSERT INTO cell_sources (cell_id,session,seq) VALUES (?,?,?) ON CONFLICT DO NOTHING')
-      .run(idKey(cellId), session, seq)
+    this.prep('INSERT INTO cell_sources (cell_id,session,seq) VALUES (?,?,?) ON CONFLICT DO NOTHING').run(
+      idKey(cellId),
+      session,
+      seq,
+    )
   }
   sourcesOf(cellId: bigint): Array<{ session: string; seq: number }> {
-    return this.conn
-      .prepare('SELECT session,seq FROM cell_sources WHERE cell_id = ? ORDER BY seq')
+    return this.prep('SELECT session,seq FROM cell_sources WHERE cell_id = ? ORDER BY seq')
       .all(idKey(cellId))
       .map((r) => ({ session: String(r.session), seq: Number(r.seq) }))
   }
   cellsOfSession(session: string): bigint[] {
-    return this.conn
-      .prepare('SELECT DISTINCT cell_id FROM cell_sources WHERE session = ?')
+    return this.prep('SELECT DISTINCT cell_id FROM cell_sources WHERE session = ?')
       .all(session)
       .map((r) => BigInt('0x' + String(r.cell_id)))
   }
 
   putSnapshot(rendered: string, tokens: number): string {
     const id = snapshotIdOf(rendered)
-    this.conn
-      .prepare('INSERT INTO recall_snapshots (snap_id,rendered,tokens,created) VALUES (?,?,?,?) ON CONFLICT DO NOTHING')
-      .run(id, rendered, tokens, Date.now())
+    this.prep('INSERT INTO recall_snapshots (snap_id,rendered,tokens,created) VALUES (?,?,?,?) ON CONFLICT DO NOTHING').run(
+      id,
+      rendered,
+      tokens,
+      Date.now(),
+    )
     return id
   }
   getSnapshot(snapId: string): SnapshotRecord | null {
@@ -824,13 +1031,16 @@ export class SqliteStore implements Store {
   }
 
   appendEvict(rec: EvictRecord): void {
-    this.conn
-      .prepare('INSERT INTO evict_log (cell_id,mode,reason,actor,at) VALUES (?,?,?,?,?)')
-      .run(rec.cellId, rec.mode, rec.reason, rec.actor, rec.at)
+    this.prep('INSERT INTO evict_log (cell_id,mode,reason,actor,at) VALUES (?,?,?,?,?)').run(
+      rec.cellId,
+      rec.mode,
+      rec.reason,
+      rec.actor,
+      rec.at,
+    )
   }
   recentEvicts(n: number): EvictRecord[] {
-    return this.conn
-      .prepare('SELECT * FROM evict_log ORDER BY at DESC LIMIT ?')
+    return this.prep('SELECT * FROM evict_log ORDER BY at DESC LIMIT ?')
       .all(Math.max(1, n))
       .map((r) => ({
         cellId: String(r.cell_id),
@@ -850,9 +1060,14 @@ export class SqliteStore implements Store {
   }
 
   appendLog(e: LogEntry): void {
-    this.conn
-      .prepare('INSERT INTO session_log (session,seq,turn,role,text,at) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING')
-      .run(e.session, e.seq, e.turn, e.role, e.text, e.at)
+    this.prep('INSERT INTO session_log (session,seq,turn,role,text,at) VALUES (?,?,?,?,?,?) ON CONFLICT DO NOTHING').run(
+      e.session,
+      e.seq,
+      e.turn,
+      e.role,
+      e.text,
+      e.at,
+    )
   }
   listLog(session?: string): LogEntry[] {
     const rows = session
@@ -869,11 +1084,14 @@ export class SqliteStore implements Store {
   }
   clearLattice(preserveKinds: number[] = []): void {
     if (preserveKinds.length === 0) {
-      this.conn.exec('DELETE FROM cells; DELETE FROM edges; DELETE FROM cell_sources;')
+      this.conn.exec('DELETE FROM cells; DELETE FROM edges; DELETE FROM cell_sources; DELETE FROM retention;')
       return
     }
     const list = preserveKinds.map((k) => Math.floor(k)).join(',')
-    this.conn.exec(`DELETE FROM cells WHERE kind NOT IN (${list}); DELETE FROM edges; DELETE FROM cell_sources;`)
+    this.conn.exec(
+      `DELETE FROM cells WHERE kind NOT IN (${list}); DELETE FROM edges; DELETE FROM cell_sources;
+       DELETE FROM retention WHERE cell_id NOT IN (SELECT cell_id FROM cells);`,
+    )
   }
 
   /** 单写事务（§8.5）。嵌套调用退化为最外层事务，避免巩固 pass 里再包一层。 */
@@ -904,12 +1122,37 @@ export class SqliteStore implements Store {
     }
   }
 
+  counts(): ReturnType<Store['counts']> {
+    const byKind: Record<string, number> = {}
+    const byTier: Record<string, number> = {}
+    for (const r of this.prep('SELECT kind, COUNT(*) AS n FROM cells GROUP BY kind').all()) {
+      byKind[String(r.kind)] = Number(r.n)
+    }
+    for (const r of this.prep('SELECT tier, COUNT(*) AS n FROM cells GROUP BY tier').all()) {
+      byTier[String(r.tier)] = Number(r.n)
+    }
+    const agg = this.prep(
+      `SELECT
+         COALESCE(SUM(CASE WHEN support <= 1 THEN 1 ELSE 0 END), 0) AS support_one,
+         COALESCE(SUM(CASE WHEN (flags & 4) != 0 THEN 1 ELSE 0 END), 0) AS disputed,
+         COALESCE(SUM(CASE WHEN t_invalid != 0 THEN 1 ELSE 0 END), 0) AS invalidated
+       FROM cells`,
+    ).get()
+    const contra = this.prep('SELECT COUNT(*) AS n FROM edges WHERE rel = 8').get()
+    return {
+      byKind,
+      byTier,
+      supportOne: Number(agg?.support_one ?? 0),
+      disputed: Number(agg?.disputed ?? 0),
+      invalidated: Number(agg?.invalidated ?? 0),
+      contradictions: Number(contra?.n ?? 0),
+    }
+  }
+
   stats() {
     const c = this.prep('SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(blob)),0) AS b FROM cells').get()
     const e = this.prep('SELECT COUNT(*) AS n FROM edges').get()
-    const r = this.conn
-      .prepare('SELECT COUNT(*) AS n, COALESCE(SUM(comp_len),0) AS b, COALESCE(SUM(raw_len),0) AS raw FROM residuals')
-      .get()
+    const r = this.prep('SELECT COUNT(*) AS n, COALESCE(SUM(comp_len),0) AS b, COALESCE(SUM(raw_len),0) AS raw FROM residuals').get()
     return {
       cells: Number(c?.n ?? 0),
       edges: Number(e?.n ?? 0),

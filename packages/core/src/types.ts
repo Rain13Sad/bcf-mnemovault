@@ -170,6 +170,28 @@ export interface MnemoConfig {
   recall: RecallWeights
   consolidation: ConsolidationConfig
   safety: SafetyConfig
+  /** v0.5.2：SDR 倒排索引与保留度缓存（规模化相关的两个可调项） */
+  index: IndexConfig
+}
+
+/**
+ * 规模化配置（v0.5.2）。
+ *
+ * 这两项都是"默认开、超预算退化为全扫并**如实上报**"的形态——
+ * 面板不能宣称一个宿主正在静默降级的能力（v0.5 定下的规矩）。
+ */
+export interface IndexConfig {
+  /** SDR 倒排索引（写侧去重/冲突、读侧符号路） */
+  sdrEnabled: boolean
+  /**
+   * 索引最多容纳多少条 cell。超过就整体停用、退回全扫。
+   * 默认 20 万：40 bit/条 × 20 万 ≈ 32 MB posting（实测口径见 docs/design/V0.5.2-PLAN.md）。
+   */
+  sdrMaxCells: number
+  /** 一次 demoteDue 最多评估多少条（增量扫描，避免 tick 变成 CPU 热点） */
+  demoteBatch: number
+  /** 保留度缓存的有效期（ms）。超过就重算，防止缓存把"变旧"这件事冻住 */
+  retentionTtlMs: number
 }
 
 // ── 检索 ────────────────────────────────────────────────────────────
@@ -315,6 +337,8 @@ export interface DoctorReport {
   tombstones?: number
   /** v0.5：墓碑占用字节（已压实，只含头 + 槽位 + digest） */
   tombstoneBytes?: number
+  /** v0.5.2：本次体检扫描了多少条 cell（体检是全库遍历，大库上这是它的成本口径） */
+  scanned?: number
   staleLocks: number
   indexConsistent: boolean
   layoutVersion: number

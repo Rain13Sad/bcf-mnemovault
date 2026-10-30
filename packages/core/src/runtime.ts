@@ -26,7 +26,24 @@ export interface L1Status {
   note: string
 }
 
+/**
+ * SDR 倒排索引状态（v0.5.2）。
+ *
+ * 面板必须能看出"索引是开着还是在全扫"——超预算时索引会整体停用退回全扫，
+ * 而退回后的检索仍然正确、只是慢。这种降级**不能静默**（v0.5 定下的规矩）。
+ */
+export interface SdrIndexStatus {
+  enabled: boolean
+  cells: number
+  postings: number
+  bytes: number
+  /** 最近一次重建耗时（ms）；0 表示还没建过 */
+  buildMs: number
+  note: string
+}
+
 export class RuntimeStatus {
+  sdrIndex: SdrIndexStatus = { enabled: false, cells: 0, postings: 0, bytes: 0, buildMs: 0, note: '未构建' }
   l1: L1Status = { enabled: false, mode: 'l0', entry: null, ok: false, lastMs: 0, note: '未启用 L1' }
   commandFace: CommandFace = 'none'
   remoteFace = false
@@ -41,6 +58,10 @@ export class RuntimeStatus {
     this.l1 = { ...this.l1, ...patch }
   }
 
+  setSdrIndex(patch: Partial<SdrIndexStatus>): void {
+    this.sdrIndex = { ...this.sdrIndex, ...patch }
+  }
+
   addTool(name: string): void {
     if (!this.tools.includes(name)) this.tools.push(name)
   }
@@ -49,9 +70,18 @@ export class RuntimeStatus {
     this.tools = this.tools.filter((t) => t !== name)
   }
 
-  view(): { l1: L1Status; commandFace: CommandFace; remoteFace: boolean; tools: string[]; capabilities: string[]; limits: string[] } {
+  view(): {
+    l1: L1Status
+    commandFace: CommandFace
+    remoteFace: boolean
+    tools: string[]
+    capabilities: string[]
+    limits: string[]
+    sdrIndex: SdrIndexStatus
+  } {
     return {
       l1: { ...this.l1 },
+      sdrIndex: { ...this.sdrIndex },
       commandFace: this.commandFace,
       remoteFace: this.remoteFace,
       tools: [...this.tools],

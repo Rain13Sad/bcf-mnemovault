@@ -84,6 +84,14 @@ export const Config = z.object({
     blockMemoryInEgress: z.boolean().default(true).description('记忆内容禁止出现在外发工具参数里'),
     requireApprovalFor: z.array(z.string()).default(['memory_forget', 'memory_assert']).description('需审批的工具清单'),
   }),
+  index: z
+    .object({
+      sdrEnabled: z.boolean().default(true).description('SDR 倒排索引（超预算自动退化并上报）'),
+      sdrMaxCells: z.number().min(1000).default(200_000).description('索引容量上限，超过退回全扫'),
+      demoteBatch: z.number().min(1).default(2000).description('单次降档 pass 最多评估的条数'),
+      retentionTtlMs: z.number().min(60_000).default(6 * 3600_000).description('保留度缓存有效期'),
+    })
+    .default({}),
 })
 
 /** 测试与 demo 用的完整默认值（schemastery 的 default 只在宿主校验时生效）。 */
@@ -130,6 +138,7 @@ export function defaultConfig(overrides: Partial<MnemoConfig> = {}): MnemoConfig
       remLinkBudget: 200,
     },
     safety: { piiRedaction: true, blockMemoryInEgress: true, requireApprovalFor: ['memory_forget', 'memory_assert'] },
+    index: { sdrEnabled: true, sdrMaxCells: 200_000, demoteBatch: 2000, retentionTtlMs: 6 * 3600_000 },
     ...overrides,
   })
 }
@@ -199,6 +208,8 @@ export * from './cell.js'
 export * from './sdr.js'
 export * from './forgetting.js'
 export * from './retention.js'
+export * from './inverted.js'
+export * from './emb.js'
 export * from './reconsolidation.js'
 export * from './neuromod.js'
 export * from './lifecycle.js'

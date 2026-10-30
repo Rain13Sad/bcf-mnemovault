@@ -32,6 +32,8 @@ import {
 import { BruteIndex, HnswIndex, type VectorIndex } from './ann.js'
 import { RuntimeStatus } from './runtime.js'
 import { RETENTION_WEIGHTS, DISPOSITION_FLOOR, INVALID_GRACE_MS, evaluateRetention, retentionWhy, type Disposition } from './retention.js'
+import { BitInvertedIndex, minOverlapForJaccard, type SdrCandidate } from './inverted.js'
+import { EmbIndex } from './emb.js'
 import { applyReconsolidation, onRetrieved } from './reconsolidation.js'
 import { graphHopsFor, modeOf, neuromodulate, retrievalTemperature } from './neuromod.js'
 import { nextTier } from './lifecycle.js'
@@ -124,6 +126,40 @@ export class MemoryService extends Service {
   private pendingActions: PanelAction[] = []
   /** 单会话内每个 cell 的展开次数（§14.9：上限 2 次） */
   private expandCounts = new Map<string, number>()
+
+  /**
+   * SDR 倒排索引（v0.5.2）。懒构建：第一次 ingest/recall 时才建，避免"库很小却先花 200 ms"。
+   *
+   * `sdrIndexedCount` 是"索引认为自己有多少条"。它和 `store.countCells()` 不一致时说明
+   * 有**绕过本服务**的写入（巩固 pass 会直接 `store.putCell`），此时整体重建一次。
+   * 这个自愈判据让索引不必知道巩固器的存在，也不会静默错。
+   */
+  private sdrIndex: BitInvertedIndex | null = null
+  private sdrIndexedCount = -1
+  private sdrBuildMs = 0
+
+  /**
+   * 冲突检测索引：`agent|谓词家族` → cellId[]（v0.5.2）。
+   *
+   * `findConflict` 原来全表扫，而它只需要看"同 agent、同谓词家族"的那几条——
+   * 通常 1~3 条。10 万 cell 下一次 ingest 因此从"解 10 万个 blob"变成"读 2 条"。
+   */
+  private conflictIndex = new Map<string, bigint[]>()
+  private conflictIndexedCount = -1
+
+  /**
+   * 向量矩阵（v0.5.2）。与 SDR 倒排同生命周期：懒构建、增量维护、超预算停用。
+   *
+   * 它替代的不是 cosine，而是 `forEachCell`——Q1 为了算 128 次乘加，
+   * 原来要把全库的 MC03 blob 解一遍。10 万 cell 下解码是几十万次对象分配，
+   * 比计算本身贵两个数量级（实测 822 cell 一次召回 18 ms，其中绝大部分是解码）。
+   */
+  private embIndex: EmbIndex | null = null
+  private embIndexedCount = -1
+  private embBuildMs = 0
+
+  /** 图上最大度数（保留度 connectivity 的归一化分母），由 demoteDue 维护 */
+  private maxDegreeCache = 8
 
   constructor(ctx: Context, opts: MemoryServiceOptions) {
     super(ctx, 'memory')
@@ -237,6 +273,138 @@ export class MemoryService extends Service {
     this.ann.add(cell.cellId, cell.emb)
   }
 
+  // ── SDR 倒排索引（v0.5.2） ─────────────────────────────────────
+
+  /**
+   * 懒建 SDR 倒排。返回 null 表示"本次请退回全扫"（配置关闭 / 超预算停用）。
+   *
+   * 自愈判据：`sdrIndexedCount !== store.countCells()` 说明有绕过本服务的写入
+   * （巩固 pass 直接 `store.putCell`、`/mnemo rebuild` 清表）。此时整体重建一次，
+   * 而不是让索引慢慢变脏——脏索引的后果是**漏召回**，它不会报错。
+   */
+  private ensureSdrIndex(): BitInvertedIndex | null {
+    const cfg = this.config.index
+    if (!cfg.sdrEnabled) return null
+    const n = this.store.countCells()
+    if (this.sdrIndex && this.sdrIndexedCount === n && !this.sdrIndex.stats().disabled) return this.sdrIndex
+
+    const t0 = Date.now()
+    const idx = this.sdrIndex ?? new BitInvertedIndex(this.space, cfg.sdrMaxCells)
+    idx.reset()
+    // 必须带 kind：去重只在同 kind 之间做，重建时漏了 kind 会让所有候选变成 kind=0，
+    // 于是"外部写入触发重建"之后的第一次 ingest 会把本该合并的句子当成新记忆
+    // （测试 test/v052-index 的"索引自愈"用例抓到的就是这个）。
+    this.store.forEachCell((c) => idx.add(c.cellId, c.sdr, c.kind))
+    const st = idx.stats()
+    this.sdrIndex = idx
+    this.sdrIndexedCount = n
+    this.sdrBuildMs = Date.now() - t0
+    this.runtime.setSdrIndex({
+      enabled: !st.disabled,
+      cells: st.cells,
+      postings: st.postings,
+      bytes: st.bytes,
+      buildMs: this.sdrBuildMs,
+      note: st.disabled
+        ? `已超过 sdrMaxCells=${cfg.sdrMaxCells}，退回全扫（结果仍正确，只是更慢）`
+        : `${st.cells} 条 / ${st.postings} posting / 约 ${Math.round(st.bytes / 1024)} KB`,
+    })
+    return st.disabled ? null : idx
+  }
+
+  /** 懒建向量矩阵。返回 null 表示"本次请退回全扫"。 */
+  private ensureEmbIndex(): EmbIndex | null {
+    const cfg = this.config.index
+    if (!cfg.sdrEnabled) return null
+    const n = this.store.countCells()
+    if (this.embIndex && this.embIndexedCount === n && !this.embIndex.stats().disabled) return this.embIndex
+    const t0 = Date.now()
+    const idx = this.embIndex ?? new EmbIndex(this.config.embStoreDim, cfg.sdrMaxCells)
+    idx.reset()
+    this.store.forEachCell((c) => idx.add(c.cellId, c.emb))
+    this.embIndex = idx
+    this.embIndexedCount = n
+    this.embBuildMs = Date.now() - t0
+    return idx.stats().disabled ? null : idx
+  }
+
+  /** 全库余弦（走内存矩阵）。索引不可用时返回 false，让调用方退回逐条解码。 */
+  private embScan(q: Int8Array, visit: (id: bigint, score: number) => void): void {
+    const idx = this.ensureEmbIndex()
+    if (!idx) return
+    idx.scan(q, visit)
+  }
+
+  /** 索引自身的状态（面板"后端能力"与 doctor 用）。 */
+  indexInfo(): { enabled: boolean; cells: number; postings: number; bytes: number; buildMs: number; note: string } {
+    const st = this.sdrIndex?.stats()
+    const emb = this.embIndex?.stats()
+    return {
+      enabled: Boolean(st && !st.disabled && this.config.index.sdrEnabled),
+      cells: st?.cells ?? 0,
+      postings: st?.postings ?? 0,
+      bytes: (st?.bytes ?? 0) + (emb?.bytes ?? 0),
+      buildMs: this.sdrBuildMs + this.embBuildMs,
+      note: this.runtime.sdrIndex.note,
+    }
+  }
+
+  /**
+   * 与给定 SDR 共享 ≥ minOverlap 个位的候选。索引不可用时返回 null（调用方退回全扫）。
+   *
+   * 返回值是**超集**而不是近似：`minOverlapForJaccard/Containment` 由门限反推，
+   * 凡是能满足门限的 cell 必然在候选里。所以接进写路径（去重/冲突）也不会丢数据。
+   */
+  sdrCandidates(sdr: MemCell['sdr'], minOverlap: number): SdrCandidate[] | null {
+    const idx = this.ensureSdrIndex()
+    if (!idx) return null
+    return idx.candidatesByOverlap(sdr, minOverlap)
+  }
+
+  /** 索引增量维护：只在**新增**一条时调用（合并路径 id 与 SDR 都不变）。 */
+  private indexCell(cell: MemCell): void {
+    if (this.sdrIndex && !this.sdrIndex.stats().disabled) {
+      this.sdrIndex.add(cell.cellId, cell.sdr, cell.kind)
+      this.sdrIndexedCount = Math.max(this.sdrIndexedCount, this.store.countCells())
+    }
+    if (this.embIndex && !this.embIndex.stats().disabled) {
+      this.embIndex.add(cell.cellId, cell.emb)
+      this.embIndexedCount = Math.max(this.embIndexedCount, this.store.countCells())
+    }
+  }
+
+  private unindexCell(cell: MemCell): void {
+    this.embIndex?.remove(cell.cellId)
+    if (this.embIndex) this.embIndexedCount = this.store.countCells()
+    if (this.sdrIndex) {
+      this.sdrIndex.remove(cell.cellId, cell.sdr)
+      this.sdrIndexedCount = this.store.countCells()
+    }
+    for (const k of conflictKeys(cell)) {
+      const list = this.conflictIndex.get(k)
+      if (!list) continue
+      const i = list.indexOf(cell.cellId)
+      if (i >= 0) list.splice(i, 1)
+      if (list.length === 0) this.conflictIndex.delete(k)
+    }
+  }
+
+  // ── 冲突检测索引 ────────────────────────────────────────────────
+
+  private ensureConflictIndex(): void {
+    const n = this.store.countCells()
+    if (this.conflictIndexedCount === n) return
+    this.conflictIndex.clear()
+    this.store.forEachCell((c) => {
+      for (const key of conflictKeys(c)) {
+        const list = this.conflictIndex.get(key)
+        if (list) list.push(c.cellId)
+        else this.conflictIndex.set(key, [c.cellId])
+      }
+    })
+    this.conflictIndexedCount = n
+  }
+
   annInfo(): { enabled: boolean; mode: 'exact' | 'hnsw'; size: number; threshold: number; builds: number; buildMs: number } {
     const w = this.config.recall
     return {
@@ -308,8 +476,13 @@ export class MemoryService extends Service {
       }
 
       // ② 去重与合并竞争（§7.5）
+      //
+      // v0.5.2：从"全表比一遍 Jaccard"改成"先取倒排候选，再精确比"。
+      // 候选门限由判定门限反推（J > 0.45 是关联的下限，0.85 是合并的下限），
+      // 所以这是**超集**而不是近似——凡是值得合并/关联的一定在候选里。
+      // 实测 10 万 cell 下候选占比 < 0.1%，单次 ingest 从 O(n) 降到 O(候选)。
       let best: { cell: MemCell; j: number } | undefined
-      this.store.forEachCell((other) => {
+      const consider = (other: MemCell) => {
         if (other.kind !== clean.kind) return
         const j = this.space.sim(other.sdr, clean.sdr)
         // Jaccard 高者胜；**并列时**按 §7.5 的合并竞争规则裁决（support → importance → tIngest 早）。
@@ -317,7 +490,49 @@ export class MemoryService extends Service {
         // 两个候选的相似度打成平手时，选谁完全取决于遍历顺序（即插入顺序的副作用）。
         if (!best || j > best.j + 1e-9) best = { cell: other, j }
         else if (Math.abs(j - best.j) <= 1e-9) best = { cell: compete(best.cell, other), j }
-      })
+      }
+      const linkFloor = 0.45
+      const mySize = this.space.popcount(clean.sdr)
+      const cands = this.sdrCandidates(clean.sdr, minOverlapForJaccard(mySize, linkFloor))
+      if (cands) {
+        /**
+         * 索引路径：**不回表**算精确 Jaccard。
+         *
+         * J = o/(|a|+|b|−o)，三个量索引都有。v0.5.2 第一版对每个候选都 `getCell`
+         * 解一遍 blob，400 个候选就是 400 次解码——比全扫省不了多少。
+         * 现在只有"真要合并/并列"时才取一次 cell。
+         */
+        let bestId: bigint | undefined
+        let bestJ = -1
+        const tied: bigint[] = []
+        for (const c of cands) {
+          // 注意：**不能**跳过 `c.id === clean.cellId`。
+          // 同一句话重复出现时 cellId 是按内容派生的，重复项与库里那条**同 id**——
+          // 那正是最该合并的情况。第一版在这里加了"跳过自己"，结果去重静默失效
+          // （测试当场抓住：同一句说 4 次产生了 4 条）。
+          if (c.kind !== clean.kind) continue
+          const union = mySize + c.size - c.overlap
+          const j = union === 0 ? 0 : c.overlap / union
+          if (j > bestJ + 1e-9) {
+            bestJ = j
+            bestId = c.id
+            tied.length = 0
+          } else if (Math.abs(j - bestJ) <= 1e-9) {
+            tied.push(c.id)
+          }
+        }
+        if (bestId !== undefined) {
+          const other = this.store.getCell(bestId)
+          if (other) best = { cell: other, j: bestJ }
+          // 并列：只有这时才需要看 support/importance/tIngest 裁决（§7.5）
+          for (const id of tied) {
+            const other = this.store.getCell(id)
+            if (other && best) best = { cell: compete(best.cell, other), j: bestJ }
+          }
+        }
+      } else {
+        this.store.forEachCell(consider)
+      }
 
       // 已失效（tInvalid ≠ 0）的版本不参与合并：再次断言同一事实应当产生新版本，
       // 否则"改回来了"这件事会被静默抹平（§7.6 的立场）。
@@ -377,6 +592,21 @@ export class MemoryService extends Service {
       }
       // 索引增量更新：只在新 cell 落库后插入，合并路径改的是同 id 的计数、向量不变
       this.annAdd(clean)
+      this.indexCell(clean)
+      for (const key of conflictKeys(clean)) {
+        const bucket = this.conflictIndex.get(key)
+        if (bucket) bucket.push(clean.cellId)
+        else this.conflictIndex.set(key, [clean.cellId])
+      }
+      /**
+       * 必须**无条件**推进计数，即使这条 cell 没有 PRED 槽位。
+       *
+       * 第一版只在"有冲突键"时才更新，于是人格锚/关系模型/无谓词 cell 每次写入
+       * 都会让计数落后一格 → 下一条 ingest 看到"计数不符"→ **重建整个冲突索引**。
+       * 而重建要 `forEachCell` 解全库 blob。实测 800 cell 时 getCell 占了 33% 的 CPU，
+       * 根因就是这里——一个"只在特殊情况下才更新"的计数器。
+       */
+      this.conflictIndexedCount = this.store.countCells()
 
       return {
         cell: clean,
@@ -410,27 +640,27 @@ export class MemoryService extends Service {
     }
     this.store.write(() => this.store.putCell(clean))
     this.annAdd(clean)
+    this.indexCell(clean)
+    this.conflictIndexedCount = this.store.countCells()
     return clean
   }
 
-  private findConflict(cell: MemCell): MemCell | undefined {    const agent = slotValue(cell, 'AGENT')
+  /**
+   * 矛盾检测（§7.6）。
+   *
+   * v0.5.2：从全表扫改成走 `agent|谓词家族` 索引。判据没变，只是**不再看无关的 cell**——
+   * 原来每条新记忆都要解一遍全库的 blob，10 万 cell 下这是写路径上最贵的一步。
+   */
+  private findConflict(cell: MemCell): MemCell | undefined {
+    const agent = slotValue(cell, 'AGENT')
     const pred = slotValue(cell, 'PRED')
     if (!pred) return undefined
     let out: MemCell | undefined
-    this.store.forEachCell((other) => {
+    const fam = predFamily(pred)
+    const mannerKey = slotValue(cell, 'MANNER')
+    const patientKey = slotValue(cell, 'PATIENT')
+    const visit = (other: MemCell) => {
       if (other.cellId === cell.cellId) return
-      // 谓词家族归一：'喜欢'/'不喜欢'、'用'/'改用'/'部署' 说的是同一件事的不同极/不同说法。
-      // 不做这层归一，矛盾检测会漏掉最常见的"用户改主意"形态。
-      const fam = (x?: string) => {
-        if (x === 'prefers' || x === 'dislikes') return 'prefers'
-        if (x === 'uses' || x === 'changes' || x === 'deploys') return 'uses'
-        if (x === 'decides') return 'decides'
-        return x
-      }
-      if (fam(slotValue(other, 'PRED')) !== fam(pred)) return
-      const a1 = agent ?? ''
-      const a2 = slotValue(other, 'AGENT') ?? ''
-      if (a1 !== a2) return
       const p1 = slotValue(cell, 'PATIENT') ?? ''
       const p2 = slotValue(other, 'PATIENT') ?? ''
       const m1 = slotValue(cell, 'MANNER') ?? ''
@@ -448,7 +678,33 @@ export class MemoryService extends Service {
       if (Number(other.tInvalid ?? 0) !== 0) return
       // 取最新的一条：链式取代必须逐级传递，不能跳回最早的版本
       if (!out || Number(other.tFrom) > Number(out.tFrom)) out = other
-    })
+    }
+
+    if (!fam) return undefined
+    this.ensureConflictIndex()
+    const a = agent ?? ''
+    const pol = slotValue(cell, 'POLARITY') ?? 'pos'
+    const ids = new Set<bigint>()
+    // manner 桶：同方式、不同取值 → 全是候选（极性不限）
+    if (mannerKey) for (const id of this.conflictIndex.get(`${a}\u0000${fam}\u0000M\u0000${mannerKey}`) ?? []) ids.add(id)
+    // patient 桶：同客体时只有**相反极性**才算矛盾，所以只查反极性那一格
+    if (patientKey) {
+      for (const id of this.conflictIndex.get(`${a}\u0000${fam}\u0000P\u0000${patientKey}\u0000${flipPolarity(pol)}`) ?? []) ids.add(id)
+    }
+    if (ids.size === 0) {
+      /**
+       * 桶是空的：可能是"确实没有同客体/同方式的记忆"，也可能是"索引还没覆盖到这条写入"。
+       * 两者必须区分——前者返回 undefined 是对的，后者漏判会让"用户改主意"静默丢失。
+       * 判据：索引里的 cell 数 != 实际 cell 数 ⇒ 索引不完整，全扫兜底。
+       */
+      if (this.conflictIndexedCount === this.store.countCells()) return undefined
+      this.store.forEachCell(visit)
+      return out
+    }
+    for (const id of ids) {
+      const other = this.store.getCell(id)
+      if (other) visit(other)
+    }
     return out
   }
 
@@ -468,6 +724,8 @@ export class MemoryService extends Service {
         working: this.working,
         scopeKey: this.scopeKey,
         ann: this.ensureAnn() ?? undefined,
+        sdrCandidates: (sdr, minOverlap) => this.sdrCandidates(sdr, minOverlap)?.map((c) => c.id) ?? null,
+        embScan: (q, visit) => this.embScan(q, visit),
       },
       q,
     )
@@ -512,6 +770,8 @@ export class MemoryService extends Service {
         cell.tier = (cell.tier - 1) as MemCell['tier']
       }
       this.store.putCell(cell)
+      // tAccess/stability 变了 → 保留度的输入变了，缓存必须作废
+      this.store.invalidateRetention(cell.cellId)
       this.working.touch(id, Math.min(1, 0.4 + h.score))
       if (delta.plastic || Math.abs(delta.dValence) >= 0.005 || Math.abs(delta.dConfidence) >= 0.005) {
         this.reconsolidationLog.push({
@@ -558,6 +818,8 @@ export class MemoryService extends Service {
    * 只连前 6 条——再多就是噪声，"一起被想起"这件事本身有强弱。
    */
   coactivate(ids: bigint[], delta = 8): void {
+    // 边是 connectivity 因子的输入，加边之后两端的缓存都失效
+    for (const id of ids) this.store.invalidateRetention(id)
     const top = ids.slice(0, 6)
     if (top.length < 2) return
     this.store.write(() => {
@@ -708,6 +970,7 @@ export class MemoryService extends Service {
       if (mode === 'hard') {
         this.store.deleteCell(id) // 内含残差释放（没人再引用时物理删）
         this.ann?.remove(id)
+        this.unindexCell(cell)
       } else {
         cell.tier = 3
         cell.importance = Math.min(cell.importance, 0.05)
@@ -727,7 +990,10 @@ export class MemoryService extends Service {
     const b = this.lastRecall?.breakdowns.find((x) => x.cellId.endsWith(target.slice(-4)) || x.cellId === target)
     if (!b) {
       // 没有当轮召回记录时，现场算一次解释，而不是返回"无数据"
-      const r = this.recall({ ...(q ?? { text: '', budget: 400 }), manual: true })
+      // v0.5.2：必须 readOnly。v0.5 修了"面板刷新=一次使用"，但解释器这条路径漏了——
+      // `/mnemo explain` 会抬高被解释那条的 tAccess/stability，并写再巩固日志。
+      // 解释是**观察**，观察不该改变被观察的东西。
+      const r = this.recall({ ...(q ?? { text: '', budget: 400 }), manual: true, readOnly: true })
       const fresh = r.breakdowns.find((x) => x.cellId.endsWith(target.slice(-4)))
       return fresh ? formatBreakdown(fresh, this.config.recall.ignition) : `cell ${target} 不在候选池内（可能低于 ignition 或被隔离）`
     }
@@ -738,20 +1004,21 @@ export class MemoryService extends Service {
 
   stats(): StatsSnapshot {
     const s = this.store.stats()
+    /**
+     * v0.5.2：改成聚合查询。
+     *
+     * 原来这里是 `forEachCell` + `allEdges`——**为了数几个数把全库 blob 解一遍**，
+     * 而面板每 3 秒就调一次 `stats()`。800 cell 实测 20 ms，10 万 cell 就是 500 ms 级，
+     * 面板刷新会变成 CPU 热点。SQL 的 `GROUP BY` 是毫秒级。
+     */
+    const agg = this.store.counts()
     const byKind: Record<string, number> = {}
-    const byTier: Record<string, number> = {}
-    let supportOne = 0
-    let disputed = 0
-    let invalidated = 0
-    let contradictions = 0
-    this.store.forEachCell((c) => {
-      byKind[KIND_NAME[c.kind] ?? String(c.kind)] = (byKind[KIND_NAME[c.kind] ?? String(c.kind)] ?? 0) + 1
-      byTier[String(c.tier)] = (byTier[String(c.tier)] ?? 0) + 1
-      if (c.support <= 1) supportOne++
-      if (c.flags & FLAG.disputed) disputed++
-      if (Number(c.tInvalid ?? 0) !== 0) invalidated++
-    })
-    for (const e of this.store.allEdges()) if (e.rel === REL.CONTRADICTS) contradictions++
+    for (const [k, n] of Object.entries(agg.byKind)) byKind[KIND_NAME[Number(k)] ?? k] = n
+    const byTier = agg.byTier
+    const supportOne = agg.supportOne
+    const disputed = agg.disputed
+    const invalidated = agg.invalidated
+    const contradictions = agg.contradictions
     const sorted = [...this.latencies].sort((a, b) => a - b)
     const p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : 0
     const tokensPerTurn = this.tokenSeries.length
@@ -778,12 +1045,62 @@ export class MemoryService extends Service {
     }
   }
 
+  /**
+   * 带缓存的 doctor（面板专用）。`doctor()` 本身仍然随时可调，只是面板不必每次都付钱。
+   */
+  private doctorCache: { at: number; report: DoctorReport } | null = null
+
+  private cachedDoctor(): DoctorReport {
+    const ttl = 30_000
+    const now = this.now()
+    if (this.doctorCache && now - this.doctorCache.at < ttl) return this.doctorCache.report
+    const report = this.doctor()
+    this.doctorCache = { at: now, report }
+    return report
+  }
+
   doctor(opts: { fix?: boolean; unlock?: boolean } = {}): DoctorReport {
     const now = this.now()
     const issues: string[] = []
     const fixed: string[] = []
+    /**
+     * 单趟扫描收齐三件事（v0.5.2）。
+     *
+     * 原来这里连着三次 `forEachCell`：取 id 集合、查悬空槽、查失效未降档——
+     * 每次都要把全库 blob 解一遍。10 万 cell 下那是三次 500 ms 级的解码，
+     * 而它们看的是同一批数据。合成一趟之后只剩一次。
+     */
     const ids = new Set<string>()
-    this.store.forEachCell((c) => ids.add(toHex(c.cellId, 16)))
+    /**
+     * REF 引用先收集、循环结束后再判定。
+     *
+     * 单趟扫描里 `ids` 是一边扫一边长的：如果当场判定，指向"还没扫到的那条"的
+     * REF 会被误报成悬空。先收集再判，既保持一趟扫描的收益，也不改变语义。
+     */
+    const refTargets: string[] = []
+    let danglingSlots = 0
+    let invalidNotDemoted = 0
+    let tombstones = 0
+    let tombstoneBytes = 0
+    let scanned = 0
+    this.store.forEachCell((c) => {
+      scanned++
+      ids.add(toHex(c.cellId, 16))
+      for (const s of c.slots) if (s.type === 'REF') refTargets.push(s.value.padStart(16, '0'))
+      const tInvalid = Number(c.tInvalid ?? 0)
+      if (tInvalid !== 0 && now - tInvalid > INVALID_GRACE_MS && c.tier < 3) {
+        invalidNotDemoted++
+        if (opts.fix) {
+          c.tier = 3
+          c.emb = pq32(c.emb)
+          this.store.putCell(c)
+        }
+      }
+      if (c.tier >= 4) {
+        tombstones++
+        tombstoneBytes += encodeCell(c).length
+      }
+    })
 
     let orphanEdges = 0
     for (const e of this.store.allEdges()) {
@@ -797,10 +1114,7 @@ export class MemoryService extends Service {
     if (orphanEdges && opts.fix) fixed.push(`删除孤儿边 ${orphanEdges} 条`)
     else if (orphanEdges) issues.push(`孤儿边 ${orphanEdges} 条（/mnemo doctor --fix 可清理）`)
 
-    let danglingSlots = 0
-    this.store.forEachCell((c) => {
-      for (const s of c.slots) if (s.type === 'REF' && !ids.has(s.value.padStart(16, '0'))) danglingSlots++
-    })
+    for (const ref of refTargets) if (!ids.has(ref)) danglingSlots++
     if (danglingSlots) issues.push(`悬空槽位引用 ${danglingSlots} 个`)
 
     // 遗留锁：未匹配的 consolidate/start（§10.2）
@@ -843,24 +1157,6 @@ export class MemoryService extends Service {
      * v0.4 的保留度不看 `tInvalid`，于是"已失效但停在热/温层"的旧版本会一直占着位置。
      * 改代码不会自动触及存量库，所以给 doctor 一条显式检查 + `--fix` 批量降档。
      */
-    let invalidNotDemoted = 0
-    let tombstones = 0
-    let tombstoneBytes = 0
-    this.store.forEachCell((c) => {
-      const tInvalid = Number(c.tInvalid ?? 0)
-      if (tInvalid !== 0 && now - tInvalid > INVALID_GRACE_MS && c.tier < 3) {
-        invalidNotDemoted++
-        if (opts.fix) {
-          c.tier = 3
-          c.emb = pq32(c.emb)
-          this.store.putCell(c)
-        }
-      }
-      if (c.tier >= 4) {
-        tombstones++
-        tombstoneBytes += encodeCell(c).length
-      }
-    })
     if (invalidNotDemoted) {
       if (opts.fix) fixed.push(`失效记忆降档 ${invalidNotDemoted} 条 → 归档层`)
       else issues.push(`已失效但仍在上层 ${invalidNotDemoted} 条（/mnemo doctor --fix 可批量归档）`)
@@ -874,6 +1170,7 @@ export class MemoryService extends Service {
       invalidNotDemoted,
       tombstones,
       tombstoneBytes,
+      scanned,
       staleLocks: openLock ? 1 : 0,
       indexConsistent: orphanEdges === 0 && danglingSlots === 0,
       layoutVersion: Number(this.store.meta('layoutVersion') ?? 3),
@@ -922,68 +1219,110 @@ export class MemoryService extends Service {
   }
 
   /**
-   * 降档 pass（v0.4 重写，对应方案 §1.3）。
+   * 降档 pass（v0.5.2：增量 + 剪枝）。
    *
-   * 判据从「最后访问时间」换成七因子保留度：频率（ACT-R 激活）、重要度、情绪强度、
-   * 关联度、叙事角色、用户锚定、间隔效应，减去冗余。六档处置里**没有物理删除**——
-   * 自动流程最高只到 P1 墓碑（tier=3），P0 只能由用户显式发起。
+   * ── v0.5.1 之前的两处浪费 ────────────────────────────────────────
+   * ① 每次 tick 全表评估七因子。`tick()` 每轮都调，于是"库越大越慢"；
+   * ② `allEdges()` 把整张边表读进内存算度数。10 万 cell / 50 万边时这是每次 tick 一次
+   *    百万级对象的分配——它比七因子本身贵得多。
    *
-   * 一次 pass 只移动一级（`nextTier`）：跨级会让"为什么它从热层直接掉到归档"
-   * 无法解释，面板的 diff 也变得没法读。
+   * ── 现在的两段 ──────────────────────────────────────────────────
+   * **快路径（剪枝）**：缓存里已经判定"该降"的直接降，不重算。
+   * 依据是 v0.5.1 修好的单调性：无访问 → ACT-R 激活单调减；无结构变更 → 其余六因子不变；
+   * `stale` 单调减；周年加成被封顶在本档上沿。所以 t₀ 的"该降"在 t>t₀ 仍成立。
+   * **反向不成立**，所以未命中的仍要重算——剪枝只会漏掉"其实该降但缓存说不用"的，
+   * 而那类会在 TTL 过期后重算到。这是保守方向，不会错降。
+   *
+   * **慢路径（增量）**：只评估 `demoteBatch` 条**最久未被评估**的 cell。
+   * 于是单次 tick 的成本与库规模无关，全库扫描由多个 tick 分摊完成。
    */
   demoteDue(): number {
     const now = this.now()
+    const cfg = this.config.index
     const weights = RETENTION_WEIGHTS[(this.config.preset === 'custom' ? 'balanced' : this.config.preset) as PresetName]
-    const edges = this.store.allEdges()
-    const degree = new Map<bigint, number>()
-    const referenced = new Set<bigint>()
-    const superseded = new Set<bigint>()
-    let maxDegree = 1
-    // 只有**结构性**引用才算"仍被引用"：PART_OF / EVIDENCE / SUPERSEDES。
-    // ASSOC / EVOKES 是松散联想，把它们算进来等于"凡是被聊到过就不许进墓碑"。
-    const STRUCTURAL = new Set<number>([REL.PART_OF, REL.EVIDENCE, REL.SUPERSEDES])
-    for (const e of edges) {
-      degree.set(e.src, (degree.get(e.src) ?? 0) + 1)
-      degree.set(e.dst, (degree.get(e.dst) ?? 0) + 1)
-      if (STRUCTURAL.has(e.rel)) referenced.add(e.dst)
-      // src=新值、dst=旧值（见 ingest 的 SUPERSEDES 写入）。被取代的是 dst。
-      if (e.rel === REL.SUPERSEDES) superseded.add(e.dst)
-    }
-    for (const d of degree.values()) if (d > maxDegree) maxDegree = d
-
+    const budget = Math.max(1, Math.floor(cfg.demoteBatch))
     let moved = 0
-    this.store.forEachCell((c) => {
-      if (c.flags & FLAG.noDecay) return
-      // 30 分钟内的访问仍算"在工作记忆里"，不降档（v0.2 的 hot 语义保留）
-      if (now - Number(c.tAccess) < 30 * 60_000) return
-      const sameAs = c.edges.filter((e) => e.rel === REL.SAME_AS).length
-      const r = evaluateRetention(c, {
-        nowMs: now,
-        weights,
-        degree: degree.get(c.cellId) ?? 0,
-        maxDegree,
-        redundancy: Math.min(1, sameAs / 2),
-        isSuperseded: superseded.has(c.cellId),
-      })
-      /**
-       * v0.5.1：降档 pass **只降不升**。
-       *
-       * `nextTier` 是双向的，而 v0.5 的周年加成会把分数抬回去，于是"纯时间推进"能把
-       * 一条记忆重新烫热（实测 +365 天 tier 2→1，没有任何提取、没有任何重放）。
-       * 升档必须来自**使用信号**：强命中（下面 recall 里）或睡眠重放（consolidator）。
-       */
-      if (r.tier <= c.tier) return
-      const target = nextTier(c.tier, r.tier)
-      c.tier = target
-      if (target >= 2) c.emb = pq32(c.emb)
-      // 进墓碑时压实：释放残差、丢掉向量，只留 id + digest + 槽位 + SDR。
-      // 这是"库有进有出"的落点——不删行（血缘还在），但把最大的一块字节还回去。
-      const tombstoneSha = target >= 4 ? this.compactTombstone(c) : null
-      this.store.putCell(c)
-      if (tombstoneSha) this.store.releaseResidualRef(tombstoneSha)
-      moved++
+
+    /**
+     * 整段包在一个事务里。
+     *
+     * 不包会怎样：`setRetention` 是 `INSERT ... ON CONFLICT`，SQLite 默认每条语句一个事务，
+     * WAL 下每次提交都要落盘。实测 1 万 cell 的一次 pass（2000 条）耗时 **2066 ms**，
+     * 而同样的工作在单个事务里是百毫秒级——**97% 的时间花在 fsync 上**。
+     */
+    this.store.write(() => {
+    // ① 剪枝快路径：缓存说该降的，直接降一级
+    for (const id of this.store.demotableByCache(budget)) {
+      const c = this.store.getCell(id)
+      if (!c) continue
+      if (this.applyDemotion(c)) moved++
+    }
+
+    // ② 增量慢路径：评估最久未评估的那一批
+    const remaining = Math.max(0, budget - moved)
+    if (remaining > 0) {
+      const staleBefore = now - Math.max(60_000, cfg.retentionTtlMs)
+      for (const id of this.store.stalestForRetention(remaining, staleBefore)) {
+        const c = this.store.getCell(id)
+        if (!c) continue
+        if (c.flags & FLAG.noDecay) continue
+        // 30 分钟内的访问仍算"在工作记忆里"，不降档（v0.2 的 hot 语义保留）
+        if (now - Number(c.tAccess) < 30 * 60_000) continue
+
+        const degree = this.degreeOf(c.cellId)
+        if (degree > this.maxDegreeCache) this.maxDegreeCache = degree
+        const sameAs = c.edges.filter((e) => e.rel === REL.SAME_AS).length
+        const r = evaluateRetention(c, {
+          nowMs: now,
+          weights,
+          degree,
+          maxDegree: this.maxDegreeCache,
+          redundancy: Math.min(1, sameAs / 2),
+          isSuperseded: this.store.edgesTo(c.cellId).some((e) => e.rel === REL.SUPERSEDES),
+        })
+        // 缓存：只存 score/band/at。七因子分解不进缓存——面板逐条展示要它，
+        // 而面板只算最近 120 条（实测 2 ms），不值得为它让存储涨 20%。
+        this.store.setRetention(c.cellId, r.score, Number(r.effective.slice(1)), now)
+        if (r.tier > c.tier && this.applyDemotion(c)) moved++
+      }
+    }
     })
     return moved
+  }
+
+  /** 图上度数（出 + 入）。走两条索引查询，不再把整张边表读进内存。 */
+  private degreeOf(id: bigint): number {
+    return this.store.edgesFrom(id).length + this.store.edgesTo(id).length
+  }
+
+  /**
+   * 真正落一次降档：一次只移动一级，进墓碑时压实。
+   * 返回是否真的移动了（tier 没变时返回 false，避免把"评估过"记成"降过"）。
+   */
+  private applyDemotion(c: MemCell): boolean {
+    const target = nextTier(c.tier, (c.tier + 1) as 0 | 1 | 2 | 3 | 4)
+    if (target === c.tier) return false
+    c.tier = target
+    if (target >= 2) c.emb = pq32(c.emb)
+    // 进墓碑时压实：释放残差、丢掉向量，只留 id + digest + 槽位 + SDR。
+    // 这是"库有进有出"的落点——不删行（血缘还在），但把最大的一块字节还回去。
+    const tombstoneSha = target >= 4 ? this.compactTombstone(c) : null
+    this.store.putCell(c)
+    if (tombstoneSha) this.store.releaseResidualRef(tombstoneSha)
+    /**
+     * **不**作废缓存（v0.5.2 修正）。
+     *
+     * 第一版在降完就把缓存删掉，结果是：`demotableByCache` 永远返回空——
+     * 因为缓存只可能存在于"评估过但没降"的条目上，而那些本来就不该降。
+     * 剪枝路径因此是死代码。
+     *
+     * 现在保留缓存：档位（band）只由七因子决定，而 tier 不是七因子的输入，
+     * 所以降了一级之后"该不该继续降"的结论仍然有效。于是逐级下降
+     * （0→1→2→3→4）在后续 pass 里走**快路径**，不再重算七因子。
+     * 缓存真正作废的时机是**输入变了**：召回更新 tAccess、加边、改重要性——
+     * 见 invalidateRetention 的三个调用点。
+     */
+    return true
   }
 
   // ── 面板（host 侧数据源，§12.4 / §12.10 / §20.2） ───────────────
@@ -1045,22 +1384,15 @@ export class MemoryService extends Service {
     const presetName = (this.config.preset === 'custom' ? 'balanced' : this.config.preset) as PresetName
     const weights = RETENTION_WEIGHTS[presetName]
     const now = this.now()
-    const degree = new Map<string, number>()
-    const referenced = new Set<string>()
-    const superseded = new Set<string>()
-    let maxDegree = 1
-    const STRUCTURAL = new Set<number>([REL.PART_OF, REL.EVIDENCE, REL.SUPERSEDES])
-    for (const e of this.store.allEdges()) {
-      const s = toHex(e.src, 16)
-      const d = toHex(e.dst, 16)
-      degree.set(s, (degree.get(s) ?? 0) + 1)
-      degree.set(d, (degree.get(d) ?? 0) + 1)
-      if (STRUCTURAL.has(e.rel)) referenced.add(d)
-      if (e.rel === REL.SUPERSEDES) superseded.add(d)
-    }
-    for (const v of degree.values()) if (v > maxDegree) maxDegree = v
-
+    /**
+     * v0.5.2：不再 `allEdges()`。
+     *
+     * 面板是 3 秒刷新的，而 `allEdges()` 会把整张边表读进内存——10 万 cell / 50 万边时
+     * 每次刷新分配几十万个对象，比七因子本身贵两个数量级。
+     * 现在只对**要展示的那 120 条**各查两次索引（出边 + 入边），成本与库规模无关。
+     */
     const sample = this.store.listCells({ limit: 120, order: 'recent' })
+    const maxDegree = Math.max(this.maxDegreeCache, 1)
     const shortIds = assignShortIds(sample.map((cell) => ({ cell })))
     const byDisposition: Record<string, number> = { P5: 0, P4: 0, P3: 0, P2: 0, P1: 0 }
     const entries: PanelRetentionEntry[] = []
@@ -1070,10 +1402,10 @@ export class MemoryService extends Service {
       const r = evaluateRetention(c, {
         nowMs: now,
         weights,
-        degree: degree.get(key) ?? 0,
+        degree: this.degreeOf(c.cellId),
         maxDegree,
         redundancy: Math.min(1, sameAs / 2),
-        isSuperseded: superseded.has(key),
+        isSuperseded: this.store.edgesTo(c.cellId).some((e) => e.rel === REL.SUPERSEDES),
       })
       byDisposition[r.effective] = (byDisposition[r.effective] ?? 0) + 1
       entries.push({
@@ -1120,8 +1452,7 @@ export class MemoryService extends Service {
     const cells = this.panelCells()
     const byId = new Map(cells.map((c) => [c.cellId, c]))
     const edges: PanelEdgeView[] = this.store
-      .allEdges()
-      .slice(0, 4000)
+      .allEdges(4000)
       .map((e) => ({
         src: toHex(e.src, 16),
         dst: toHex(e.dst, 16),
@@ -1151,7 +1482,14 @@ export class MemoryService extends Service {
       )
       .sort((a, b) => Number(b.disputed) - Number(a.disputed) || b.importance - a.importance)
 
-    const doctor = this.doctor()
+    /**
+     * doctor 有缓存（v0.5.2）。
+     *
+     * `doctor()` 要做完整性检查：孤儿边、悬空槽、孤儿残差——其中两项必须遍历全库。
+     * 面板每 3 秒刷新一次，把它放在热路径上等于"每 3 秒做一次全库体检"。
+     * 体检是运维动作，30 秒一次足够；面板要的是"最近一次结论"，不是"此刻结论"。
+     */
+    const doctor = this.cachedDoctor()
     const ann = this.annInfo()
 
     return {
@@ -1582,6 +1920,53 @@ export function deriveLens(cell: MemCell): 'fact' | 'feeling' | 'bond' | 'story'
   const text = (cell.digest ?? '') + ' ' + cell.slots.map((s) => s.value).join(' ')
   if (/我们|一起|陪我|陪你|在乎|想你|喜欢你|谢谢|约定|答应|吵架|和好/.test(text)) return 'bond'
   return 'fact'
+}
+
+/**
+ * 谓词家族归一（§7.6）：'喜欢'/'不喜欢'、'用'/'改用'/'部署' 说的是同一件事的不同极/不同说法。
+ * 不做这层归一，矛盾检测会漏掉最常见的"用户改主意"形态。
+ *
+ * v0.5.2 把它提到模块级：`findConflict` 的索引键需要它，而它原来是内联在扫描回调里的闭包
+ * ——每遍历一条 cell 就重新建一次函数对象。
+ */
+export function predFamily(pred?: string): string | undefined {
+  if (!pred) return undefined
+  if (pred === 'prefers' || pred === 'dislikes') return 'prefers'
+  if (pred === 'uses' || pred === 'changes' || pred === 'deploys') return 'uses'
+  if (pred === 'decides') return 'decides'
+  return pred
+}
+
+/**
+ * 冲突索引键（v0.5.2 第二版）。
+ *
+ * 第一版只按 `agent|谓词家族` 分桶——而用户的 agent 永远是"用户"、谓词只有六个家族，
+ * 于是桶里躺着全库 1/6 的 cell：实测 400 条时桶大小就是 400，`findConflict`
+ * 退化成"每次 ingest 解 400 个 blob"。
+ *
+ * 真正决定"这两条会不会矛盾"的是**同客体或同方式**（`sameTopic`），
+ * 所以键里必须带上 manner / patient。一个 cell 最多落两个桶。
+ */
+function conflictKeys(cell: MemCell): string[] {
+  const fam = predFamily(slotValue(cell, 'PRED'))
+  if (!fam) return []
+  const agent = slotValue(cell, 'AGENT') ?? ''
+  const pol = slotValue(cell, 'POLARITY') ?? 'pos'
+  const keys: string[] = []
+  const manner = slotValue(cell, 'MANNER')
+  const patient = slotValue(cell, 'PATIENT')
+  if (manner) keys.push(`${agent}\u0000${fam}\u0000M\u0000${manner}`)
+  // patient 桶必须带极性：实测语料里"方案"这种 PATIENT 会横跨全库，
+  // 而"同客体"要判成矛盾还需要**极性相反**——把极性放进键里，桶就只剩真正的候选。
+  if (patient) keys.push(`${agent}\u0000${fam}\u0000P\u0000${patient}\u0000${pol}`)
+  return keys
+}
+
+/** 极性取反（`pos` ↔ `neg`；其它值原样返回，让它只匹配同类——宁可漏判也不误判）。 */
+function flipPolarity(pol: string): string {
+  if (pol === 'pos') return 'neg'
+  if (pol === 'neg') return 'pos'
+  return pol
 }
 
 function sameSlots(a: readonly Slot[], b: readonly Slot[]): boolean {

@@ -164,7 +164,7 @@ export class Encoder {
     // 残差按**轮**共享，而不是按命题各存一份（§6.3 残差共享）。
     // 命题级各存一份的后果实测很直接：一条 800 字轮次被切成 4 条命题时，
     // 固定 704 B × 4 的基底成本会盖过一切，存储比反而比原文还高。
-    const turnText = redact(input.userText).text.slice(0, this.config.maxResidualBytes)
+    const turnText = truncateToBytes(redact(input.userText).text, this.config.maxResidualBytes)
     const turnBytes = new TextEncoder().encode(turnText)
     const turnRef: ResidualRef = {
       sha: shaOf(turnText),
@@ -302,7 +302,7 @@ export class Encoder {
     const at = input.at ?? Date.now()
     const out: EncodeResult = { cells: [], created: 0, merged: 0, linked: 0, conflicts: 0, skipped: 0 }
     const seen = new Set<string>()
-    const turnText = redact(input.userText).text.slice(0, this.config.maxResidualBytes)
+    const turnText = truncateToBytes(redact(input.userText).text, this.config.maxResidualBytes)
     const turnBytes = new TextEncoder().encode(turnText)
     const turnRef: ResidualRef = {
       sha: shaOf(turnText),
@@ -388,7 +388,7 @@ export class Encoder {
     // 共享轮级残差；没有轮级残差时（单测直接调 buildCell）退回命题级
     let residualRef = turnRef
     if (!residualRef) {
-      const rawBytes = new TextEncoder().encode(red.text.slice(0, this.config.maxResidualBytes))
+      const rawBytes = new TextEncoder().encode(truncateToBytes(red.text, this.config.maxResidualBytes))
       const sha = shaOf(red.text)
       residualRef = { sha, off: BigInt(this.memory.store.putResidual(sha, rawBytes)), rawLen: rawBytes.length }
     }
@@ -525,6 +525,30 @@ function pickKind(text: string, pred: string): number {
 function firstSentence(text: string): string {
   const i = text.search(/[。！？\n.!?]/)
   return (i > 0 ? text.slice(0, i) : text).slice(0, 160)
+}
+
+/**
+ * 按**字节**截断（v0.5.2 修 D22）。
+ *
+ * 配置项叫 `maxResidualBytes`，而 v0.5.1 的实现是 `text.slice(0, max)`——
+ * 那是按 UTF-16 **码元**截断。中文一个字 3 字节，于是"8192"实际存了约 24 KB，
+ * 而同一段代码在 `rawLen` 里报的是真字节数，两个口径并存。
+ *
+ * 现在按码点累加 UTF-8 字节，切在**码点边界**上（不会切出半个代理对）。
+ * 一次 800 字的轮次上这点计算可以忽略；换来的是"名字说 8192 就真的是 8192 字节"。
+ */
+function truncateToBytes(text: string, maxBytes: number): string {
+  const enc = new TextEncoder()
+  if (enc.encode(text).length <= maxBytes) return text
+  let bytes = 0
+  let out = ''
+  for (const ch of text) {
+    const n = enc.encode(ch).length
+    if (bytes + n > maxBytes) break
+    bytes += n
+    out += ch
+  }
+  return out
 }
 
 function clamp11(x: number): number {

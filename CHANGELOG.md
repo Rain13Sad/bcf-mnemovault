@@ -6,6 +6,80 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [0.5.2] — 2026-10-31
+
+0.5.0 让决策链会算，0.5.1 让它算对。这一版让它**在真实规模上成立**——并且推翻了审计稿的归因：
+瓶颈不是"写入 O(n)"，而是**为了算 128 次乘加，每次召回都把全库的 MC03 blob 解一遍**。
+
+向后兼容：**存储布局不变（MC03）**，旧库不需要 rebuild。新增的 `retention` 是独立表，
+不碰 `cells`；新增的配置项都有默认值。
+
+### 性能 · 规模（P1-1 / D4 / D5 / D24）
+
+- **内存向量矩阵**（`core/src/emb.ts`）：Q1 语义路不再解码全库 blob。冷层 PQ 向量在写入索引时
+  用**同一个** `expandEmb` 展开，所以矩阵给出的分数与逐条 `cosine()` 逐位相同。
+  recall p50 @822 cell：18 → **4 ms**；@10k：226 → **20 ms**。
+- **SDR 倒排**（`core/src/inverted.ts`）：候选阈值由判定门限反推
+  （`o = J(|a|+|b|)/(1+J)`），所以候选集是**超集**而不是近似——这是它敢接进写路径的理由。
+  `candidatesByOverlap` 直接返回 `{id, overlap, size, kind}`，去重可以**不回表**算精确 Jaccard。
+- **冲突索引**：键从 `agent|pred` 改成 `agent|pred|manner|patient|polarity`。
+  原来桶里躺着全库 1/6 的 cell（400 条时桶就是 400），`getCell` 占 profile 的 65%；
+  现在每 5 轮的 `getCell` 从 2026 次降到 **16 次**。
+- **时间路走 `idx_time`**：Q4 不再全表扫。口径与原来逐条一致（只比 `tFrom`），有对拍测试。
+- **`stats()` 改 SQL 聚合**、**`allEdges(limit)`**、**`doctor()` 合并单趟 + 30 秒缓存**、
+  **`retentionView` 不再 `allEdges()`**：面板热路径从"每次刷新四次全表解码"变成毫秒级。
+- **保留度落盘 + 增量扫描 + 单调性剪枝**：`retention(cell_id, score, band, at)` 表；
+  一次 pass 只评估 `demoteBatch` 条最久未评估的 cell；整段一个事务（10k 的一次 pass 2066 → **658 ms**）。
+  两个实现细节：降档**不**作废缓存（`tier` 不是七因子的输入），否则剪枝是死代码；
+  失效传播统一收口到召回命中 / `coactivate` / `upsertMeta` 三处。
+- **巩固按阶段提交**：锁从"整轮"缩到"一个阶段"。
+
+### 修复 · 确定性缺陷（D20–D23、D27、D28）
+
+- **D20** `explain()` 走 `readOnly` 召回（此前 `/mnemo why` 会抬高被解释那条的 `tAccess`）。
+- **D21** schema 的 `flags: FLAG.noDecay & 0` → `FLAG.noDecay`（图式现在真的锁 P5）。
+- **D22** `maxResidualBytes` 按 UTF-8 字节、切在码点边界（此前按 UTF-16 码元，中文实际存 3 倍）。
+- **D23** 短 id 解析合并到 `tools/src/id.ts`，>1 命中抛 `AmbiguousCellIdError`；
+  命令面转成人话，工具面转成结构化错误。`forget --hard` 因此不会再"猜错"。
+- **D27** `putCell`/`putEdge`/`putResidual`/`putSnapshot`/`appendEvict`/`appendLog` 改走 `prep()`。
+- **D28** `check-readme` 增加**命令数实测比对**与**"文档提到的 `/mnemo <verb>` 必须有实现"**；
+  补上 `/mnemo trace`（`why` 回答单条，`trace` 回答整次检索走了哪几条路）。
+
+### 新增 · 压测进 CI（D15 / D25）
+
+- `scripts/gen-corpus.mjs`：批量 `putCell` + 合成边造语料，**并显式声明它不是真实库**
+  （`caveat` 字段进 JSON、进控制台、进 README）。
+- `scripts/bench-scale.mjs` 重写：渐进档（真实 ingest）/ 合成语料档 / `--ab` 索引开关对照。
+- `scripts/ci-assert-scale.mjs`：1 万 cell `recall p95 ≤ 40 ms`（实测 25）、索引构建 ≤ 3 s、
+  索引内存 ≤ 4 MB。README 里那个数字从 v0.3 就写着，CI 里**从来没有断言过**。
+
+### 修复 · CI
+
+- **`npm-latest` job 的红灯**：该 job 没有 `build`，而 `check:readme` 会跑一遍测试拿真实条数，
+  `lib/` 不在 → 测试全失败 → 报"拿不到 # tests N"。两处一起修：job 补 `build`；
+  `check-readme` 在 `lib/` 缺席时退回静态计数并标明口径。
+- `verify` job 增加规模门槛与 `timeout-minutes`。
+
+### 测试
+
+- 新增 `test/v052-index.test.mjs`（10 条）：阈值是必要条件、候选是超集（与全扫对拍）、
+  overlap 是真实位数、remove/add 同 id 换 SDR、超预算上报、`forEachBit` 与 popcount 一致、
+  时间路等价、索引自愈、矛盾检测仍有效、两驱动一致。
+- 新增 `test/v052-retention-cache.test.mjs`（6 条）：剪枝只"提前降"不"提前不降"、
+  增量与全量收敛到同一结果、预算上限、只降不升、`dispositionForTier` 互逆、墓碑不进待评估。
+- 总数 160 → **176**，全绿；`npm test` 耗时从 300 s+（超时）降到 **5 s**。
+
+### 文档
+
+- 新增 `docs/design/V0.5.2-PLAN.md`、`docs/releases/v0.5.2.md`。
+- `PROJECT-GUIDE` §12 缺点 19 → **28**（新增 12.6 节记录 D20–D28），并给 D4/D5/D6/D15 加"已修"注记。
+- 五份 README 同步：新头图（深色渐变 + 星座图 + 四个实测数据卡）、v0.5.2 章节、
+  规模档表、命令数 22、缺点 28。
+- `docs/assets/social-preview.png` → `social-preview.svg`（GitHub 只收 PNG，需导出后上传，
+  已写进 `PUBLISH.md`；原来的 PNG 是旧版式，留着会误导）。
+
+---
+
 ## [0.5.1] — 2026-10-30
 
 v0.5.0 让决策链会动了，这一版修它暴露出来的问题——外加一个从 0.2 就在、

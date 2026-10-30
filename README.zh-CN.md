@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.1 -->
+<!-- DOC-VERSION: 0.5.2 -->
 
 # MnemoVault
 
@@ -15,7 +15,7 @@
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#快速开始)
-[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -28,16 +28,16 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.5.1** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 10 个包 · 56 个源文件 / 约 17,300 行 TS（`.ts` + `.tsx`，含 UI）· 160 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
-| **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **19 条缺点 D1–D19** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
-| **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 19 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
+| **状态** | **v0.5.2** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 10 个包 · 59 个源文件 / 约 18,700 行 TS（`.ts` + `.tsx`，含 UI）· 176 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **28 条缺点 D1–D28** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
+| **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 28 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
 ---
 
 ## 目录
 
-- [v0.5.1：修掉符号、振荡与死开关](#v051修掉符号振荡与死开关) · [v0.5.0：让决策链真的会出手](#v050让决策链真的会出手)
+- [v0.5.2：让它在真实规模上站得住](#v052让它在真实规模上站得住) · [v0.5.1：修掉符号、振荡与死开关](#v051修掉符号振荡与死开关) · [v0.5.0：让决策链真的会出手](#v050让决策链真的会出手)
 - [它解决什么](#它解决什么) · [它不解决什么](#它不解决什么) · [快速开始](#快速开始) · [五分钟跑通第一次调用](#五分钟跑通第一次调用)
 - [面板](#面板) · [存储比](#存储比从-250-到-084以及-060-为什么到不了) · [已知限制](#已知限制) · [与开源实现的对照](#与开源实现的对照)
 - [目录](#目录) · [贡献](#贡献) · [许可](#许可)
@@ -97,20 +97,39 @@ npm run verify       # 以上四件事一次跑完（CI 跑的就是它）
 | 时间推理准确率 | **1.00** | ≥ 0.75 | 三版 `pnpm→npm→bun` 的双时态查询 |
 | tokens/轮 | **106.9** | ≤ 240 | 含图例摊薄 |
 | 召回 p95 | **32 ms** | ≤ 40 ms @100 万 | 本机 100 cell 规模，非百万级 |
-| 召回 p50（真实 SQLite，500 cell） | **26 ms** | — | `bench-scale.mjs`；v0.3 同口径为 90 ms |
-| 召回 p50（真实 SQLite，1000 cell） | **43 ms** | — | 仍是 O(n)：去重与冲突检测各一次全扫 |
-| `forEachCell`（2000 cell） | **34 ms** | — | v0.3 为 111 ms（N+1 点查） |
-| 单条 cell 体积 | **341 B** | — | MC03：112 B 头 + 稀疏 SDR + 128 维向量（v0.2 为 844 B） |
+| 召回 p50（真实 SQLite，822 cell） | **4 ms** | — | `bench-scale.mjs`；v0.5.1 同口径为 18 ms |
+| 稳态 ingest p50（822 cell） | **1.8 ms** | — | v0.5.1 为 46.3 ms |
+| 单条 cell 体积 | **342 B** | — | MC03：112 B 头 + 稀疏 SDR + 128 维向量（v0.2 为 844 B） |
 | 存储比（短命题库） | 5.32× | 诊断口径 | 100 B 级轮次，定长基底主导，不代表真实轮次 |
 | 存储比（800 字轮次，默认切分） | **0.84×** | ≤ 0.90 | 762 字/轮、2.25 条 cell/轮 |
 | 存储比（800 字轮次，每轮 1 条） | **0.68×** | ≤ 0.72 | 粗粒度对照档，验证"切分粒度 → 存储比"的敏感度 |
 
-**体积与延迟是一笔交易，两个数都要看。** MC03 把单条 cell 从 844 B 压到 341 B，
+**体积与延迟是一笔交易，两个数都要看。** MC03 把单条 cell 从 844 B 压到 342 B，
 代价是 SDR 改成"稀疏索引 + 差分变长整数"后解码更贵（`encodeCell` +29%）。
 体积是持久成本、延迟是每次都要付的成本，所以 v0.3.1 同时修了存储层的三个常数因子
 （语句缓存、单查询流式遍历、单趟 `getCell`）与"每次召回都重建整份面板快照"的浪费，
 把 500 cell 的召回 p50 从 90 ms 拉回 26 ms。上表因此同时列体积与延迟——
 只报其中一个，等于只讲一半。
+
+### 规模档
+
+上面的表测的是**质量**（300 轮语料）。规模是另一个问题，所以它有另一个脚本、另一份语料，
+以及**另一句必须说清楚的话**：
+
+| cell 数 | 召回 p50 | 召回 p95 | 稳态 ingest p50 | 索引构建 | 索引内存 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 222 | 4 ms | 9 ms | 2.1 ms | 10 ms | 72 KB |
+| 422 | 4 ms | 7 ms | 2.1 ms | 12 ms | 137 KB |
+| 822 | 4 ms | 7 ms | 1.8 ms | 20 ms | 266 KB |
+| 10,000 | 20 ms | **25 ms** | 10 ms | 287 ms | 1.6 MB |
+
+同一份 1 万语料下，开/关索引对照：**召回快 11×、ingest 快 21×**
+（`node scripts/bench-scale.mjs --corpus 10000 --ab`）。
+
+> **这份语料是合成的，数字只关于延迟。** 它由批量 `putCell` + 合成边造出来——没有残差、
+> 访问历史均匀。**它上面的召回数字不能与真实库比较。** `artifacts/bench-scale.json` 里有
+> `caveat` 字段，控制台输出也写了同一句，因为这个数字最危险的用法是"被后人当真实数据引用"
+> ——那正是 D13 走过的路。
 
 CI 用 [`scripts/ci-assert-bench.mjs`](scripts/ci-assert-bench.mjs) 把这些数字变成会失败的断言
 （Recall@8 ≥ 0.80 / MRR ≥ 0.60 / tokens ≤ 240 / 两个存储比档位）。v0.3 起存储比**进门槛**了——
@@ -213,6 +232,58 @@ dispose()
 上面的 `createHarness` 是最短的"看到一条"的路径。
 
 </details>
+
+---
+
+## v0.5.2：让它在真实规模上站得住
+
+0.5.0 让决策链会算，0.5.1 让它算对。**0.5.2 让它在真实规模上仍然成立**——
+而且审计稿把瓶颈认错了地方。
+
+审计稿拟合了三个点（200/400/800 轮 → 每轮 3.24/4.76/9.45 ms），结论是"写入是 O(n)，
+外推 10 万 cell 要 6.4 小时"。写入确实 O(n)。但把整轮拆开测之后，有个更蠢的开销：
+**为了算 128 次乘加，每次召回都把全库的 MC03 blob 解一遍。** 解码比计算贵两个数量级。
+
+| 之前（0.5.1） | 现在（0.5.2） | 实测 |
+| :--- | :--- | ---: |
+| Q1 为了跑 `cosine` 解码全库 | **内存向量矩阵**（连续 `Int8Array`；冷层 PQ 向量在写入时用**同一个** `expandEmb` 展开，所以分数逐位相同） | recall p50 @822：18 → **4 ms** |
+| 去重与冲突检测各扫一遍全库 | **SDR 倒排**——阈值由 Jaccard/containment 门限反推（`o = J(|a|+|b|)/(1+J)`），候选集是**超集**而不是近似 | ingest @822：46 → **1.8 ms** |
+| `findConflict` 按 `agent\|pred` 分桶——那是全库的 1/6 | 按 `agent\|pred\|manner\|patient\|polarity` 分桶；同客体只需**反极性** | 每 5 轮 `getCell`：2026 → **16** |
+| Q4 全表扫，而 `idx_time` 从 v0.2 就建着 | SQL 区间查询 | 结果与全扫逐条一致（有对拍测试） |
+| `stats()` 为数列数解码全库 | SQL `GROUP BY` | @10k：20 → **0.8 ms** |
+| `doctor()` 每次面板刷新做三次全解码 | 合并单趟 + 30 秒缓存 | @10k：约 700 → **约 250 ms** |
+| `demoteDue` 每 tick 重算七因子、每条一次 WAL 提交 | 保留度**落盘**（`retention` 表，不动 `cells`）+ 增量扫描 + 单调性剪枝 + **整段一个事务** | 10k 一次 pass：2066 → **658 ms** |
+| 巩固整轮一个事务 | 按阶段提交 | 锁按阶段而非整轮 |
+| README 里"1 万 cell p95 ≤ 40 ms"从没被断言过 | `ci-assert-scale.mjs` 进 CI | **25 ms** |
+
+比单个数字更重要的是**趋势**——它不再增长了：
+
+```text
+每轮 ms（真实 ingest）   222 cell 4.0  ·  422 cell 2.8  ·  822 cell 3.1
+稳态 ingest ms           222 cell 2.1  ·  422 cell 2.1  ·  822 cell 1.8
+recall p50 ms            222 cell 4    ·  422 cell 4    ·  822 cell 4
+```
+
+另外九条确定性修复（都是审计稿读源码找出来的，每条都带了测试）：
+
+| # | 缺陷 | 修法 |
+| :--- | :--- | :--- |
+| D20 | `explain()` 跑的是**非只读**召回，于是 `/mnemo why` 会抬高被解释那条的 `tAccess` | `readOnly: true`——观察不该改变被观察的东西 |
+| D21 | 图式写的是 `flags: FLAG.noDecay & 0`（恒等于 0），于是被当普通情景记忆衰减 | `FLAG.noDecay`；schema 现在锁 P5 |
+| D22 | `maxResidualBytes` 按 UTF-16 码元截断，"8192" 存了约 24 KB 中文 | 按 UTF-8 字节、切在码点边界 |
+| D23 | 短 id 解析两份实现，都在**碰撞时静默取第一个**——而 `forget --hard` 不可撤销 | 合并到 `tools/src/id.ts`，>1 命中抛 `AmbiguousCellIdError` |
+| D24 | 保留度从不落盘 | 见上表 |
+| D25 | 主力基准用 `MemoryStore`；规模基准不在 CI | 规模门槛 + 输出里明写"MemoryStore，非 SQLite" |
+| D26 | 两驱动的残余引用语义不一致 | **未修**——影响面小，需要先定语义（已记录） |
+| D27 | 写路径用 `conn.prepare()` 而不是语句缓存 | 全部改 `prep()` |
+| D28 | 文档漂移：命令数（写 15、实际 22）、`trace` 文档有代码无、字节数不对 | `check-readme` 现在校验**命令数**与**命令存在性**；补 `trace`；字节数实测 342 B |
+
+有两条是**写测试时被测试抓出来的**，这也是它们值得写出来的原因：
+
+- 倒排一开始返回的 `overlap` 是门限值而不是真实重叠位数，于是 Jaccard 被算小，
+  **去重静默失效**（测试："同一句说两次应该只有一条"）；
+- 索引重建路径漏了 `kind`，于是任何外部写入之后所有候选都变成 `kind 0`，
+  下一次 ingest 就会多建一条（测试："外部写入之后索引仍能自愈"）。
 
 ---
 
@@ -440,7 +511,7 @@ v0.2 的 README 末尾列了六个"接口就绪、实机未验证/未实现"的�
 
 | # | 问题 | v0.3 的做法 | 证据 |
 | :--- | :--- | :--- | :--- |
-| 1 | 存储比 2.50× 未达标 | 发现两处测量错误（分母少 2.7 倍、分子把残差摊进 cell）+ 三处真实浪费（头 192→112 B、SDR 位图→稀疏、向量 256→128 维、冷层 PQ 归一化、元数据 upsert） | `storageRatioRealistic` 0.839 / `Coarse` 0.678 / `bytesPerCell` 341 B，进 CI 门槛 |
+| 1 | 存储比 2.50× 未达标 | 发现两处测量错误（分母少 2.7 倍、分子把残差摊进 cell）+ 三处真实浪费（头 192→112 B、SDR 位图→稀疏、向量 256→128 维、冷层 PQ 归一化、元数据 upsert） | `storageRatioRealistic` 0.839 / `Coarse` 0.678 / `bytesPerCell` 342 B，进 CI 门槛 |
 | 2 | L1 只有 lite 在跑 | `fromHostLlm` 扩到 8 种入口 × 嵌套路径、5 种返回结构（含流式）；启动自检 `probeLlmPort`；`turn/end` 走 `encodeTurnAsync`；状态写进 `RuntimeStatus` | `test/bridge.test.mjs` 9 条（chat/complete/generate/invoke/流式/失败降级） |
 | 3 | embedding 是字符 n-gram | 字符 bigram 骨架 + 24 组同义词族桥接 + 标识符整体成词；新增 `EmbeddingPort` 接口与 `quantize()`；修 `cosine` 对不等长向量的零分 bug | Recall@8 保持 0.941、MRR 0.681；`test/ann.test.mjs` 的 PQ/折叠用例 |
 | 4 | HNSW 未实现 | `core/src/ann.ts`：确定性层高（id 哈希）的 HNSW + 精确扫描同接口；`cell < 2000` 走精确扫描，超过自动切换；`service` 维护索引生命周期（增量插入、墓碑删除、参数变更即重建） | 重合度 ≥0.85、重建结果逐条一致、删除生效、`annOverlap()` 可自检 |
@@ -466,7 +537,7 @@ v0.2 的 README 末尾列了六个"接口就绪、实机未验证/未实现"的�
 | `@rain13sad/dsh-mnemo-encoder` | 写侧 | `Encoder`（订阅 `session/event`，turn/end 编码） |
 | `@rain13sad/dsh-mnemo-recall` | 读侧 | `agent/pre-step` 门控与注入 |
 | `@rain13sad/dsh-mnemo-consolidator` | 离线巩固 | `Consolidator`（NREM / REM / 遗忘） |
-| `@rain13sad/dsh-mnemo-tools` | 工具面 + 命令面 | 6 个工具、15 条 `/mnemo` 子命令、egress 守卫 |
+| `@rain13sad/dsh-mnemo-tools` | 工具面 + 命令面 | 6 个工具、22 条子命令（`/mnemo`）、egress 守卫 |
 | `@rain13sad/dsh-mnemo-proactive` | **主动开口** | `ctx.mnemoProactive`、`candidate()`、`tick()`、静音 |
 | `@rain13sad/dsh-mnemo-settings` | 设置面板 | `ctx.mnemoSettings`、生效矩阵、配置快照 |
 | `@rain13sad/dsh-mnemo-ui` | **侧栏面板（client）** | `main` + `sidebar.panellist` 槽注册 |
@@ -624,8 +695,9 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 
 ## 已知限制
 
-完整的 19 条在 [`PROJECT-GUIDE` §12](docs/PROJECT-GUIDE.md)（编号 D1–D19，每条带证据与严重度）。
-下面是实际会咬到使用者的 17 条。
+完整的 28 条在 [`PROJECT-GUIDE` §12](docs/PROJECT-GUIDE.md)（编号 D1–D28，每条带证据与严重度）。
+其中九条（D20–D28）是 v0.5.2 审计发现并已修掉的——它们仍列在那里，因为它们**曾经存在过**，
+而且其中三条是"不报错、只是安静地做错"的类型。下面是仍然会咬到使用者的 17 条。
 
 1. **embedding 仍然不是语义模型**。v0.3 重写了它（字符 bigram 骨架 + 24 组同义词族桥接 +
    标识符整体成词），同义改写比 v0.2 好，但它没有词向量、没有上下文。要真正语义化必须接
@@ -744,7 +816,7 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 │                                ci-assert-bench · ci-check-publish · check-readme · publish-all · readmes · …
 ├── docs/
 │   ├── README.md                文档地图（先看这个）
-│   ├── PROJECT-GUIDE.md         项目说明书：15 条缺点 / 12 条改进意见
+│   ├── PROJECT-GUIDE.md         项目说明书：28 条缺点 / 12 条改进意见
 │   ├── API-CONTRACT.md          宿主接缝核对（rc.3 实机）
 │   ├── PUBLISH.md               建仓、tag、npm 发布
 │   └── design/                  设计文档 v0.2 + 两份前置研究报告

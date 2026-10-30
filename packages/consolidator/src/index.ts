@@ -106,25 +106,39 @@ export class Consolidator {
     mem.store.setMeta('consolidate:open', passId)
     mem.emit('memory/consolidate/start', { passId, phase: 'nrem' })
     try {
-      const result = mem.store.write(() => {
-        const nrem = this.runNrem(passId)
-        const rem = this.runRem(passId)
-        const story = this.runNarrative(passId)
-        // 重放放在遗忘**之前**：先按保留度把"重要但很久没提"的记忆加固一级，
-        // 再跑降权与降档。顺序反了就成了"先打下去再捞上来"，等于白做。
-        const replay = this.runReplay()
-        const forget = this.runForget()
-        return {
-          passId,
-          merged: nrem.merged,
-          linked: nrem.linked + rem.linked,
-          revalenced: rem.revalenced,
-          pruned: forget.pruned,
-          narrated: story.narrated,
-          downscaled: forget.downscaled,
-          replayed: replay.replayed,
-        }
-      })
+      /**
+       * v0.5.2：**分批提交**（D6）。
+       *
+       * v0.5.1 之前整轮 pass 包在一个 `BEGIN IMMEDIATE` 里：10 万 cell 的库上，
+       * 事务从 NREM 一直持有到遗忘结束，期间任何写入（用户发言触发的 encode）都会
+       * 撞 `SQLITE_BUSY` 等满 5 秒 busy_timeout。
+       *
+       * 现在按**阶段**提交（5 个事务）。为什么不是"每 200 条一个事务"：
+       * 那需要先把候选 cell 物化成数组，10 万 cell × 解出来的对象约几百 MB，
+       * 换来的只是更细的锁粒度；而阶段级已经把锁从"整轮"缩到"一个阶段"，
+       * 且每个阶段内部本来就是单趟遍历，天然是批次。
+       *
+       * 一致性：`passId` 幂等仍在（同一 passId 不会重复产生 schema/narrative），
+       * 所以中途崩溃后重跑是安全的——最坏情况是某一阶段做了两遍，而不是写坏数据。
+       */
+      const tx = <T>(fn: () => T): T => mem.store.write(fn)
+      const nrem = tx(() => this.runNrem(passId))
+      const rem = tx(() => this.runRem(passId))
+      const story = tx(() => this.runNarrative(passId))
+      // 重放放在遗忘**之前**：先按保留度把"重要但很久没提"的记忆加固一级，
+      // 再跑降权与降档。顺序反了就成了"先打下去再捞上来"，等于白做。
+      const replay = tx(() => this.runReplay())
+      const forget = tx(() => this.runForget())
+      const result = {
+        passId,
+        merged: nrem.merged,
+        linked: nrem.linked + rem.linked,
+        revalenced: rem.revalenced,
+        pruned: forget.pruned,
+        narrated: story.narrated,
+        downscaled: forget.downscaled,
+        replayed: replay.replayed,
+      }
       mem.emit('memory/consolidate', {
         passId,
         phase: 'nrem',
@@ -194,7 +208,9 @@ export class Consolidator {
         cellId,
         kind: KIND.schema,
         tier: 1,
-        flags: FLAG.noDecay & 0,
+        // v0.5.2 修 D21：原来是 `FLAG.noDecay & 0`，恒等于 0——图式拿不到"只增不减"，
+        // 反被 REM 的情绪衰减按普通情景记忆处理，与 v0.5 方案 2.1 第六道闸的意图相反。
+        flags: FLAG.noDecay,
         tFrom: BigInt(Math.min(...cells.map((c) => Number(c.tFrom)))),
         tTo: BigInt(Math.max(...cells.map((c) => Number(c.tTo)))),
         tIngest: BigInt(now),

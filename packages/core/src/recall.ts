@@ -11,13 +11,15 @@
  *   3. 空槽合法。宁可只给 2 条也不凑满——直接省 token，也避免无关记忆污染上下文。
  */
 
-import type { MemCell } from './cell.js'
+import type { CellKind, MemCell } from './cell.js'
 import { FLAG, REL, foldEmb } from './cell.js'
 import { retrievabilityFrom } from './forgetting.js'
 import { estimateTokens, assignShortIds, renderAffectLine, renderSurface } from './render.js'
 import type { SdrSpace, Sdr } from './sdr.js'
 import { snapshotIdOf, type Store } from './store.js'
 import { extractEntities, parseTimeExpr } from './text.js'
+import { minOverlapForContainment } from './inverted.js'
+import { expandEmb } from './emb.js'
 import type {
   MnemoConfig,
   Pad,
@@ -47,6 +49,19 @@ export interface RecallDeps {
    * 小库上精确扫描更快且无误差，这个判断在 service 里做，不在这里。
    */
   ann?: { search(vec: Int8Array, k: number, ef?: number): Array<{ id: bigint; score: number }> }
+  /**
+   * 向量矩阵（v0.5.2）。给了就顺序扫描内存矩阵，没给就 `forEachCell` 逐条解码。
+   *
+   * 两者的分数**逐位相同**（矩阵用的是同一个 `expandEmb` 与同一条 cosine 公式），
+   * 差别只在"解码 10 万个 blob"还是"扫 12.8 MB 连续内存"。
+   */
+  embScan?: (q: Int8Array, visit: (id: bigint, score: number) => void) => void
+  /**
+   * SDR 倒排候选（v0.5.2）。返回 null 表示"索引不可用，请全扫"。
+   *
+   * 返回的是**超集**（由门限反推的最小重叠位），不是近似，所以接进来不会掉 Recall。
+   */
+  sdrCandidates?: (sdr: Sdr, minOverlap: number) => bigint[] | null
 }
 
 interface Candidate {
@@ -205,34 +220,6 @@ export function cosine(a: Int8Array | null, b: Int8Array | null): number {
   return cosineSame(a, b)
 }
 
-/** 把 8 段 × 4 值的 PQ 向量按段复制展开到目标维度（值域 ×16 还原）。 */
-function expandEmb(v: Int8Array, dim: number): Int8Array {
-  const out = new Int8Array(dim)
-  if (v.length === 32) {
-    const seg = Math.max(1, Math.floor(dim / 8))
-    const perSub = Math.max(1, Math.floor(seg / 4))
-    for (let s = 0; s < 8; s++) {
-      for (let b = 0; b < 4; b++) {
-        const val = (((v[s * 4 + b] << 28) >> 28) || 0) * 16
-        for (let j = 0; j < perSub; j++) {
-          const i = s * seg + b * perSub + j
-          if (i < dim) out[i] = val
-        }
-      }
-    }
-    return out
-  }
-  const g = v.length / dim
-  for (let i = 0; i < dim; i++) {
-    const from = Math.floor(i * g)
-    const to = Math.max(from + 1, Math.floor((i + 1) * g))
-    let acc = 0
-    for (let j = from; j < to && j < v.length; j++) acc += v[j]
-    out[i] = Math.max(-127, Math.min(127, Math.round(acc / Math.max(1, to - from))))
-  }
-  return out
-}
-
 function cosineSame(a: Int8Array, b: Int8Array): number {
   let dot = 0
   let na = 0
@@ -313,27 +300,51 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   // ── 候选收集：四路并行（这里串行执行，但每路独立，语义与并行一致） ──
   // 双时态可见性：默认只看"现在仍然为真"的版本；给 asOf 就按当时的口径看。
   const scopeKey = q.scopeKey ?? deps.scopeKey ?? 'user:local'
-  const visible = (cell: MemCell): boolean => {
+  /**
+   * 可见性判定（列口径）。
+   *
+   * 抽成"只看列"的版本，是为了让 Q1 语义路能在**不解 blob** 的前提下先过滤：
+   * 见 `store.forEachEmbedding`。`visible(cell)` 只是它的一层包装，
+   * 两条路径共用同一份判据——否则"过滤条件"会出现两份，早晚漂。
+   */
+  const visibleFields = (f: {
+    lens?: string
+    tier: number
+    tFrom?: number
+    tInvalid: number
+    scope?: string
+    kind: number
+    session?: string
+  }): boolean => {
     // 视角过滤：'想听事实' 与 '想聊感受' 是两种不同的检索意图
-    if (q.lens && (cell.lens ?? 'fact') !== q.lens) return false
+    if (q.lens && (f.lens ?? 'fact') !== q.lens) return false
     // 墓碑不参与召回（v0.5）。v0.4 里 tier 3 与 tier 4 都是"归档"，
     // 所以"墓碑"从来没能真正把一条记忆挡在检索之外——真正起作用的只有 tInvalid。
-    if (!q.includeTombstones && cell.tier >= 4) return false
+    if (!q.includeTombstones && f.tier >= 4) return false
     // 作用域隔离（§14.10 / §19.2）：情景记忆默认不跨会话，语义/图式全局共享。
     // 这是"A 用户的事被 B 用户问出来"这条事故的唯一防线。
     if (q.scope !== 'global') {
-      const cellScope = cell.scope ?? 'user:local'
+      const cellScope = f.scope ?? 'user:local'
       if (cellScope !== 'global' && cellScope !== scopeKey) return false
-      if (cell.kind === 0 && q.sessionId && cell.session && cell.session !== q.sessionId) return false
+      if (f.kind === 0 && q.sessionId && f.session && f.session !== q.sessionId) return false
     }
-    const invalidAt = Number(cell.tInvalid ?? 0)
     if (q.asOf !== undefined) {
-      if (Number(cell.tFrom) > q.asOf) return false
-      return invalidAt === 0 || invalidAt > q.asOf
+      if ((f.tFrom ?? 0) > q.asOf) return false
+      return f.tInvalid === 0 || f.tInvalid > q.asOf
     }
     if (q.includeInvalidated) return true
-    return invalidAt === 0
+    return f.tInvalid === 0
   }
+  const visible = (cell: MemCell): boolean =>
+    visibleFields({
+      lens: cell.lens,
+      tier: cell.tier,
+      tFrom: Number(cell.tFrom),
+      tInvalid: Number(cell.tInvalid ?? 0),
+      scope: cell.scope,
+      kind: cell.kind,
+      session: cell.session,
+    })
 
   const cands = new Map<string, Candidate>()
   const key = (id: bigint) => id.toString(16).padStart(16, '0')
@@ -372,12 +383,40 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
       if (hit.score > 0.12) semScored.push({ c: cell, s: hit.score })
     }
   } else {
-    store.forEachCell((cell) => {
-      if (q.kinds && !q.kinds.includes(cell.kind)) return
-      if (!visible(cell)) return
-      const s = cosine(qEmb, cell.emb)
-      if (s > 0.12) semScored.push({ c: cell, s })
-    })
+    /**
+     * 精确扫描，但**只读向量列**（v0.5.2）。
+     *
+     * 原来这里是 `forEachCell` + `cosine`：为了算 128 次乘加，把每条 cell 的
+     * MC03 blob 解一遍（SDR 反量化、槽位、边）。10 万 cell 下那是几十万次对象分配，
+     * 而 cosine 本身只要 1 ms——**解码比计算贵两个数量级**。
+     *
+     * 现在先按列过滤 + 算分，只对 top-K 回表解 blob。语义完全等价：
+     * 过滤条件与 `visible()` 共用 `visibleFields`，分数与打分阶段共用 `cosine`。
+     */
+    const scored: Array<{ id: bigint; s: number }> = []
+    if (deps.embScan) {
+      // 矩阵路径：先粗筛（分数 > 0.12），再过可见性——可见性要解 blob，
+      // 所以顺序很重要：把便宜的算术放在前面，贵的过滤放在后面。
+      deps.embScan(qEmb, (id, s) => {
+        if (s > 0.12) scored.push({ id, s })
+      })
+      scored.sort((a, b) => b.s - a.s || Number(a.id - b.id))
+      for (const hit of scored.slice(0, wantK * 2)) {
+        const cell = store.getCell(hit.id)
+        if (!cell) continue
+        if (q.kinds && !q.kinds.includes(cell.kind)) continue
+        if (!visible(cell)) continue
+        semScored.push({ c: cell, s: hit.s })
+        if (semScored.length >= wantK) break
+      }
+    } else {
+      store.forEachCell((cell) => {
+        if (q.kinds && !q.kinds.includes(cell.kind)) return
+        if (!visible(cell)) return
+        const s = cosine(qEmb, cell.emb)
+        if (s > 0.12) semScored.push({ c: cell, s })
+      })
+    }
   }
   semScored.sort((a, b) => b.s - a.s || Number(a.c.cellId - b.c.cellId))
   const semTop = semScored.slice(0, wantK)
@@ -388,8 +427,14 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
     cand.simSemantic = Math.max(cand.simSemantic, semNorm[i])
   })
 
-  // Q2 符号路：query 的 SDR containment（精确事实类查询的主通道）
-  store.forEachCell((cell) => {
+  /**
+   * Q2 符号路：query 的 SDR containment（精确事实类查询的主通道）。
+   *
+   * v0.5.2 走倒排：门限由 `simNorm > 0.05` 反推成"最少共享几位"，
+   * 于是候选集是真实候选的**超集**——不损失召回，只是不再解全库的 blob。
+   * 索引停用（超预算）时自动退回全扫，行为完全一致。
+   */
+  const visitSymbolic = (cell: MemCell) => {
     if (q.kinds && !q.kinds.includes(cell.kind)) return
     if (!visible(cell)) return
     const c = space.simNorm(qSdr, cell.sdr)
@@ -398,7 +443,17 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
       cand.channels.add('symbolic')
       cand.simSymbolic = Math.max(cand.simSymbolic, c)
     }
-  })
+  }
+  const containFloor = SIM_FLOOR + 0.05 * (1 - SIM_FLOOR)
+  const symCands = deps.sdrCandidates?.(qSdr, minOverlapForContainment(space.popcount(qSdr), containFloor)) ?? null
+  if (symCands) {
+    for (const id of symCands) {
+      const cell = store.getCell(id)
+      if (cell) visitSymbolic(cell)
+    }
+  } else {
+    store.forEachCell(visitSymbolic)
+  }
 
   /**
    * Q2b 墓碑目录通道（v0.5.1）。
@@ -463,10 +518,11 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
     if (frontier.length === 0) break
   }
 
-  // Q4 时间路：query 含时间表达式时按区间重叠
+  // Q4 时间路：query 含时间表达式时按区间重叠。
+  // v0.5.2：走 `idx_time` 区间查询，不再全表扫（`idx_time` 从 v0.2 就建着，只是没人用）。
   if (timeRange) {
     const span = Math.max(1, timeRange.to - timeRange.from)
-    store.forEachCell((cell) => {
+    const visitTemporal = (cell: MemCell) => {
       if (!visible(cell)) return
       const tf = Number(cell.tFrom)
       if (tf < timeRange.from - span || tf > timeRange.to + span) return
@@ -477,7 +533,12 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
       const cand = touch(cell)
       cand.channels.add('temporal')
       cand.simTemporal = Math.max(cand.simTemporal, s)
-    })
+    }
+    const ids = store.cellsInTimeRange(timeRange.from - span, timeRange.to + span)
+    for (const id of ids) {
+      const cell = store.getCell(id)
+      if (cell) visitTemporal(cell)
+    }
   }
 
   // 候选池截断（§9.1：≤200）

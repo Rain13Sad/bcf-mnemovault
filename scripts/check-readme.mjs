@@ -45,18 +45,40 @@ const version = rootPkg.version
 const nodeMin = String(rootPkg.engines?.node ?? '').replace(/^[>=^~\s]+/, '')
 const nodeMM = nodeMin.split('.').slice(0, 2).join('.')
 
+/**
+ * 测试条数。
+ *
+ * ── v0.5.2 的修法：先判"能不能跑"，再决定怎么数 ──────────────────
+ * v0.5.1 直接 `node --test`，而 CI 的 `npm-latest` job 里**没有 build**——
+ * 测试因为 `packages/<pkg>/lib` 不存在而全部失败，`# tests N` 拿不到，
+ * 于是这个脚本报"拿不到测试数"，整个 job 红。
+ *
+ * 那不是文档不一致，那是**检查脚本自身的前置条件没写清楚**。
+ * 现在：`lib/` 不在就退回静态计数（数 `test(` 调用），并在 info 里标明口径，
+ * 两种口径的差值必须为 0 才算一致（静态计数与运行期条数本来就该相等）。
+ */
 let testCount = null
-if (withTests) {
+let testCountSource = 'runtime'
+const built = existsSync(join(root, 'packages', 'core', 'lib', 'index.js'))
+if (withTests && built) {
   const r = spawnSync(process.execPath, ['--test', 'test/*.test.mjs'], { encoding: 'utf8', shell: false, cwd: root })
   const m = /^# tests (\d+)$/m.exec(`${r.stdout ?? ''}\n${r.stderr ?? ''}`)
   if (m) testCount = Number(m[1])
   else problems.push('跑测试拿不到 `# tests N`（先 `npm run build && npm test` 确认基线）')
+} else if (withTests) {
+  testCountSource = 'static（未 build，数 test() 调用）'
+  const dir = join(root, 'test')
+  testCount = readdirSync(dir)
+    .filter((f) => f.endsWith('.test.mjs'))
+    .reduce((n, f) => n + (readFileSync(join(dir, f), 'utf8').match(/^test\(/gm) ?? []).length, 0)
 }
 
 const guide = readFileSync(join(root, 'docs', 'PROJECT-GUIDE.md'), 'utf8')
 const dCount = (guide.match(/^\*\*D\d+｜/gm) ?? []).length
 
-notes.push(`真实值：${srcFiles.length} 个源文件 / ${srcLines} 行 / ${testCount ?? '?'} 条测试 / Node ≥${nodeMin} / 缺点 ${dCount} 条 / v${version}`)
+notes.push(
+  `真实值：${srcFiles.length} 个源文件 / ${srcLines} 行 / ${testCount ?? '?'} 条测试（${testCountSource}） / Node ≥${nodeMin} / 缺点 ${dCount} 条 / v${version}`,
+)
 
 // ── 断言 ──────────────────────────────────────────────────────────
 const readme = (f) => readFileSync(join(root, f), 'utf8')
@@ -136,6 +158,41 @@ for (const f of ['README.md', 'README.zh-CN.md']) {
 
   // ⑧ 存储比必须写清"长文本 / 短配置句"两个区间（评审指出的口径缺失）
   must(f, /0\.839|短配置|short config/i.test(txt), '缺少存储比的适用区间说明（长文本 0.839× vs 短配置句 ~6×）')
+}
+
+/**
+ * ⑩ 命令面口径（v0.5.2，补 D28）。
+ *
+ * v0.5.1 的检查覆盖了源文件数/行数/测试数/缺点条数，**唯独不管命令数**——
+ * 于是 README 一直写"15 条子命令"，而 `commands.ts` 里实际有 21 个 case 动词。
+ * 命令数是可以从代码里数出来的，那它就该被数出来。
+ */
+const cmdSrc = readFileSync(join(root, 'packages', 'tools', 'src', 'commands.ts'), 'utf8')
+const verbs = new Set([...cmdSrc.matchAll(/case '([a-z-]+)'/g)].map((m) => m[1]))
+notes.push(`命令动词：${verbs.size} 个（${[...verbs].sort().join(' ')}）`)
+
+for (const f of ['README.md', 'README.zh-CN.md']) {
+  const txt = readme(f)
+  const m = /(\d+)\s*(?:subcommands|条子命令|个子命令)/.exec(txt)
+  must(f, Boolean(m), '缺少命令条数（应写"N 条子命令"）')
+  if (m) must(f, Number(m[1]) === verbs.size, `命令条数写的是 ${m[1]}，commands.ts 实际 ${verbs.size} 个`)
+}
+
+/**
+ * ⑪ 文档里提到的 `/mnemo <verb>` 必须在 `commands.ts` 里有实现。
+ *
+ * 这条挡的是"文档有、代码无"（D28 ④：`/mnemo trace` 只在 PROJECT-GUIDE 里存在过）。
+ * 白名单只放非命令的写法（比如 `/mnemo` 本身开面板）。
+ */
+const NON_VERBS = new Set([''])
+for (const f of ['README.md', 'README.zh-CN.md', 'docs/PROJECT-GUIDE.md', 'docs/API-CONTRACT.md']) {
+  if (!existsSync(join(root, f))) continue
+  const txt = readFileSync(join(root, f), 'utf8')
+  const mentioned = new Set([...txt.matchAll(/`?\/mnemo\s+([a-z-]+)/g)].map((m) => m[1]))
+  for (const v of mentioned) {
+    if (NON_VERBS.has(v)) continue
+    must(f, verbs.has(v), `文档里写了 \`/mnemo ${v}\`，但 commands.ts 没有这个动词`)
+  }
 }
 
 // ⑨ .nvmrc 与 engines 一致

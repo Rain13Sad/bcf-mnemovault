@@ -13,6 +13,7 @@
  */
 
 import { KIND_NAME, formatBreakdown, toHex, type MemoryService, type Preset } from '@rain13sad/dsh-mnemo-core'
+import { AmbiguousCellIdError, resolveCellId } from './id.js'
 
 export interface CommandDeps {
   memory: MemoryService
@@ -44,6 +45,7 @@ const HELP = `MnemoVault 命令
   /mnemo                       打开侧栏面板
   /mnemo search <q>            检索并列出命中（含分数）
   /mnemo why <id>              解释某条为何被召回
+  /mnemo trace <q>             摊开一次召回：走了哪几条路、各自贡献多少
   /mnemo pin <id> | unpin      固定 / 取消固定
   /mnemo forget <id> [--hard] [--yes]     遗忘（默认软删）
   /mnemo forget --before <date> [--yes]   按时间批量遗忘（先预览）
@@ -64,7 +66,24 @@ const HELP = `MnemoVault 命令
   /mnemo rebuild --from-log [--yes]
   /mnemo export [--user <id>]`
 
+/**
+ * 命令入口。
+ *
+ * 只包一层 try/catch，但这一层是必要的：`resolveId` 在短 id 撞车时会抛
+ * `AmbiguousCellIdError`（v0.5.2 修 D23）。命令面必须把它变成**一句人话**，
+ * 而不是让异常穿过 ctx.cmdline ——那会变成"命令没反应"。
+ * 其他异常照旧抛出：静默吞掉编程错误比崩溃更难查。
+ */
 export async function runCommand(argv: string[], deps: CommandDeps): Promise<string> {
+  try {
+    return await runCommandInner(argv, deps)
+  } catch (err) {
+    if (err instanceof AmbiguousCellIdError) return err.message
+    throw err
+  }
+}
+
+async function runCommandInner(argv: string[], deps: CommandDeps): Promise<string> {
   const [cmd, ...rest] = argv
   const mem = deps.memory
   switch (cmd) {
@@ -87,6 +106,36 @@ export async function runCommand(argv: string[], deps: CommandDeps): Promise<str
       const id = rest[0]
       if (!id) return '用法：/mnemo why <id>'
       return mem.explain(id)
+    }
+
+    /**
+     * `trace` —— 把一次召回**摊开**给人看（v0.5.2 补上，之前只在文档里有）。
+     *
+     * `why` 回答"这条为什么被选中"，`trace` 回答"这一次检索走了哪几条路、
+     * 各自贡献了多少候选、最后为什么是这几条"。两者的区别是**单条 vs 整次**。
+     * 全部走 `readOnly`：观察不该改变被观察的东西。
+     */
+    case 'trace': {
+      const q = rest.join(' ').trim()
+      if (!q) return '用法：/mnemo trace <query>'
+      const r = mem.recall({ text: q, budget: 600, manual: true, readOnly: true })
+      const lines = [
+        `query  ${q}`,
+        `策略   ${r.strategy}   候选 ${r.candidates}   耗时 ${r.elapsedMs} ms   token ${r.tokens}`,
+        `槽位   ${r.slotsUsed} 已用 / ${r.emptySlots} 空（空槽合法，宁可少给也不凑）`,
+        '',
+      ]
+      if (r.hits.length === 0) {
+        lines.push('没有命中：ignition 阈值没到，或这条信息从未被写入。')
+      } else {
+        for (const h of r.hits) {
+          lines.push(`  ${h.shortId}  ${h.score.toFixed(3)}  槽 ${h.slot + 1}  通道 ${h.channel}`)
+        }
+        lines.push('', '—— 得分最高的那条，分解如下 ——', formatBreakdown(r.breakdowns[0], mem.config.recall.ignition))
+      }
+      const idx = mem.indexInfo()
+      lines.push('', `索引   ${idx.enabled ? 'SDR 倒排已启用' : '退回全扫'}  ${idx.note}`)
+      return lines.join('\n')
     }
 
     case 'pin':
@@ -312,17 +361,14 @@ export async function runCommand(argv: string[], deps: CommandDeps): Promise<str
   }
 }
 
-/** id 解析：支持 4 位短 id 与完整 16 位 hex。 */
+/**
+ * id 解析：支持 4 位短 id 与完整 16 位 hex。
+ *
+ * v0.5.2：实现移到 `id.ts`，撞车时抛 `AmbiguousCellIdError` 而不是静默取第一个。
+ * 这个函数保留原名只是为了不破坏既有调用点与测试。
+ */
 export function resolveId(mem: MemoryService, short: string): string {
-  const clean = short.replace(/^#/, '').replace(/^0x/, '').toLowerCase()
-  if (clean.length >= 16) return clean.padStart(16, '0')
-  let found = ''
-  mem.store.forEachCell((c) => {
-    if (found) return
-    const hex = toHex(c.cellId, 16)
-    if (hex.endsWith(clean)) found = hex
-  })
-  return found || clean.padStart(16, '0')
+  return resolveCellId(mem, short)
 }
 
 function parseDate(s: string | undefined): number | undefined {

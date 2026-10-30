@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.1 -->
+<!-- DOC-VERSION: 0.5.2 -->
 
 # MnemoVault
 
@@ -17,7 +17,7 @@ repetir la transcripción.
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#inicio-rápido)
-[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Español**
 
@@ -25,12 +25,12 @@ repetir la transcripción.
 
 > **Esta página es un resumen.** La documentación canónica está en el
 > [README en inglés](README.md) y en el [README en chino](README.zh-CN.md): allí están la cadena completa
-> de decisión de borrado, los cambios de v0.5.x y las 19 limitaciones conocidas (D1–D19).
+> de decisión de borrado, los cambios de v0.5.x y las 28 limitaciones conocidas (D1–D28).
 
 | | |
 | :--- | :--- |
-| **Estado** | **v0.5.1** · Developer Preview (base DSH `0.2.1-rc.3`) |
-| **Tamaño** | 10 paquetes · 56 archivos fuente / ~17.300 líneas (`.ts` + `.tsx`) · 160 pruebas |
+| **Estado** | **v0.5.2** · Developer Preview (base DSH `0.2.1-rc.3`) |
+| **Tamaño** | 10 paquetes · 59 archivos fuente / ~18.700 líneas (`.ts` + `.tsx`) · 176 pruebas |
 | **Dependencias** | En ejecución **no depende de ningún paquete de terceros fuera de `@deepseek-ai/*`** (el único externo es `schemastery` para los esquemas de configuración; el resto es Node integrado: `node:sqlite` / `node:zlib`) |
 | **Requisitos** | Node ≥ 22.13 · npm ≥ 10. Ejecutar las pruebas no requiere un host DSH |
 
@@ -60,6 +60,12 @@ Este proyecto toma otro camino.
   envejecían y un paso por pasada contra un suelo P3); v0.5 los separó.
 - **La compuerta ya no reescribe la puntuación**: la calculan los siete factores; la compuerta solo impide
   llegar a lápida.
+- **v0.5.2 — aguanta a escala real.** El cuello de botella no era "las escrituras son O(n)" sino
+  **"cada recuperación decodificaba todos los blobs de la biblioteca para hacer 128 multiplicaciones"**.
+  Con 822 celdas, un turno pasa de 25,4 ms a **3,1 ms** (la tendencia deja de crecer); con 10.000 celdas,
+  el p95 de recuperación es **25 ms**. Incluye índice invertido SDR (umbrales derivados del criterio de
+  Jaccard, así que los candidatos son un superconjunto), matriz de vectores en memoria, índice temporal,
+  y retención persistida con poda por monotonía.
 - **tier 4 = lápida**: libera el residuo y el vector, queda fuera de la recuperación y puede revivirse desde
   el panel (el texto original no vuelve).
 - **v0.5.1**: corrige la pérdida de signo en i8 (valores afectivos negativos se leían positivos), la

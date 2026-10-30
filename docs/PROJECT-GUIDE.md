@@ -1,7 +1,7 @@
 # MnemoVault 项目说明书
 
-> 版本：0.5.1　|　对应设计文档：[`docs/design/MNEMOVAULT-DESIGN.md`](design/MNEMOVAULT-DESIGN.md) v0.2　|　基线：DSH `0.2.1-rc.3`
-> 代码规模：56 个源文件 / 约 17,300 行（TypeScript + TSX）；脚本 15 个 / 约 1,800 行；测试 14 个文件 / 160 条　|　日期：2026-10-30
+> 版本：0.5.2　|　对应设计文档：[`docs/design/MNEMOVAULT-DESIGN.md`](design/MNEMOVAULT-DESIGN.md) v0.2　|　基线：DSH `0.2.1-rc.3`
+> 代码规模：59 个源文件 / 约 18,700 行（TypeScript + TSX）；脚本 18 个 / 约 2,300 行；测试 16 个文件 / 176 条　|　日期：2026-10-31
 >
 > 本文是**给要接手这个项目的人**看的：它说明系统是什么、怎么用、内部怎么运作、
 > 哪些地方靠得住、哪些地方靠不住，以及下一步该改什么、为什么。
@@ -61,7 +61,7 @@
 | 维度 | 状态 |
 | :--- | :--- |
 | 编译 | 10 个包全部通过 `tsc`，零 `any` 逃逸（除少数跨版本接缝处有注释说明） |
-| 测试 | 115 条全绿（10 条 SDR + 16 条核心不变量 + 15 条集成 + 23 条特性 + 13 条隔离/重建 + 15 条陪伴层 + 2 条面板 + 6 条 ANN + 9 条接线 + 6 条主动开口） |
+| 测试 | 176 条全绿（10 条 SDR + 16 条核心不变量 + 15 条集成 + 23 条特性 + 13 条隔离/重建 + 15 条陪伴层 + 2 条面板 + 6 条 ANN + 9 条接线 + 6 条主动开口 + 20 条保留度/决策 + 10 条索引 + 6 条缓存 + 8 条回归） |
 | 评测 | Recall@8 0.941 / MRR 0.681 / 时间推理 1.00 / tokens 106.9 每轮 / 单条 cell 341 B |
 | 面板 | 四视图可运行，独立预览跑的是编译产物 |
 | 未接线 | 真实 embedding 服务（`EmbeddingPort` 接口已定义）、宿主 `ctx.llm` 的真机验证 |
@@ -82,7 +82,7 @@
 ```bash
 npm ci
 npm run build      # 按依赖顺序编译 10 个包（core → affect → encoder → … → ui）
-npm test           # 115 条
+npm test           # 176 条
 npm run demo       # 26 轮中文对话，打印注入 / 巩固 / 统计 / 守卫
 npm run panel      # 面板预览 http://127.0.0.1:5178/
 ```
@@ -474,7 +474,7 @@ interocept() → appraise() → coreAffect() → label()（仅渲染）
 
 `memory_recall` / `memory_expand` 带 `presentCall` / `presentResult`，在对话流里渲染成折叠卡片。
 
-### 7.4 命令面（15 条子命令 + help）
+### 7.4 命令面（22 条子命令 + help）
 
 `/mnemo`（打开面板）、`search` `why` `pin` `unpin` `forget`（`--hard --yes` / `--before`）
 `preset` `mode` `affect`（`set`）`persona`（`rollback`）`schema` `asof` `stats` `doctor`（`--fix --unlock`）
@@ -711,6 +711,11 @@ MRS 三档渲染 + 4±1 槽位 + 空槽合法，把"注入多少"变成可计算
 `ingest()` 对每个新 cell 扫全库算 Jaccard 找最优匹配（`store.forEachCell`）。
 n 条 cell 的会话，总代价 O(n²)。
 
+> **v0.5.2 已修。** 改成 SDR 倒排候选（门限由 Jaccard 门限反推，候选集是超集不是近似），
+> 且 `candidatesByOverlap` 直接给出重叠位数，于是 Jaccard 可以**不回表**算出来。
+> 实测 400 cell 下每次 ingest 的 `getCell` 从 2026 次/5 轮降到 16 次/5 轮；
+> 822 cell 的稳态 ingest 从 46.3 ms 降到 1.8 ms。见 [`design/V0.5.2-PLAN.md`](design/V0.5.2-PLAN.md) §3.2。
+
 > 证据：`packages/core/src/service.ts` `ingest` 里的 `forEachCell`。
 > 影响：1 万 cell 时每次写入约 10k × 193 ns ≈ 2 ms（可接受）；
 > 10 万 cell 时 20 ms/次，一轮 4 条命题就是 80 ms——会拖慢 turn/end。
@@ -724,6 +729,10 @@ n 条 cell 的会话，总代价 O(n²)。
 > 影响：10 万 cell 时 p95 会到几百毫秒，远超 40 ms 目标。**这是规模化的第一道墙。**
 
 **D6｜巩固 pass 是长事务**
+
+> **v0.5.2 已修。** 按阶段提交（NREM / REM / 叙事 / 重放 / 遗忘 各一个事务），
+> 锁从"整轮"缩到"一个阶段"。没有做成"每 200 条一个事务"是因为那需要先把候选
+> 物化成数组，10 万 cell 下是几百 MB——换来的只是更细的锁粒度。
 
 `Consolidator.run()` 整个包在一个 `BEGIN IMMEDIATE` 里（NREM + REM + 遗忘）。
 文档 §8.5 说"巩固是长事务，与 encode 串行"——这是设计，但代价是 pass 期间写入全部阻塞。
@@ -830,6 +839,93 @@ Recall@8 0.941 说明"在这套数据上能工作"，不说明"在真实对话�
 **D15｜没有压力测试**
 
 最大测过 2000 cell（微基准）。1 万 / 10 万 cell 的内存、p95、巩固耗时全是空白。
+
+> **v0.5.2 已修。** 新增 `scripts/gen-corpus.mjs`（合成语料）与
+> `scripts/ci-assert-scale.mjs`（1 万 cell 进 CI 门槛：recall p95 ≤ 40 ms，实测 25 ms）。
+> 10 万 cell 的离线档 `node scripts/bench-scale.mjs --corpus 100000` 也有了，
+> 但**不进 CI**（时间成本），数字写进 `artifacts/bench-scale.json`。
+
+### 12.6 v0.5.2 新修 / 新发现（D20–D28）
+
+这一层是"已经修掉的"，列出来是因为**它们曾经真实存在过**，
+而且其中三条（D21/D23/D24）是那种"不报错、只是安静地做错"的类型。
+
+**D20｜`explain()` 有副作用**
+
+解释一条记忆时会以非只读方式跑一次召回，于是 `/mnemo why` 会抬高被解释那条的
+`tAccess`/`stability` 并写再巩固日志。
+
+> 证据：`service.ts` 的 `explain()` 兜底分支。v0.5 修了"面板刷新=一次使用"，漏了这条。
+> **修法**：加 `readOnly: true`。解释是观察，观察不该改变被观察的东西。
+
+**D21｜图式拿不到 `noDecay`，反被衰减**
+
+`consolidator` 写 schema cell 时用的是 `flags: FLAG.noDecay & 0`——恒等于 0。
+于是图式既不受第六道闸（"图式只增不减"）保护，又被 REM 的情绪衰减当普通情景记忆处理。
+
+> 证据：`consolidator/src/index.ts`，一个字符的笔误（`&` 应为赋值）。
+> **修法**：改 `FLAG.noDecay`。修完 schema 恒为 P5，与 v0.5 方案 2.1 的意图一致。
+
+**D22｜`maxResidualBytes` 名不副实**
+
+配置项叫"字节"，实现是 `text.slice(0, max)`——按 UTF-16 码元截断。
+中文一个字 3 字节，于是"8192"实际存了约 24 KB，而同函数里的 `rawLen` 报的是真字节。
+
+> **修法**：按码点累加 UTF-8 字节、切在码点边界上（不会切出半个代理对）。
+
+**D23｜短 id 解析两份实现，碰撞时静默取第一个**
+
+`tools/index.ts` 与 `commands.ts` 各有一份几乎相同的 `hex.endsWith(clean)` 线性扫描，
+都在找到第一个匹配时就停。短 id 是 16 位 hex 的末 4 位——按生日问题，
+300 条的库撞车概率约 50%。而 `/mnemo forget <id> --hard` **不可撤销**。
+
+> **修法**：合并到 `tools/src/id.ts`，收集**全部**匹配，>1 时抛 `AmbiguousCellIdError`
+> 并列出候选；命令面把它转成一句人话，工具面转成结构化错误。
+
+**D24｜保留度不落盘**
+
+面板每次现算 120 条，`demoteDue` 每 tick 全表评估。10 万 cell 下这是"每个 tick 一次全扫"。
+
+> **修法**：`retention(cell_id, score, band, at)` 表（不改 cells，旧库无需 rebuild）+
+> 增量扫描（一次只评估 `demoteBatch` 条最久未评估的）+ 单调性剪枝。
+> 两个实现细节值得记：① 降档**不**作废缓存（`tier` 不是七因子的输入，
+> 降完"该不该继续降"的结论仍有效），否则剪枝是死代码；
+> ② 整段包一个事务——实测 1 万 cell 的一次 pass 从 2066 ms 降到 658 ms，97% 原本花在 fsync。
+
+**D25｜主力基准不测真实路径**
+
+`bench.mjs` 用 `MemoryStore`（与 SQLite 差 43×），`bench-scale.mjs` 不在 CI，
+README 里"1 万 cell p95 ≤ 40 ms"**在 CI 里没有任何断言**。
+
+> **修法**：`ci-assert-scale.mjs` 把 1 万 cell 的 `recall p95 ≤ 40 ms`、
+> 索引构建 ≤ 3 s、索引内存 ≤ 4 MB 变成门槛；`bench.mjs` 的输出标题行直接写明
+> "MemoryStore，非 SQLite"。
+
+**D26｜两驱动的残余引用语义不等价**
+
+`MemoryStore` 现算引用数，`SqliteStore` 读 `ref_cnt` 列；而 `putResidual` 只置 1、
+`addResidualRef` 才累加，于是 `releaseResidualRef` 的判据一真一假。
+
+> **状态**：未修。影响面小（`MemoryStore` 只用于测试与 bench），
+> 但改动涉及 `residualRefs` 的语义定义，单独立项更清楚。
+
+**D27｜写路径未走语句缓存**
+
+`putCell`/`putEdge`/`putResidual`/`putSnapshot`/`appendEvict`/`appendLog` 用
+`this.conn.prepare(...)` 而不是 `this.prep()`，与文件顶部"38 处无缓存已改进"的自述矛盾。
+
+> **修法**：全部改 `this.prep()`。
+
+**D28｜文档与代码口径漂移**
+
+① 命令：README 写 15 条子命令，`commands.ts` 实际 22 个 case 动词；
+② 测试：徽章数与实际不符（静态 `test()` 数与运行期条数差 2，因为两个 `panel-*.test.mjs`
+不含 `test()`，被 `node --test` 各计 1 个文件级条目）；
+③ `encodeCell` 字节数文档与实测不符（实测均值 **342 B**）；
+④ `/mnemo trace` 在文档里有、代码里没有。
+
+> **修法**：`check-readme.mjs` 增加"命令数实测比对"与"文档提到的 `/mnemo <verb>` 必须在
+> `commands.ts` 有实现"两项；补上 `trace` 实现；字节数改为实测口径。
 
 ---
 

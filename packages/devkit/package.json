@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-devkit",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "无宿主运行器：mock Cordis ctx + 会话回放，用于 demo / 测试",
   "keywords": [
     "dsh",
@@ -47,13 +47,13 @@
   },
   "peerDependencies": {},
   "dependencies": {
-    "@rain13sad/dsh-mnemo-core": "^0.5.1",
-    "@rain13sad/dsh-mnemo-affect": "^0.5.1",
-    "@rain13sad/dsh-mnemo-encoder": "^0.5.1",
-    "@rain13sad/dsh-mnemo-recall": "^0.5.1",
-    "@rain13sad/dsh-mnemo-consolidator": "^0.5.1",
-    "@rain13sad/dsh-mnemo-tools": "^0.5.1",
-    "@rain13sad/dsh-mnemo-settings": "^0.5.1"
+    "@rain13sad/dsh-mnemo-core": "^0.5.2",
+    "@rain13sad/dsh-mnemo-affect": "^0.5.2",
+    "@rain13sad/dsh-mnemo-encoder": "^0.5.2",
+    "@rain13sad/dsh-mnemo-recall": "^0.5.2",
+    "@rain13sad/dsh-mnemo-consolidator": "^0.5.2",
+    "@rain13sad/dsh-mnemo-tools": "^0.5.2",
+    "@rain13sad/dsh-mnemo-settings": "^0.5.2"
   },
   "publishConfig": {
     "access": "public"
