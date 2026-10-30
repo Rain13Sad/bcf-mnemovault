@@ -65,37 +65,68 @@ v0.3.0 正是漏了这一步：10 个包升到 0.3.0，8 个 package.json 的兄
 包名是 `@rain13sad/dsh-mnemo-*`（npm 账号 rain13sad 自带这个 scope，不用建组织）。
 `@bcf` 这个 scope 已经被另一个同名用户占用，所以没有用它。
 
-发布前有三个坑，都已经在仓库里处理掉了，记下来免得下次踩：
+发布前有几个坑，都已经在仓库里处理掉了，记下来免得下次踩：
 
 1. **内部依赖不能写 `"*"`。** npm 不会替你改写成具体版本，发出去的包会依赖"任意版本"。
-   现在各包统一写 `^0.3.1`；升版本时根 package.json 与 10 个子包一起改。
+   现在各包统一写 `^<同版本>`；升版本时根 package.json 与 10 个子包一起改，
+   改完必须跑 `node scripts/ci-check-publish.mjs`（版本 / 兄弟依赖 / lockfile 三项一致）。
 2. **`lib/` 是 gitignore 的构建产物**，但 `files` 里有它。不 build 就发，发出去的是空包。
 3. **npm 包页只认包内的 README**，仓库根那份不会带过去。`npm run readmes` 会按
-   `scripts/pkg-readme.mjs` 里的表重新生成 10 份；CI 里可以用
-   `node scripts/pkg-readme.mjs --check` 卡住忘记更新的情况。
+   `scripts/pkg-readme.mjs` 里的表重新生成 10 份。
+4. **authToken 会过期。** v0.4.0 发布时 token 是好的，第二天再发就可能 `E401`。
+   这不是网络问题，重试一百次也没用——必须重新 `npm login`。
 
-标准流程：
-
-```bash
-npm run verify                              # build + test + check + bench，先绿
-npm run readmes                             # 子包 README 与代码对齐
-npm publish --workspaces --access public    # 一次发 10 个包
-```
-
-账号开了 2FA（授权与发布都要），所以 `npm publish` 会要一次性口令：
+### 标准流程
 
 ```bash
-npm publish --workspaces --access public --otp=123456
+cd "DSH project"
+
+node scripts/ci-check-publish.mjs     # 门禁：版本 / 兄弟依赖 / lockfile / 平台中立
+npm run build                          # 必须：lib/ 是 gitignore 的产物
+node scripts/publish-all.mjs --dry-run # 预演 10 个包（不需要登录）
+
+npm whoami                             # 应输出 rain13sad；E401 就先 npm login
+node scripts/publish-all.mjs           # 按依赖顺序发，逐包提示 2FA 验证码
 ```
 
-发布顺序无所谓（npm 不校验依赖是否已存在），但装的时候要全都在。发完核对：
+`scripts/publish-all.mjs` **不是** `npm publish --workspaces` 的简写，它做了四件事：
+
+- 按拓扑序发（core → affect/encoder/recall/consolidator/proactive/tools/settings → devkit/ui），
+  避免"装 affect 时它依赖的 core 还没发"的空窗；
+- **登录态预检**：`npm whoami` 失败直接停，并告诉你去 `npm login`；
+- **幂等跳过**：`npm view <pkg>@<version>` 已存在就跳过，中途失败重跑整批是安全的；
+- 遇到 `EOTP`/`E429` 立即停止（连续重试会触发 OTP 限流，通常要等 15 分钟）。
+
+### 2FA：两种给码方式
 
 ```bash
-npm view @rain13sad/dsh-mnemo-core version   # 应为当前版本
-npm access list packages                     # 应能看到 10 个包
+node scripts/publish-all.mjs              # 交互式：npm 逐个包弹提示（需要真 TTY）
+node scripts/publish-all.mjs --otp=123456 # 非交互：一次码发完全部（约 30 秒内有效）
 ```
 
-`npm run publish:all` 是 `npm publish --workspaces --access public` 的简写。
+> 在 IDE 的内嵌终端里，子进程可能拿不到 TTY，交互式会直接报 `EOTP`。
+> 这种情况用 `--otp=`，或者换一个普通终端窗口。
+
+### 常见错误对照
+
+| 错误 | 含义 | 处理 |
+| :--- | :--- | :--- |
+| `E401 Unauthorized` | token 失效 / 未登录 | `npm login` → `npm whoami` → 重跑 |
+| `EOTP` | 需要一次性验证码，或码已过期 | 交互式重跑；或 `--otp=<新码>` |
+| `E429` | OTP 试太多次被限流 | 等 15 分钟，别再重试 |
+| `E403 cannot publish over` | 该版本已存在 | 正常；脚本会自动跳过，或 `--only=<包>` 跳过它 |
+| `EPUBLISHCONFLICT` | 同版本并发发布 | 确认 registry 上的版本，再决定是否升 patch |
+| 发出的是空包 | 忘了 `npm run build` | `npm run build` 后 `--republish` |
+
+### 发完核对
+
+```bash
+npm view @rain13sad/dsh-mnemo-core version        # 应为当前版本
+npm view @rain13sad/dsh-mnemo-core dist-tags      # latest 指向它
+npm access list packages                          # 应能看到 10 个包
+```
+
+---
 
 ## 5. 推送前自检
 
