@@ -358,6 +358,9 @@ different script, a different corpus and — importantly — a different claim:
 Index on vs off, same 10k corpus: **recall 11× faster, ingest 21× faster**
 (`node scripts/bench-scale.mjs --corpus 10000 --ab`).
 
+Latency on a shared machine is noisy: p95 for the 10k row measures **25–32 ms across runs**
+(the 25 ms above is a quiet run). The CI gate is 40 ms, so it is asserted with headroom.
+
 > **This corpus is synthetic, and the number is only about latency.** It is built by batch `putCell`
 > plus synthetic edges — no residuals, uniform access history. Recall on it is **not comparable** to a
 > real vault. The `caveat` field in `artifacts/bench-scale.json` says so, and so does the console output,
