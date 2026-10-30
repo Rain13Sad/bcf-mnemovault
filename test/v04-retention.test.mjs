@@ -107,13 +107,12 @@ test('ACT-R：近期访问的激活高于久远访问，多次访问高于单次
 
 // ── 保留度 ──────────────────────────────────────────────────────────
 
-test('保留度：重要但不常提的事，90 天后仍在 P4 以上（fidelity 档）', () => {
+test('保留度：重要但不常提的事，90 天后仍不归档（fidelity 档）', () => {
+  // v0.5 改了口径：90 天不该还是 P4（那是"只进不出"的一半），但也不该掉进归档。
   const important = mkCell({ importance: 0.85 })
   const r = evaluateRetention(important, ctxOf())
-  assert.ok(
-    r.disposition === 'P4' || r.disposition === 'P5',
-    `disposition=${r.disposition} score=${r.score}`,
-  )
+  assert.ok(r.tier <= 2, `tier=${r.tier} disposition=${r.disposition} score=${r.score}`)
+  assert.ok(['P5', 'P4', 'P3'].includes(r.effective), `effective=${r.effective}`)
 })
 
 test('保留度：同等年龄下，重要度高的分数严格高于重要度低的', () => {
@@ -139,7 +138,9 @@ test('保留度：六档阈值单调，且档位到 tier 的映射是 P5→热�
   assert.equal(tierForDisposition('P5'), 0)
   assert.equal(tierForDisposition('P4'), 1)
   assert.equal(tierForDisposition('P3'), 2)
-  assert.equal(tierForDisposition('P1'), 3)
+  // v0.5：P1 独占 tier 4（墓碑），不再和 P2 挤在归档层
+  assert.equal(tierForDisposition('P2'), 3)
+  assert.equal(tierForDisposition('P1'), 4)
 })
 
 test('保留度：score 恒在 0..1，且冗余会扣分', () => {
@@ -160,14 +161,15 @@ test('保留度：score 恒在 0..1，且冗余会扣分', () => {
   assert.ok(clean <= 1 && dup >= 0)
 })
 
-test('删除闸：pin / 情感 / 人格锚 / 里程碑 / 一手事实 / 版本链 / 被引用，逐条命中', () => {
+test('删除闸：pin / 情感 / 人格锚 / 里程碑 / 确证事实 / 图式，逐条命中', () => {
   assert.equal(protectedFromDeletion(mkCell({ flags: FLAG.noDecay })), '用户 pin')
   assert.equal(protectedFromDeletion(mkCell({ flags: FLAG.emotional })), '情感记忆（闪光灯）')
   assert.equal(protectedFromDeletion(mkCell({ kind: KIND.persona })), '人格锚')
   assert.equal(protectedFromDeletion(mkCell({ kind: KIND.narrative, flags: FLAG.milestone })), '关系里程碑')
-  assert.equal(protectedFromDeletion(mkCell({ trust: 240, provenance: 0 })), '用户亲口所述的一手事实')
-  assert.equal(protectedFromDeletion(mkCell(), { hasSupersedes: true }), '版本链环节（删了历史就断了）')
-  assert.equal(protectedFromDeletion(mkCell(), { referencedByOthers: true }), '仍被其他记忆引用')
+  // v0.5：一手事实要"被确证或使用过三次以上"才算，随口一句不再受保护
+  assert.equal(protectedFromDeletion(mkCell({ trust: 240, provenance: 0, support: 3 })), '用户亲口确认过的一手事实')
+  assert.equal(protectedFromDeletion(mkCell({ trust: 240, provenance: 0, support: 1, accessCount: 1 })), null)
+  assert.equal(protectedFromDeletion(mkCell({ kind: KIND.schema })), '图式（只增不减）')
   assert.equal(protectedFromDeletion(mkCell()), null)
 })
 

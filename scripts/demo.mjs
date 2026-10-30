@@ -146,25 +146,30 @@ else {
 }
 
 log('\n=== 14. 保留度与六档处置 ===')
-// 把三条记忆的访问时间推到一年多以前，再跑三次降档 pass：
-// 「重要但不常提」应留在 P4 以上，情感记忆应被删除闸挡住，琐事应降到低档。
+// 把一批记忆推到很久以前，再跑降档：v0.5 要证明的是"库真的会出手"。
+// 400 天 → 冷层；900 天 → 墓碑（残差与向量被释放，只留摘要，且不再参与召回）。
 const pool = harness.memory.store.listCells({ limit: 200 })
-const pickImportant = pool.filter((c) => c.provenance === 0 && c.kind === 1).sort((a, b) => b.importance - a.importance)[0]
-const pickTrivial = pool.filter((c) => c.provenance === 0 && c.kind === 1).sort((a, b) => a.importance - b.importance)[0]
-const pickEmo = pool.find((c) => (c.flags & 64) !== 0)
+const targets = pool.filter((c) => c.provenance === 0 && c.kind <= 2 && !(c.flags & 1 << 1)).slice(0, 6)
 const clock = harness.now()
-for (const c of [pickImportant, pickTrivial, pickEmo]) {
-  if (!c) continue
-  c.tAccess = BigInt(clock - 400 * 86_400_000)
-  c.tIngest = BigInt(clock - 800 * 86_400_000)
+for (const c of targets) {
+  c.tAccess = BigInt(clock - 900 * 86_400_000)
+  c.tIngest = BigInt(clock - 1400 * 86_400_000)
   harness.memory.store.putCell(c)
 }
-for (let i = 0; i < 3; i++) harness.memory.demoteDue()
+const bytesBefore = harness.memory.store.stats().bytes
+for (let i = 0; i < 8; i++) harness.memory.demoteDue()
+const bytesAfter = harness.memory.store.stats().bytes
 const ret = harness.memory.panelSnapshot().retention
 log(`  六档分布：${JSON.stringify(ret.byDisposition)}`)
-for (const e of ret.entries.slice(0, 4)) {
-  log(`  ${e.shortId}  ${e.disposition} ${e.score.toFixed(2)}  ${e.protectedBy ?? '无闸门'}  ${e.why}`)
+for (const e of ret.entries.slice(0, 5)) {
+  log(`  ${e.shortId}  ${e.disposition} ${e.score.toFixed(2)}  tier=${e.tier}  ${e.protectedBy ?? '无闸门'}  ${e.why}`)
 }
+log(`  字节 ${bytesBefore} → ${bytesAfter}（墓碑压实：残差与向量已释放）`)
+const doc = harness.memory.doctor()
+log(`  doctor：墓碑 ${doc.tombstones} 条 / ${doc.tombstoneBytes} B；失效未降档 ${doc.invalidNotDemoted} 条；孤儿残差 ${doc.orphanResiduals}`)
+const fixed = harness.memory.doctor({ fix: true })
+log(`  doctor --fix 后：孤儿残差 ${fixed.orphanResiduals} 条；${fixed.fixed.join('；') || '无需修复'}`)
+log(`  召回是否还会命中墓碑：${harness.memory.recall({ text: 'pnpm 部署', budget: 400, manual: true, readOnly: true }).hits.length} 条候选`)
 
 // 落一份面板快照，供 UI 预览使用
 const panel = harness.panel()

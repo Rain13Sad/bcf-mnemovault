@@ -193,7 +193,7 @@ export function apply(ctx: Context, raw: MnemoConfig) {
 
 export { MemoryService, cellIdFor, slotValue, pq32, deriveLens, buildTags, buildCategories } from './service.js'
 export { RuntimeStatus, type L1Status, type CommandFace, type L1Mode } from './runtime.js'
-export { applyPreset, PRESETS, EFFECT_MATRIX, REBUILD_KEYS, estimateTokensPerTurn, timingOf, type EffectRow, type EffectTiming } from './preset.js'
+export { applyPreset, PRESETS, EFFECT_MATRIX, REBUILD_KEYS, estimateTokensPerTurn, timingOf, type EffectRow, type EffectTiming, type PresetName } from './preset.js'
 export * from './types.js'
 export * from './cell.js'
 export * from './sdr.js'

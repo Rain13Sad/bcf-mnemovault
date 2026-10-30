@@ -57,6 +57,14 @@ export interface RelationalSnapshot {
   turns: number
 }
 
+/** v0.5：Gross 情绪调节五策略。 */
+export type RegulationStrategy =
+  | 'situation-selection'
+  | 'situation-modification'
+  | 'attentional-deployment'
+  | 'cognitive-change'
+  | 'response-modulation'
+
 /** 情感 → 行为的策略表（§11.6）。这是硬约束，可回归测试。 */
 export interface AffectPolicy {
   /** 澄清倾向：0 不主动问，2 先问再做 */
@@ -82,6 +90,11 @@ export interface AffectPolicy {
   requireAcknowledgment?: boolean
   /** 未平复的情绪事件数量（强制关怀槽） */
   neglect?: number
+  /**
+   * v0.5：Gross 过程模型里的调节策略。
+   * 不是"表达情绪"，而是"怎么处理情绪"——情境选择 / 情境修改 / 注意分配 / 认知改变 / 反应调节。
+   */
+  regulation?: RegulationStrategy
   /** 触发原因，供 UI 与解释器展示 */
   reasons: string[]
 }
@@ -181,6 +194,16 @@ export interface RecallQuery {
   asOf?: number
   /** 面板/诊断用：连已失效的版本一起返回（默认 false） */
   includeInvalidated?: boolean
+  /** v0.5：把墓碑（tier 4）也纳入候选（默认 false，墓碑不参与召回） */
+  includeTombstones?: boolean
+  /**
+   * v0.5：只读召回。
+   *
+   * v0.4 的 `recall()` 会写库（更新 tAccess/stability、建共激活边、发布面板快照），
+   * 于是面板刷新一次 = 一次"使用"，`/mnemo explain` 也会改变记忆强度。
+   * 只读模式下这些副作用全部跳过，供面板 / doctor / 解释器使用。
+   */
+  readOnly?: boolean
   kinds?: CellKind[]
   /** 视角过滤：只看事实 / 只看感受 / 只看关系 / 只看故事（多角度记忆） */
   lens?: 'fact' | 'feeling' | 'bond' | 'story'
@@ -286,6 +309,12 @@ export interface DoctorReport {
   danglingSlots: number
   /** 没有任何 cell 引用的残差（"硬删没删干净"的遗留物） */
   orphanResiduals?: number
+  /** v0.5：已失效但仍在热/温层的旧版本（`--fix` 可批量归档） */
+  invalidNotDemoted?: number
+  /** v0.5：墓碑条数（tier 4） */
+  tombstones?: number
+  /** v0.5：墓碑占用字节（已压实，只含头 + 槽位 + digest） */
+  tombstoneBytes?: number
   staleLocks: number
   indexConsistent: boolean
   layoutVersion: number
@@ -395,6 +424,10 @@ export interface PanelRetentionEntry {
   disposition: 'P5' | 'P4' | 'P3' | 'P2' | 'P1'
   /** 命中"永不删除"闸门时的理由 */
   protectedBy: string | null
+  /** v0.5：是否已失效（被新版本取代且过了宽限期） */
+  invalid: boolean
+  /** v0.5：陈旧包络 0.15..1（30 天不折损，730 天到地板） */
+  stale: number
   /** 七因子原始值 0..1 */
   parts: Record<string, number>
   /** 七因子已乘权重的贡献（冗余为负） */
@@ -465,6 +498,11 @@ export interface PanelSnapshot {
     neglect?: string[]
     /** v0.4：本轮 OCC 情绪标签 */
     labels?: Array<{ label: string; intensity: number }>
+    /**
+     * v0.5：T1 特质层快照。
+     * 从人格锚与关系模型**投影**出来的慢变量（不单独存储），用于解释"为什么它对同一件事反应不同"。
+     */
+    trait?: { O: number; C: number; E: number; A: number; N: number; attachment: string }
   } | null
   cells: PanelCellView[]
   edges: PanelEdgeView[]
@@ -517,6 +555,8 @@ export type PanelAction =
   | { kind: 'importance'; cellId: string; importance: number }
   | { kind: 'slot'; cellId: string; role: number; value: string }
   | { kind: 'forget'; cellId: string; mode: 'soft' | 'hard'; confirm?: string }
+  /** v0.5：从墓碑复活（原文已释放，只能看到摘要） */
+  | { kind: 'restore'; cellId: string }
   | { kind: 'resolve'; a: string; b: string }
   | { kind: 'preset'; preset: Preset }
   | { kind: 'surfaceMode'; mode: SurfaceMode }

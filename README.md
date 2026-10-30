@@ -12,7 +12,7 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-135-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-151-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -27,38 +27,105 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.4.0** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 10 packages · 46 source files / ~12,600 lines of TS · 135 tests · **zero runtime dependencies** (only built-in `node:sqlite` and `node:zlib`) |
+| **Status** | **v0.5.0** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 10 packages · 46 source files / ~13,100 lines of TS · 151 tests · **zero runtime dependencies** (only built-in `node:sqlite` and `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 
 ---
 
 ## Table of contents
 
-- [What's new in 0.4.0](#whats-new-in-040) · [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not)
+- [What's new in 0.5.0](#whats-new-in-050) · [How deletion actually works](#how-deletion-actually-works)
+- [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not)
 - [Data flow](#data-flow) · [Quick start](#quick-start) · [Benchmarks](#benchmarks) · [Packages](#packages)
 - [Panel](#panel) · [How it compares](#how-it-compares) · [Known limitations](#known-limitations)
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
 
 ---
 
-## What's new in 0.4.0
+## What's new in 0.5.0
 
-0.4.0 replaces the two weakest mechanisms of 0.3 with things that can be **asserted in tests**.
+0.4 built the retention kernel. **0.5 makes it actually fire.**
 
-| Before (0.3) | Now (0.4) | Why it matters |
+An audit of the 0.4 code path found that the decision chain was inert: ten ordinary user statements,
+aged 400 days, produced **zero** demotions. Three independent defects stacked up:
+
+| Defect | What it looked like | Fix in 0.5 |
 | :--- | :--- | :--- |
-| Forgetting looked only at *last access time* | **Seven-factor retention**: ACT-R base-level activation (frequency + recency) + importance + affect intensity + graph centrality + narrative role + user affinity + spacing − redundancy | A fact you confirmed ten times and a fact you mentioned once aged identically. Now they don't |
-| `hot → warm → cold → archive → hard delete` | **Six dispositions** (P5 keep / P4 compress / P3 summarise / P2 archive / P1 tombstone) + **six never-delete gates** | Physical deletion is never automatic. P0 only happens when *you* ask for it |
-| Retrieval only reinforced stability | **Reconsolidation**: retrieval makes a memory plastic again — confidence drops when the user corrects you, valence drifts with mood | "Why does it get deeper the more we talk" and "why does it get bent" now have the same explanation |
-| Emotion episodes were a decaying array | **Five-state episode machine** (`open → acknowledged → attended → resolved / dormant`) | An unacknowledged emotion **grows stronger** with time. Neglect is no longer architecturally possible |
-| Six-dimension appraisal only | **OCC classifier** (22 labels, pure function, no LLM call) on top | Emotion logic stays reproducible; the model never decides state transitions |
-| 300–420 px vertical sidebar | **Desktop-first panel**: left rail + two-column content via container queries, falls back to top tabs under 760 px | A memory tool on a desktop should not use one third of the screen |
-| `resolveByPrefix` scanned the whole table per edge | Expression index on the 32-bit suffix + `Store.findByPrefix()` | 4 edges over 2000 cells: 425 ms → < 2 ms |
+| **Always-true gate** | `trust >= 240 && provenance === 0` matched 10/10 user statements, because `TRUST_BY_PROVENANCE[0]` *is* 240. The gate then did `score = max(score, 0.55)`, overriding the seven-factor score | The gate no longer touches the score — it only **caps the tier** (never tombstone). The user-fact gate now also requires `support ≥ 3 ∨ accessCount ≥ 3` |
+| **Static factors never aged** | Six of seven factors are static; a 400-day-old statement still scored 0.73 (P4) | **Staleness envelope**: `score × (0.15 + 0.85·clamp01(1 − (days−30)/700))`. 30 days: no loss; 730 days: floor |
+| **Gradual demotion × gate floor** | One tier per pass is right; one tier per pass *plus* a P3 floor means it stops at cold forever | With the gate capping instead of scoring, `1 → 2 → 3 → 4` now completes |
 
-The full design note — what was taken from the v0.4 proposal, what was deliberately deferred to 0.5
-(CA3 auto-association, STDP, autonomy agenda) and why — is in
-[docs/design/V0.4-PLAN.md](docs/design/V0.4-PLAN.md).
+The rest of the batch:
+
+| Before | Now |
+| :--- | :--- |
+| `tInvalid` was consumed by recall, merge and abstraction — but **not** by the code that decides deletion. A superseded "we use vitest" still scored P4 (0.716), nearly equal to the current value (P5, 0.750) | Invalidated versions are force-archived after a 30-day grace window, gates off. `doctor` finds the ones already in your DB, `--fix` migrates them |
+| `SUPERSEDES` edges were read from the **wrong end** — the *new* value got "version chain" protection | Reads the `dst` (the superseded one). That gate is gone: being superseded is the strongest reason to cool down |
+| P1 and P2 both mapped to tier 3, so "tombstone" existed only in the docs | **tier 4 = tombstone**: residual released, vector dropped, excluded from recall, revivable from the panel |
+| Rows only ever grew | Tombstone compaction returns the biggest block of bytes (residuals ≈ 47% of storage) while keeping the row, the digest and the lineage |
+| Retrieval raised `confidence` — 20 recalls with no new evidence moved it 0.775 → 0.950 | Retrieval only strengthens stability. Confidence moves on **evidence**, not on being asked |
+| `recall()` wrote to the DB, so the panel refreshing every 3s counted as "use" | `readOnly` recall for the panel, doctor and explainer |
+| URL-token redaction depended on a `?` anchor that segmentation had already removed | Redaction runs **before** segmentation; the rule also accepts line-start/whitespace anchors |
+| lockfile pinned one esbuild platform package (npm 10 passed, npm 11 failed) | `esbuild` was never used — removed. Lockfile is platform-neutral; CI gained an `npm@latest` job and a platform check |
+
+Plus two deferred items from the 0.4 roadmap, chosen because they need no new data structures:
+**selective sleep replay** (consolidation promotes high-retention memories that had drifted to archive)
+and **Gross emotion regulation** (five strategies, one selected per turn, plus a projected trait layer).
+
+<details>
+<summary>What 0.4.0 added (retention kernel, reconsolidation, episode machine, desktop panel)</summary>
+
+- **Seven-factor retention** — ACT-R activation + importance + affect + connectivity + narrative role + user affinity + spacing − redundancy
+- **Six dispositions** P5 keep / P4 compress / P3 summarise / P2 archive / P1 tombstone / P0 physical delete (user-only)
+- **Reconsolidation** — retrieval makes a memory plastic again; corrections lower confidence
+- **Five-state emotion episodes** — an unacknowledged emotion grows stronger with time
+- **Desktop-first panel** — left rail + two-column content via container queries
+</details>
+
+---
+
+## How deletion actually works
+
+Most "agent memory" systems either never forget or forget by TTL. This one decides, and the decision is
+readable end to end:
+
+```
+every cell
+  ├─ FLAG.noDecay (pin / persona anchor) ────────────────→ never evaluated
+  ├─ accessed < 30 min ago ─────────────────────────────→ still in working memory, skip
+  │
+  ▼
+[seven factors] activation(ACT-R) · importance · affect · connectivity · narrative · affinity · spacing − redundancy
+  │   score = 0.5 + gain·(Σwᵢxᵢ − bias)        gain < 1, or the top half saturates at 1.0
+  ▼
+[staleness envelope] × (0.15 + 0.85·clamp01(1 − (days−30)/700))
+  │   30 days: no loss · 400 days: ≈0.55 · 730 days: floor
+  ▼
+[invalid?] tInvalid older than 30 days → force P2 / tier 3, gates off
+  │
+  ▼
+[disposition] P5 ≥0.75 · P4 ≥0.55 · P3 ≥0.35 · P2 ≥0.18 · P1 <0.18
+  │
+  ▼
+[gate] does NOT change the score — it only forbids the last step
+  │   pin · emotional · persona · milestone · confirmed first-hand fact · schema
+  ▼
+[tier] 0 hot → 1 warm → 2 cold → 3 archive → 4 tombstone      (one step per pass)
+  │
+  ▼
+[tombstone] release residual, drop vector, keep id + digest + slots
+  │   excluded from recall · revivable from the panel · row is never deleted
+  └── physical delete: `forget --hard --yes` only, with approval
+```
+
+Two properties are worth calling out because they are the ones people get wrong:
+
+- **The gate cannot inflate a score.** In 0.4 it could, and because every user utterance carries
+  `provenance = 0`, every user utterance was permanently warm. The panel shows both numbers:
+  `score` (what the formula says) and `effective` (what actually happens), plus the reason.
+- **A tombstone is not a delete.** The row, its digest, its slots and its edges stay; only the bytes go.
+  That is what makes "the library can shrink" compatible with "you can still see that it happened".
 
 ---
 
@@ -106,16 +173,16 @@ replayed byte-for-byte from its snapshot.
 ## Quick start
 
 <a id="requirements"></a>
-**Requirements:** Node ≥ 22.5 (built-in `node:sqlite` / `node:zlib`) and npm ≥ 10.
+**Requirements:** Node ≥ 22.13 (built-in `node:sqlite` / `node:zlib`) and npm ≥ 10.
 **Running the tests does not require DSH.**
 
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 93 tests
+npm test             # 151 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
-npm run panel        # sidebar panel preview at http://127.0.0.1:5178/
+npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)
 npm run verify       # all of the above in one shot (this is what CI runs)
 ```
 
@@ -291,7 +358,7 @@ left rail and puts the content into two columns; below 760 px it degrades to the
 | **Overview** | Where is the store, what state is it in — path + actions, metrics, categories, index status, tag cloud, four recent columns, backend capabilities |
 | **Search** | Is the memory I want in there — filters, per-hit channel and score, inline "why" from the same `ScoreBreakdown` |
 | **Organize** | How to make it better — consolidation pass, association/version-chain stats, graph, invalidated versions |
-| **Retention** *(new)* | **Why is this still here / why is it almost gone** — six-disposition distribution, seven-factor bars per memory, DA/ACh/NE/CORT signals, reconsolidation log |
+| **Retention** | **Why is this still here / why is it almost gone** — six-disposition distribution, library growth (archive / tombstone / KB), seven-factor bars per memory, DA/ACh/NE/CORT signals, reconsolidation log, revive button on tombstones |
 | **Inbox** | What is waiting on me — disputed or isolated single-evidence memories, contradiction adjudication |
 | **Affect** | What state it is in — PAD scatter, six variables, OCC labels, episode state machine, persona anchor |
 | **Settings** | How to tune it — preset/surface/ignition, real L1 and index shape, maintenance actions |
@@ -338,15 +405,23 @@ rule-based and deterministic, which is why the same dialogue replays to the same
 6. No phenomenal consciousness, by design.
 7. No encryption at rest — the database holds real conversations. See [SECURITY.md](SECURITY.md).
 8. MC03 changed the on-disk layout: existing vaults need `/mnemo rebuild --from-log`.
-9. **Retention is not materialised.** 0.4 computes the seven-factor score on read (last 120 cells for
+9. **Retention is not materialised.** The seven-factor score is computed on read (last 120 cells for
    the panel, one full pass per demotion tick). At 10⁵ cells this needs a `retention_score` column —
    the schema is prepared for it, the column is not there yet.
+9b. **Tombstones are irreversible in content.** Compaction releases the residual, so reviving a tombstone
+   gives you the digest and slots, not the original sentence. That is the trade that makes byte
+   reclamation possible; the row and its lineage survive.
 10. **CA3 auto-association and STDP are still 0.3-era.** The v0.4 proposal's associative network
     (pattern completion, synaptic homeostasis) was deferred: it changes edge-weight semantics and would
     invalidate the bench baseline. What shipped is the part that does not: the four neuromodulator
     signals, used only as global gains.
 11. **Reconsolidation's prediction error is a proxy.** It fires when conflict detection reports a
     correction; there is no per-turn user feedback signal yet (`predictionErrorProxy` exists, unwired).
+12. **The staleness envelope is a policy, not a law.** 30/700/0.15 were chosen so that a 90-day fact
+    stays out of the archive and a 2-year fact does not. They are constants in `retention.ts`, not config —
+    changing them changes what "old" means, so it should be a deliberate edit with a test.
+13. **Sleep replay only rescues, it does not create.** It promotes cells that already have a high score;
+    it cannot invent a memory the encoder never wrote.
 
 ---
 
@@ -359,8 +434,10 @@ Long-form docs are in Chinese; the design doc and the project guide are the two 
 | [`docs/README.md`](docs/README.md) | Documentation map — pick by intent, not by order |
 | [`docs/PROJECT-GUIDE.md`](docs/PROJECT-GUIDE.md) | What the code actually does; 15 weaknesses with evidence; 12 improvements ranked P0–P2 |
 | [`docs/design/MNEMOVAULT-DESIGN.md`](docs/design/MNEMOVAULT-DESIGN.md) | Full derivation: sparse-code algebra, four-channel recall, MRS rendering, biphasic consolidation |
+| [`docs/design/V0.5-PLAN.md`](docs/design/V0.5-PLAN.md) | 0.5.0: the eleven confirmed defects, the fixes, and the verification numbers |
 | [`docs/design/V0.4-PLAN.md`](docs/design/V0.4-PLAN.md) | 0.4.0 scope: what was taken from the v0.4 proposal, what was deferred, and the formulas |
 | [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md) | Where the real DSH `0.2.1-rc.3` packages differ from the design doc |
+| [`docs/releases/v0.5.0.md`](docs/releases/v0.5.0.md) | Release note for 0.5.0 |
 | [`docs/releases/v0.4.0.md`](docs/releases/v0.4.0.md) | Release note for 0.4.0 |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Environment, code map, hard constraints, commit style |
 | [`CHANGELOG.md`](CHANGELOG.md) · [`SECURITY.md`](SECURITY.md) · [`docs/PUBLISH.md`](docs/PUBLISH.md) | History, threat model, release steps |

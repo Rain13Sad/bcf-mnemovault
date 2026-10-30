@@ -11,7 +11,7 @@ export const KIND_LABEL: Record<number, string> = {
   6: '叙事',
 }
 
-export const TIER_LABEL: Record<number, string> = { 0: '热', 1: '温', 2: '冷', 3: '归档' }
+export const TIER_LABEL: Record<number, string> = { 0: '热', 1: '温', 2: '冷', 3: '归档', 4: '墓碑' }
 
 export const PROV_LABEL: Record<number, string> = { 0: '用户', 1: '助手', 2: '工具', 3: '网络', 4: '推断' }
 

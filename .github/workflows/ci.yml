@@ -66,3 +66,26 @@ jobs:
           path: artifacts/bench.json
           if-no-files-found: warn
           retention-days: 14
+
+  # v0.5：npm 版本矩阵。
+  #
+  # v0.4 的 lockfile 只锁了 esbuild 的 win32 平台包，npm 10 放行、npm 11 直接失败。
+  # 这条 job 让"下一代 npm"的问题在发版前就红，而不是等用户装不上。
+  npm-latest:
+    name: npm@latest · ubuntu-latest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+
+      - name: 升级到最新 npm
+        run: npm install -g npm@latest && npm --version
+
+      - name: npm ci（严格按 lockfile）
+        run: npm ci
+
+      - name: 版本与依赖一致性门禁（含平台中立性）
+        run: node scripts/ci-check-publish.mjs

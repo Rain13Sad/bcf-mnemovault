@@ -536,6 +536,8 @@ export class AffectService extends Service {
     neglect: string[]
     /** v0.4：本轮 OCC 标签 */
     labels: EmotionHit[]
+    /** v0.5：T1 特质层（从人格锚与关系模型投影，不单独存储） */
+    trait: { O: number; C: number; E: number; A: number; N: number; attachment: string }
   } {
     return {
       persona: { rev: this.personaRev, vector: [...this.persona], baseline: [...this.persona0] },
@@ -547,7 +549,29 @@ export class AffectService extends Service {
       episodeDetail: this.episodeStates(),
       neglect: this.neglectLines(),
       labels: this.lastTurn ? classifyEmotion(this.lastTurn.appraisal) : [],
+      trait: this.traitProjection(),
     }
+  }
+
+  /**
+   * T1 特质层（v0.5）：把人格锚（4 维）与关系模型投影成 Big Five + 依恋风格。
+   *
+   * **它是投影，不是新状态**。原因：特质如果单独存一份，就会出现
+   * "人格锚说一套、特质说另一套"的双真相。投影保证任何时刻都能从已有状态重算。
+   * 四维 → 五维的映射是刻意粗糙的：这里要的是"稳定的倾向"，不是心理测量。
+   */
+  traitProjection(): { O: number; C: number; E: number; A: number; N: number; attachment: string } {
+    const [stability, warmth, initiative, restraint] = this.persona
+    const rel = this.relational
+    const O = clamp01(0.5 + (warmth - 0.5) * 0.6)
+    const C = clamp01(0.5 + (stability - 0.5) * 0.6)
+    const E = clamp01(0.5 + (initiative - 0.5) * 0.6)
+    const A = clamp01(0.5 + (rel.attunement - 0.5) * 0.8)
+    // 神经质 = 关系张力高 + 信任低；不是"模型情绪化"，是"对不确定性更敏感"
+    const N = clamp01(0.3 + rel.repairDebt * 0.1 + (1 - rel.trust) * 0.4)
+    const attachment =
+      this.attachment() > 0.6 ? 'secure' : this.intero.strain > 0.5 ? 'anxious' : rel.familiarity < 0.3 ? 'avoidant' : 'secure'
+    return { O: round(O), C: round(C), E: round(E), A: round(A), N: round(N), attachment }
   }
 
   /** 供面板消费的快照。 */
@@ -576,6 +600,10 @@ export class AffectService extends Service {
 
 function round(x: number): number {
   return Math.round(x * 1000) / 1000
+}
+
+function clamp01(x: number): number {
+  return Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0))
 }
 
 export function apply(ctx: Context, config: Config) {

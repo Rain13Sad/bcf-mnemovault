@@ -16,10 +16,13 @@ import {
   FLAG,
   KIND,
   REL,
+  RETENTION_WEIGHTS,
   cellIdFor,
+  evaluateRetention,
   slotValue,
   type MemCell,
   type MemoryService,
+  type PresetName,
 } from '@rain13sad/dsh-mnemo-core'
 
 export const name = 'mnemo-consolidator'
@@ -57,6 +60,8 @@ export interface PassResult {
   downscaled: number
   /** 本轮新生成/更新的叙事节点数 */
   narrated: number
+  /** v0.5：睡眠期重放救回的记忆数 */
+  replayed: number
 }
 
 /** 确定性伪随机：同一 key 永远得到同一 (0,1) 值。 */
@@ -105,6 +110,9 @@ export class Consolidator {
         const nrem = this.runNrem(passId)
         const rem = this.runRem(passId)
         const story = this.runNarrative(passId)
+        // 重放放在遗忘**之前**：先按保留度把"重要但很久没提"的记忆加固一级，
+        // 再跑降权与降档。顺序反了就成了"先打下去再捞上来"，等于白做。
+        const replay = this.runReplay()
         const forget = this.runForget()
         return {
           passId,
@@ -114,6 +122,7 @@ export class Consolidator {
           pruned: forget.pruned,
           narrated: story.narrated,
           downscaled: forget.downscaled,
+          replayed: replay.replayed,
         }
       })
       mem.emit('memory/consolidate', {
@@ -373,6 +382,46 @@ export class Consolidator {
   }
 
   /** 主动遗忘（§10.5）：按比例降权 + 弱边剪除。**不删 cell**。 */
+  /**
+   * 睡眠期选择性重放（v0.5，补 v0.4 方案 M2 未完成的一项）。
+   *
+   * ── 它解决什么问题 ────────────────────────────────────────────
+   * v0.5 的降档终于会出手了，但"出手"不能只有单向：一条**重要**的记忆如果
+   * 三个月没被提起，会被陈旧包络一路压到归档层，然后再也回不来。
+   * 真实的睡眠不是只做遗忘——SWR（尖波涟漪）会按"显著度"挑选要重放的内容，
+   * 把重要的旧记忆重新加固。这里就是那个选择器。
+   *
+   * ── 判据 ──────────────────────────────────────────────────────
+   * 30 天以上没被访问、已经掉到 tier ≥ 2、保留度仍 ≥ 0.45 的记忆，往上抬一级（最高到温层）。
+   * 抬一级而不是直接回热层：一次重放不足以让它重新变成"常用"，只是别让它滑进墓碑。
+   *
+   * 预算：最多 20 条 / 或候选的 5%，取分数最高的那批——重放是稀缺资源。
+   */
+  private runReplay(): { replayed: number } {
+    const mem = this.memory
+    const now = mem.nowMs()
+    const preset = (mem.config.preset === 'custom' ? 'balanced' : mem.config.preset) as PresetName
+    const weights = RETENTION_WEIGHTS[preset]
+    const cands: Array<{ cell: MemCell; score: number }> = []
+    mem.store.forEachCell((c) => {
+      if (c.tier < 2 || c.tier >= 4) return
+      if (now - Number(c.tAccess) < 30 * 86_400_000) return
+      const r = evaluateRetention(c, { nowMs: now, weights })
+      if (r.score >= 0.45) cands.push({ cell: c, score: r.score })
+    })
+    if (cands.length === 0) return { replayed: 0 }
+    cands.sort((a, b) => b.score - a.score || Number(a.cell.tAccess) - Number(b.cell.tAccess))
+    const budget = Math.min(20, Math.max(1, Math.ceil(cands.length * 0.05)))
+    let replayed = 0
+    for (const { cell } of cands.slice(0, budget)) {
+      cell.tier = (cell.tier - 1) as MemCell['tier']
+      cell.stability = Math.min(3650, cell.stability * 1.05)
+      mem.store.putCell(cell)
+      replayed++
+    }
+    return { replayed }
+  }
+
   private runForget(): Pick<PassResult, 'pruned' | 'downscaled'> {
     const mem = this.memory
     const now = Date.now()

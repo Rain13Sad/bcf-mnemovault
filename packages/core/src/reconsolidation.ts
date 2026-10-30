@@ -66,11 +66,20 @@ export function onRetrieved(cell: MemCell, ctx: ReconsolidationContext): Reconso
   const plastic = predErr > 0.4
   // 硬化：提取次数越多，越不容易被再次改写。下限 0.05，避免"老记忆永远不能更新"。
   const labile = Math.max(0.05, 1 / (1 + Math.log1p(Math.max(0, cell.accessCount))))
-  const dConfidence = (plastic ? -0.08 * predErr : 0.02) * labile
+  /**
+   * v0.5：置信度**不再因提取而上升**。
+   *
+   * v0.4 每次召回给 +0.02×labile，实测同一条记忆被召回 20 次、没有任何新证据，
+   * confidence 从 0.775 漂到 0.950——而 confidence 又影响去重与合并，
+   * 于是"被问得多"直接兑换成"更可信、更难降档"。
+   * 置信度只能由**新证据**（support 计数、来源可信度）提升，这是语义问题，不是调参问题。
+   */
+  const dConfidence = plastic ? -0.08 * predErr * labile : 0
   const congruence = clamp(ctx.moodCongruence ?? 0, -1, 1)
   const dValence = 0.05 * congruence * (1 - Math.abs(cell.valence)) * labile
 
-  if (plastic) notes.push(`预测误差 ${predErr.toFixed(2)}：记忆进入可塑窗口`)
+  if (plastic) notes.push(`预测误差 ${predErr.toFixed(2)}：记忆进入可塑窗口，置信度下调`)
+  if (!plastic && Math.abs(dConfidence) === 0) notes.push('提取只加固稳定性，不改置信度')
   if (Math.abs(congruence) > 0.3) notes.push(`心境一致性 ${congruence.toFixed(2)}：效价被轻微改写`)
 
   return {

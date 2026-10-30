@@ -193,9 +193,19 @@ export class Encoder {
       else if (r.action === 'conflict') out.conflicts++
     }
 
-    // ① 用户命题：永远编码（这是最高价值的一类）
+    /**
+     * ① 用户命题：永远编码（这是最高价值的一类）。
+     *
+     * v0.5：**先脱敏，再切分**。
+     *
+     * v0.4 是"先切分、后脱敏"（脱敏发生在 buildCell 里），而切分按标点断句，
+     * `https://x.com/cb?access_token=SECRET123` 会被切成 `...cb?access_token=SECRET123` 之外的碎片，
+     * 丢掉 `?` 之后 URL token 规则（旧版依赖 `[?&]` 锚点）就漏判了——实测 4 个参数名全明文。
+     * 顺序反过来之后，占位符 `«SECRET:n»` 会跟着命题一起被切，但它是不可再分的整体。
+     */
+    const safeUserText = redact(input.userText).text
     let seq = input.seqs[0] ?? 0
-    for (const p of this.segment(input.userText)) {
+    for (const p of this.segment(safeUserText)) {
       // 疑问句不是断言：'我之前说的字体偏好是什么？' 若被编码，会变成一条假记忆
       if (isQuestion(p)) {
         out.skipped++
@@ -206,7 +216,7 @@ export class Encoder {
 
     // ② 助手断言：只编码承诺/决定类（避免把自己的寒暄写进长期记忆）
     if (this.config.encodeAssistant && input.assistantText) {
-      for (const p of this.segment(input.assistantText)) {
+      for (const p of this.segment(redact(input.assistantText).text)) {
         if (!/我会|我已经|已改成|决定|约定|以后|will|agreed|decided/i.test(p)) continue
         push(p, 1, seq++)
       }

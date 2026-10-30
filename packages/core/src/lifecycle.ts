@@ -108,12 +108,18 @@ export function abstractCandidates(cells: readonly MemCell[], opts: AbstractOpti
  * 六档 → tier 的纯映射（`retention.ts` 的 tierForDisposition 在这里再导出一份，
  * 让"生命周期"这一层不必 import 保留度模块）。
  */
-export function nextTier(current: number, target: 0 | 1 | 2 | 3): 0 | 1 | 2 | 3 {
-  // 只允许逐级移动：热 → 温 → 冷 → 归档，一次 pass 不跨两级。
-  // 跨级会让"为什么它突然从热层掉到归档"无法解释，也让面板的 diff 变得难读。
-  if (target > current) return Math.min(3, current + 1) as 0 | 1 | 2 | 3
-  if (target < current) return Math.max(0, current - 1) as 0 | 1 | 2 | 3
-  return current as 0 | 1 | 2 | 3
+export const MAX_TIER = 4
+
+export function nextTier(current: number, target: 0 | 1 | 2 | 3 | 4): 0 | 1 | 2 | 3 | 4 {
+  // 只允许逐级移动：热 → 温 → 冷 → 归档 → 墓碑，一次 pass 不跨两级。
+  // 跨级会让"为什么它突然从热层掉到墓碑"无法解释，也让面板的 diff 变得难读。
+  //
+  // v0.5 提醒：逐级移动本身是对的（迟滞防抖动），但 v0.4 把它和"恒真闸 floor P3"
+  // 叠加在一起，结果 1→2 之后永远停在 2。**降档要生效，闸必须先解耦**——
+  // 这就是 v0.5 把闸从"改分"改成"封顶"的原因。
+  if (target > current) return Math.min(MAX_TIER, current + 1) as 0 | 1 | 2 | 3 | 4
+  if (target < current) return Math.max(0, current - 1) as 0 | 1 | 2 | 3 | 4
+  return current as 0 | 1 | 2 | 3 | 4
 }
 
 /** 生命周期七阶段的显示顺序（面板/文档共用）。 */

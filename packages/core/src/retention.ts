@@ -143,6 +143,28 @@ export function spacingScore(accessCount: number, tIngestMs: number, tAccessMs: 
   return clamp01(0.35 + 0.65 * spread) * reps
 }
 
+/**
+ * 陈旧包络（v0.5 新增）。
+ *
+ * v0.4 的一个致命偏差：七因子里六个是**静态**的（重要度、情绪、关联、叙事、锚定、间隔），
+ * 只有 activation 随时间变化，于是 400 天没被碰过的用户陈述仍然拿 0.73（P4）——
+ * 「库只进不出」的真正原因不是闸，是**价值项不随时间贬值**。
+ *
+ * 这里加一个乘性包络：30 天内不折损，之后线性下降，730 天到地板 0.15。
+ * 它不是"遗忘曲线回来了"——它不决定档位，只是把"你早就想不起它了"这件事
+ * 折算进价值判断：想不起来的记忆，谈不上多重要。
+ */
+export const STALE_ONSET_DAYS = 30
+export const STALE_SPAN_DAYS = 700
+export const STALE_FLOOR = 0.15
+
+export function staleFactor(tAccessMs: number, nowMs: number): number {
+  const days = Math.max(0, nowMs - (tAccessMs || nowMs)) / DAY
+  const over = Math.max(0, days - STALE_ONSET_DAYS)
+  const env = clamp01(1 - over / STALE_SPAN_DAYS)
+  return clamp01(STALE_FLOOR + (1 - STALE_FLOOR) * env)
+}
+
 /** 周年效应：|now − tFrom| mod 365 落在 ±3 天内，保留度临时 +0.25。 */
 export function anniversaryBoost(tFromMs: number, nowMs: number): number {
   if (!tFromMs) return 0
@@ -157,7 +179,7 @@ export function anniversaryBoost(tFromMs: number, nowMs: number): number {
 /** 用户锚定：pin > 用户亲口一手 > 被确认过 > 单证据。 */
 export function userAffinityOf(cell: MemCell): number {
   if (cell.flags & FLAG.noDecay) return 1
-  if (cell.trust >= 240 && cell.provenance === 0) return 0.8
+  if (cell.trust >= 240 && cell.provenance === 0) return 0.7
   if (cell.support >= 3) return 0.6
   if (cell.support >= 2) return 0.35
   return 0
@@ -207,8 +229,14 @@ export function disposition(score: number): Disposition {
   return 'P1'
 }
 
-/** 六档 → 存储层 tier。P1 与 P2 都落在归档层（墓碑仍可"复活"，只是不再参与热检索）。 */
-export function tierForDisposition(d: Disposition): 0 | 1 | 2 | 3 {
+/**
+ * 六档 → 存储层 tier。
+ *
+ * v0.4 把 P2 与 P1 都映射到 tier 3，结果是"墓碑"这个概念名存实亡：
+ * 存储层分不出"归档但还能展开"与"只剩摘要"。
+ * v0.5 起 P1 独占 **tier 4 = tombstone**，并且 tombstone 不参与召回。
+ */
+export function tierForDisposition(d: Disposition): 0 | 1 | 2 | 3 | 4 {
   switch (d) {
     case 'P5':
       return 0
@@ -216,9 +244,20 @@ export function tierForDisposition(d: Disposition): 0 | 1 | 2 | 3 {
       return 1
     case 'P3':
       return 2
-    default:
+    case 'P2':
       return 3
+    default:
+      return 4
   }
+}
+
+/** tier → 档位（面板与 doctor 反查用）。 */
+export function dispositionForTier(tier: number): Disposition {
+  if (tier <= 0) return 'P5'
+  if (tier === 1) return 'P4'
+  if (tier === 2) return 'P3'
+  if (tier === 3) return 'P2'
+  return 'P1'
 }
 
 export interface RetentionContext {
@@ -230,44 +269,80 @@ export interface RetentionContext {
   degree?: number
   /** 与邻居的冗余 0..1 */
   redundancy?: number
-  /** 是否存在 SUPERSEDES 出边（版本链环节） */
-  hasSupersedes?: boolean
-  /** 是否仍被其他记忆引用（入边 > 0） */
-  referencedByOthers?: boolean
+  /**
+   * 本 cell 是否**已被取代**（SUPERSEDES 边的 dst 侧）。
+   *
+   * v0.4 把这里写成 `hasSupersedes` 并取边的 **src**，方向是反的：
+   * 新值拿到"版本链环节"的保护，而真正该降档的旧值没有信号。
+   * v0.5 改名并取 dst——被取代是最强的降档理由，不是保护理由。
+   *
+   * 注意：它现在只用于面板解释，不再参与闸门判定（见 protectedFromDeletion）。
+   */
+  isSuperseded?: boolean
 }
 
 export interface RetentionResult {
   score: number
+  /** 由分数直接决定的档位（纯函数，不含任何闸门修正） */
   disposition: Disposition
+  /** 实际生效的档位：闸门可能把 P1 挡回 P2 */
+  effective: Disposition
   /** 各因子原始值（未乘权重），面板画堆叠条用 */
   parts: RetentionInputs
   /** 各因子已乘权重的贡献值 */
   contributions: Record<keyof RetentionInputs, number>
   activationRaw: number
-  /** 命中六道闸时返回理由，否则 null */
+  /** 陈旧包络（0.15..1），已乘进 score */
+  stale: number
+  /** 命中闸门时返回理由，否则 null */
   protectedBy: string | null
-  tier: 0 | 1 | 2 | 3
+  tier: 0 | 1 | 2 | 3 | 4
   /** 周年加成（已并入 score） */
   anniversary: number
+  /** 是否已失效（tInvalid 超过宽限期） */
+  invalid: boolean
 }
 
+/** 失效宽限期：被取代后仍保留 30 天回溯窗口，之后强制归档。 */
+export const INVALID_GRACE_MS = 30 * DAY
+
 /**
- * 六道"永不删除"的闸（hard gate）。
+ * 六道"永不删除"的闸。
  *
- * 顺序即优先级：越靠前越"不可辩驳"。
- * 命中任意一条 → 该 cell 至少保留在 P4 以上，永不进入墓碑。
+ * ── v0.5 的两处关键修正 ────────────────────────────────────────
+ * ① **闸不再改分数，只封顶 tier**。
+ *    v0.4 的闸会 `score = max(score, floor)`，而第五道闸的判据是
+ *    `trust >= 240 && provenance === 0`——而 `TRUST_BY_PROVENANCE[0]` 恰好就是 240，
+ *    于是**对 100% 的用户输入恒真**，七因子评分被整体架空：
+ *    实测 10 条用户陈述 10/10 命中，`demoteDue` 移动 0 条。
+ *    现在分数永远由公式给出，闸只负责"不许进墓碑"。
+ * ② **第五道闸加两个必要条件**：仍是当前有效版本、且被确证或被用过三次以上。
+ *    随口说一句的琐事不再受保护，但"用户亲口确认过的事"仍然不会被清掉。
  */
-export function protectedFromDeletion(
-  cell: MemCell,
-  opts: { hasSupersedes?: boolean; referencedByOthers?: boolean } = {},
-): string | null {
+export function protectedFromDeletion(cell: MemCell): string | null {
   if (cell.flags & FLAG.noDecay) return '用户 pin'
   if (cell.flags & FLAG.emotional) return '情感记忆（闪光灯）'
   if (cell.kind === KIND.persona) return '人格锚'
   if (cell.kind === KIND.narrative && cell.flags & FLAG.milestone) return '关系里程碑'
-  if (cell.trust >= 240 && cell.provenance === 0) return '用户亲口所述的一手事实'
-  if (opts.hasSupersedes) return '版本链环节（删了历史就断了）'
-  if (opts.referencedByOthers) return '仍被其他记忆引用'
+  if (
+    cell.trust >= 240 &&
+    cell.provenance === 0 &&
+    Number(cell.tInvalid ?? 0) === 0 &&
+    (cell.support >= 3 || cell.accessCount >= 3)
+  ) {
+    return '用户亲口确认过的一手事实'
+  }
+  // 图式（kind=3）是抽象出来的"经验"，只增不减——它没有原文可丢，也就没有墓碑的意义。
+  if (cell.kind === KIND.schema) return '图式（只增不减）'
+  /**
+   * 两道被移出的闸，以及为什么：
+   *
+   * · **版本链环节**：v0.4 取的是 SUPERSEDES 的 src（新值），方向反了；而且被取代
+   *   本来就该是最强的降档理由。现在由 INVALID_GRACE + P2 归档承担。
+   * · **仍被其他记忆引用**：墓碑**不删行**，引用不会悬空，所以这道闸没有存在必要；
+   *   而它留在原地会让所有被图式引用的情景记忆永远停在归档层，正是"只进不出"的一半。
+   *   物理删除仍需用户审批，那道防线在 `forget --hard` 上，不在这里。
+   */
   return null
 }
 
@@ -297,50 +372,74 @@ export function evaluateRetention(cell: MemCell, ctx: RetentionContext): Retenti
     spacing: w.spacing * parts.spacing,
     redundancy: -w.redundancy * parts.redundancy,
   }
-  const anniversary = anniversaryBoost(Number(cell.tFrom), ctx.nowMs)
-  let score = clamp01(retentionScore(parts, w) + anniversary)
 
-  const protectedBy = protectedFromDeletion(cell, { hasSupersedes: ctx.hasSupersedes, referencedByOthers: ctx.referencedByOthers })
-  /**
-   * 闸门的作用是"不许掉进墓碑"，**不是**"永远保持热层"。
-   *
-   * v0.4 的初版把闸门写成"至少 P4"，结果所有用户亲口说过的话都永远温热——
-   * 而本项目里每条用户发言都是 provenance=0/trust=240，等于把六档压成了两档。
-   * 现在：普通闸门保到 P3（摘要化，内容不丢但可以降温），情感记忆保到 P4
-   * （情绪记忆的逆衰减，对应 §1.3.4），pin 由调用方直接跳过整条降档流程。
-   */
-  if (protectedBy) {
-    const floor = cell.flags & FLAG.emotional ? DISPOSITION_FLOOR.P4 : DISPOSITION_FLOOR.P3
-    score = Math.max(score, floor + 0.01)
+  const stale = staleFactor(Number(cell.tAccess), ctx.nowMs)
+  const anniversary = anniversaryBoost(Number(cell.tFrom), ctx.nowMs)
+  // 陈旧包络乘在**原始分**上：它压的是"价值判断"，不是"是否记得"。
+  let score = clamp01(retentionScore(parts, w) * stale + anniversary)
+
+  const tInvalid = Number(cell.tInvalid ?? 0)
+  const invalid = tInvalid !== 0 && ctx.nowMs - tInvalid > INVALID_GRACE_MS
+  const protectedBy = protectedFromDeletion(cell)
+
+  if (invalid) {
+    // 失效版本：强制归档，闸不生效（"一手事实"保护的是**当前**陈述，不是历史版本）。
+    score = Math.min(score, DISPOSITION_FLOOR.P2 + 0.01)
+    return {
+      score: round3(score),
+      disposition: 'P2',
+      effective: 'P2',
+      parts,
+      contributions,
+      activationRaw,
+      stale: round3(stale),
+      protectedBy: null,
+      tier: 3,
+      anniversary,
+      invalid: true,
+    }
   }
-  // 情感记忆的逆衰减：高唤醒的闪光灯记忆强行拉回热层。
-  if (cell.flags & FLAG.emotional && parts.affectIntensity >= 0.7) score = Math.max(score, DISPOSITION_FLOOR.P5 + 0.03)
+
+  // 情感记忆的逆衰减：高唤醒的闪光灯记忆强行拉回热层（这是唯一的"改分"闸）。
+  if (cell.flags & FLAG.emotional && parts.affectIntensity >= 0.7) {
+    score = Math.max(score, DISPOSITION_FLOOR.P5 + 0.03)
+  }
 
   const d = disposition(score)
+  // 闸门只封顶：允许降到归档（tier 3），但不许进墓碑（tier 4）。
+  const effective: Disposition = protectedBy && d === 'P1' ? 'P2' : d
   return {
     score: round3(score),
     disposition: d,
+    effective,
     parts,
     contributions,
     activationRaw,
+    stale: round3(stale),
     protectedBy,
-    tier: tierForDisposition(d),
+    tier: tierForDisposition(effective),
     anniversary,
+    invalid: false,
   }
 }
 
 /** 面板文案：为什么它还在 / 为什么快没了。 */
 export function retentionWhy(r: RetentionResult, kindName = '记忆'): string {
+  if (r.invalid) return `已失效（被新版本取代）：强制归档，可回溯`
+  if (r.protectedBy && r.effective !== r.disposition) {
+    return `保留度 ${r.score.toFixed(2)} 已低于墓碑线，但「${r.protectedBy}」：降为归档而不进墓碑`
+  }
   if (r.protectedBy) return `${r.protectedBy}：不参与自动清理`
-  if (r.disposition === 'P5') {
+  if (r.effective === 'P5') {
     const top = topFactor(r)
     return `保留度 ${r.score.toFixed(2)}：主要靠${top}`
   }
-  if (r.disposition === 'P1' || r.disposition === 'P2') {
+  if (r.effective === 'P1' || r.effective === 'P2') {
     const weak = weakestFactor(r)
-    return `保留度 ${r.score.toFixed(2)}：${weak}偏低，已降到${DISPOSITION_LABEL[r.disposition]}`
+    const stale = r.stale < 0.6 ? '，且长期未被提取（陈旧折损 ' + r.stale.toFixed(2) + '）' : ''
+    return `保留度 ${r.score.toFixed(2)}：${weak}偏低${stale}，已降到${DISPOSITION_LABEL[r.effective]}`
   }
-  return `${kindName}保留度 ${r.score.toFixed(2)}，处于${DISPOSITION_LABEL[r.disposition]}档`
+  return `${kindName}保留度 ${r.score.toFixed(2)}，处于${DISPOSITION_LABEL[r.effective]}档`
 }
 
 const FACTOR_LABEL: Record<keyof RetentionInputs, string> = {

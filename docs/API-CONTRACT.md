@@ -268,6 +268,23 @@ remote?.contributions?.set?.('mnemo', face) // D
 口径：`entries` 只含最近 120 条里保留度最高的 40 条，`byDisposition` 统计的是那 120 条。
 面板上写明了这一点——**不假装是全域统计**。
 
+### 3.2 v0.5 变更
+
+| 变更 | 形状 | 兼容策略 |
+| :--- | :--- | :--- |
+| `PanelRetentionEntry.invalid` | `boolean` | **必填**。旧的 `retention` 快照没有它 → 视图按 `false` 处理 |
+| `PanelRetentionEntry.stale` | `number` | **必填**，0.15..1 的陈旧包络 |
+| `PanelRetentionEntry.disposition` | 现在给的是**实际处置**（`effective`） | 与 `tier` 一致；分数仍单独给 `score` |
+| `PanelAction.restore` | `{ kind: 'restore'; cellId: string }` | 新增。墓碑复活（原文已释放，只能拿回摘要） |
+| `RecallQuery.readOnly` | `boolean?` | 新增。面板 / doctor / 解释器必须置真 |
+| `RecallQuery.includeTombstones` | `boolean?` | 新增。默认 false——墓碑不参与召回 |
+| `AffectPolicy.regulation` | `RegulationStrategy?` | 新增，Gross 五策略之一 |
+| `affect.trait` | `{ O,C,E,A,N, attachment }?` | 新增，从人格锚与关系模型投影 |
+| `DoctorReport.invalidNotDemoted` / `.tombstones` / `.tombstoneBytes` | `number?` | 新增，增长与迁移报告 |
+
+**tier 语义变更**：`3 = archive`（仍参与召回）、`4 = tombstone`（不参与召回、内容已压实）。
+v0.4 里 P1 与 P2 都落在 3，存储层无法区分——这是 v0.5 修掉的缺陷之一。
+
 ---
 
 ## 4. 运行时状态：`ctx.provide('mnemoRuntime', …)`

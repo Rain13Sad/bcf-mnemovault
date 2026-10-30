@@ -13,12 +13,14 @@
  *   ⑤ 再巩固日志（最近哪条记忆被改写过）
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
 import { SubHead, fmt2, relTime } from '../ui.js'
 
 export interface RetentionProps {
   snapshot: PanelSnapshot
   onOpen: (cellId: string) => void
+  /** v0.5：墓碑可以复活（原文已释放，只能看到摘要） */
+  onAct?: (a: PanelAction) => void
 }
 
 const DISPOSITIONS = ['P5', 'P4', 'P3', 'P2', 'P1'] as const
@@ -137,6 +139,27 @@ export function Retention(props: RetentionProps): ReactNode {
       ),
     ),
 
+    // ②b 库增长（v0.5）：库必须有"出"，否则迟早变成只增不减的日志
+    h(
+      'div',
+      { className: 'mnv-panel' },
+      h(SubHead, { title: '库增长', hint: '墓碑已压实' }),
+      h(
+        'div',
+        { className: 'mnv-gauge' },
+        h('div', null, h('b', null, String(props.snapshot.stats.cells)), h('span', null, '总条数')),
+        h('div', null, h('b', null, String(tierCount(props.snapshot, 3))), h('span', null, '归档')),
+        h('div', null, h('b', null, String(tierCount(props.snapshot, 4))), h('span', null, '墓碑')),
+        h('div', null, h('b', null, `${Math.round(props.snapshot.stats.bytes / 1024)}`), h('span', null, 'KB')),
+      ),
+      h(
+        'div',
+        { className: 'mnv-note', style: { marginTop: 6 } },
+        '墓碑 = 已压实的记忆：残差（原文）与向量都已释放，只剩 id + 摘要 + 槽位，且不参与召回。',
+        ' 它不删行——版本链与引用还在；想找回来点某条的「复活」。',
+      ),
+    ),
+
     // ③ 神经调制
     h(
       'div',
@@ -192,7 +215,25 @@ export function Retention(props: RetentionProps): ReactNode {
                   h('span', { className: 'mnv-kv', title: e.digest }, e.digest || e.shortId),
                   h('span', { className: 'mnv-num' }, fmt2(e.score)),
                 ),
-                h('div', { className: 'mnv-sub' }, h('span', null, e.why)),
+                h(
+                  'div',
+                  { className: 'mnv-sub' },
+                  h('span', null, e.why),
+                  e.tier >= 4 && props.onAct
+                    ? h(
+                        'button',
+                        {
+                          className: 'mnv-btn',
+                          style: { marginLeft: 'auto' },
+                          onClick: (ev: { stopPropagation(): void }) => {
+                            ev.stopPropagation()
+                            props.onAct?.({ kind: 'restore', cellId: e.cellId })
+                          },
+                        },
+                        '复活',
+                      )
+                    : null,
+                ),
                 h(
                   'div',
                   { className: 'mnv-factors' },
@@ -236,6 +277,11 @@ export function Retention(props: RetentionProps): ReactNode {
           ),
     ),
   )
+}
+
+function tierCount(snapshot: PanelSnapshot, tier: number): number {
+  const byTier = snapshot.stats.byTier ?? {}
+  return Number(byTier[tier] ?? byTier[String(tier)] ?? 0)
 }
 
 /** 供面板顶部用的极简摘要（一行字），避免把整套视图塞进 header。 */

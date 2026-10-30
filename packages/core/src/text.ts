@@ -246,8 +246,16 @@ const SECRET_PATTERNS: Array<{ re: RegExp; kind: string; test?: (s: string) => b
   },
   { re: /\bBearer\s+[A-Za-z0-9._\-+/=]{16,}/gi, kind: 'bearer_token' },
   {
-    // 只替换参数值，保留参数名——否则"这条 URL 里有个 token"这个信息就丢了
-    re: /([?&](?:token|access_token|api_key|apikey|key|secret|sig|signature|password|passwd)=)([^&\s#]{8,})/gi,
+    /**
+     * 只替换参数值，保留参数名——否则"这条 URL 里有个 token"这个信息就丢了。
+     *
+     * v0.5：锚点从 `[?&]` 放宽到"行首 / 空白 / ?&"。
+     * 原因是 `segmentPropositions` 会先按标点切分，切走 `?` 之后
+     * `?access_token=xxx` 变成 `access_token=xxx`，旧规则直接漏判——
+     * 实测 4 个参数名全部明文进 digest 与槽位。脱敏顺序已提前（encoder），
+     * 但规则本身也不该依赖一个会被切掉的字符。
+     */
+    re: /(^|[\s?&])((?:token|access_token|api_key|apikey|key|secret|sig|signature|password|passwd)=)([^&\s#]{8,})/gim,
     kind: 'url_token',
   },
   { re: /\b(sk|pk|rk)-[A-Za-z0-9]{12,}\b/g, kind: 'api_key' },
@@ -310,10 +318,9 @@ export function redact(text: string): RedactResult {
       if (p.test && !p.test(whole)) return whole
       n++
       secrets.push({ kind: p.kind, index: n })
-      // URL token 保留参数名（捕获组 1），其余整段替换
+      // URL token 保留"锚点 + 参数名"（捕获组 1、2），只替换值（组 3）
       if (p.kind === 'url_token') {
-        const prefix = String(args[1] ?? '')
-        return `${prefix}«SECRET:${n}»`
+        return `${String(args[1] ?? '')}${String(args[2] ?? '')}«SECRET:${n}»`
       }
       return `«SECRET:${n}»`
     })

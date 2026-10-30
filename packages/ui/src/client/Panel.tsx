@@ -383,7 +383,7 @@ export function MnemoPanel(props: PanelProps): ReactNode {
               })
             : null,
           tab === 'retention'
-            ? h(Retention, { snapshot, onOpen: (id) => openCell(id, 'search') })
+            ? h(Retention, { snapshot, onOpen: (id) => openCell(id, 'search'), onAct: (a) => void act(a) })
             : null,
           tab === 'inbox'
             ? h(Inbox, {

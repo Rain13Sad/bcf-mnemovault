@@ -316,6 +316,9 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   const visible = (cell: MemCell): boolean => {
     // 视角过滤：'想听事实' 与 '想聊感受' 是两种不同的检索意图
     if (q.lens && (cell.lens ?? 'fact') !== q.lens) return false
+    // 墓碑不参与召回（v0.5）。v0.4 里 tier 3 与 tier 4 都是"归档"，
+    // 所以"墓碑"从来没能真正把一条记忆挡在检索之外——真正起作用的只有 tInvalid。
+    if (!q.includeTombstones && cell.tier >= 4) return false
     // 作用域隔离（§14.10 / §19.2）：情景记忆默认不跨会话，语义/图式全局共享。
     // 这是"A 用户的事被 B 用户问出来"这条事故的唯一防线。
     if (q.scope !== 'global') {

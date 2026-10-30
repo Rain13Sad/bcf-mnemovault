@@ -10,7 +10,7 @@
  *   · strain 只由"重复追问/明确不满"驱动，不由"用户不同意"驱动
  */
 
-import type { AffectPolicy, Intero, Pad, RelationalSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { AffectPolicy, Intero, Pad, RegulationStrategy, RelationalSnapshot } from '@rain13sad/dsh-mnemo-core'
 
 export interface PolicyInput {
   pad: Pad
@@ -100,6 +100,31 @@ export function derivePolicy(input: PolicyInput): AffectPolicy {
     if (verbosity === -1) verbosity = 0
   }
 
+  /**
+   * 情绪调节（v0.5，Gross 过程模型）。
+   *
+   * 只会"表达情绪"的系统是瘸的；会**调节**才是像人。
+   * 五条策略按当前状态选一条——不是全上，全上等于没有策略。
+   * 顺序有讲究：先处理"能不能避开/改变情境"，再谈"怎么想"，最后才是"怎么表达"。
+   */
+  let regulation: RegulationStrategy | undefined
+  if (i.budget < 0.2) {
+    regulation = 'situation-selection'
+    reasons.push('调节策略：情境选择（预算见底，先不开新话题）')
+  } else if (i.load > 0.8) {
+    regulation = 'situation-modification'
+    reasons.push('调节策略：情境修改（负荷过高，先拆任务再谈情绪）')
+  } else if (input.pad.v < -0.3 && i.load > 0.5) {
+    regulation = 'attentional-deployment'
+    reasons.push('调节策略：注意分配（情绪重且负荷高，先陪着，不急着分析）')
+  } else if (input.pad.v < -0.3 || neglect > 0) {
+    regulation = 'cognitive-change'
+    reasons.push('调节策略：认知改变（先接住，再一起换个角度看）')
+  } else if (i.strain > 0.5) {
+    regulation = 'response-modulation'
+    reasons.push('调节策略：反应调节（关系张力高，压住表达、多确认）')
+  }
+
   // temperature 偏移只做微调，不做"情绪化输出"——情感不得降低真实性
   const temperatureDelta = clamp(-0.1, 0.1, 0.08 * input.pad.a - 0.04 * Math.max(0, -mood.v))
 
@@ -114,6 +139,7 @@ export function derivePolicy(input: PolicyInput): AffectPolicy {
     temperatureDelta: Math.round(temperatureDelta * 100) / 100,
     requireAcknowledgment,
     neglect,
+    regulation,
     reasons,
   }
 }

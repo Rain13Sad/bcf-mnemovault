@@ -36,7 +36,8 @@ export const MAGIC_V2 = 'MC02'
 const Q14 = 16384
 
 export type CellKind = 0 | 1 | 2 | 3 | 4 | 5 | 6
-export type CellTier = 0 | 1 | 2 | 3
+/** 0 热 / 1 温 / 2 冷 / 3 归档 / 4 墓碑（v0.5：P1 独立成层，不再与 P2 共用 3） */
+export type CellTier = 0 | 1 | 2 | 3 | 4
 export type Provenance = 0 | 1 | 2 | 3 | 4
 
 export const KIND = {
@@ -60,7 +61,7 @@ export const KIND_NAME: Record<number, string> = {
   6: 'narrative',
 }
 
-export const TIER_NAME: Record<number, string> = { 0: 'hot', 1: 'warm', 2: 'cold', 3: 'archive' }
+export const TIER_NAME: Record<number, string> = { 0: 'hot', 1: 'warm', 2: 'cold', 3: 'archive', 4: 'tombstone' }
 
 export const PROV_NAME: Record<number, string> = { 0: 'u', 1: 'a', 2: 't', 3: 'w', 4: 'i' }
 
@@ -90,6 +91,16 @@ export const FLAG = {
   /** bit7 里程碑（关系叙事里的锚点：第一次、那次争吵、那个约定） */
   milestone: 1 << 7,
 } as const
+
+/**
+ * 墓碑没有 flag 位，只有 tier。
+ *
+ * v0.5 一开始想加 `FLAG.tombstone = 1 << 8`，但 MC03 的 flags 字段只有 **1 字节**
+ * （`buf[7] = c.flags`），bit8 在编解码时会静默丢失——测试当场抓住。
+ * 与其扩布局（要 rebuild），不如用 `tier === 4` 表达：它本来就是"处置"的一部分，
+ * 而且 tier 字段是 u8，本来就能装 4。
+ */
+export const isTombstone = (tier: number): boolean => tier >= 4
 
 /** 关系类型词表（§5.3），u8 可扩展。 */
 export const REL = {

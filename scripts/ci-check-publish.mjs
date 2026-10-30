@@ -77,6 +77,34 @@ if (!existsSync(lockPath)) {
   }
 }
 
+/**
+ * ④ lockfile 平台中立性（v0.5）。
+ *
+ * v0.4 的 lockfile 只记录了 esbuild 的 `@esbuild/win32-x64` 一个平台包——
+ * npm 10 不校验，**npm 11 直接 `npm ci` 失败**。而 esbuild 其实从没被用过
+ * （panel-build 不用打包器），所以 v0.5 直接把它从 devDependencies 删掉。
+ * 这条检查防止下次有人再引入一个原生依赖而没意识到发布矩阵会崩。
+ */
+const NATIVE_DEPS = ['esbuild', 'sharp', 'fsevents', '@swc/core', 'node-gyp', 'canvas', 'bcrypt']
+const allDeps = { ...(rootPkg.dependencies ?? {}), ...(rootPkg.devDependencies ?? {}) }
+for (const name of NATIVE_DEPS) {
+  if (allDeps[name]) {
+    problems.push(`根依赖里有原生/平台相关包 "${name}"：lockfile 会只锁当前平台，npm ≥11 在其它平台会 npm ci 失败`)
+  }
+}
+if (existsSync(lockPath)) {
+  const lock = read(lockPath)
+  const platformPinned = Object.entries(lock.packages ?? {}).filter(
+    ([k, v]) => k && (v?.os || v?.cpu) && !k.includes('node_modules/@types/'),
+  )
+  if (platformPinned.length > 0) {
+    const names = platformPinned.map(([k]) => k.replace('node_modules/', '')).slice(0, 6)
+    problems.push(`lockfile 里有 ${platformPinned.length} 个平台限定包（${names.join(', ')}…）：跨平台 npm ci 会失败`)
+  } else {
+    notes.push('lockfile 平台中立（无 os/cpu 限定条目）')
+  }
+}
+
 for (const n of notes) console.log(`info  ${n}`)
 if (problems.length) {
   console.error(`\n${problems.length} 项不一致：`)

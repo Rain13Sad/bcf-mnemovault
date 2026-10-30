@@ -31,7 +31,7 @@ import {
 } from './cell.js'
 import { BruteIndex, HnswIndex, type VectorIndex } from './ann.js'
 import { RuntimeStatus } from './runtime.js'
-import { RETENTION_WEIGHTS, DISPOSITION_FLOOR, evaluateRetention, retentionWhy, type Disposition } from './retention.js'
+import { RETENTION_WEIGHTS, DISPOSITION_FLOOR, INVALID_GRACE_MS, evaluateRetention, retentionWhy, type Disposition } from './retention.js'
 import { applyReconsolidation, onRetrieved } from './reconsolidation.js'
 import { graphHopsFor, modeOf, neuromodulate, retrievalTemperature } from './neuromod.js'
 import { nextTier } from './lifecycle.js'
@@ -459,6 +459,11 @@ export class MemoryService extends Service {
       },
       q,
     )
+    if (q.readOnly) {
+      // 只读：不写快照、不计命中率、不更新 tAccess、不建共激活边、不推面板。
+      // 面板每 3 秒刷新一次，如果它算"使用"，那面板本身就是最强的遗忘抑制剂。
+      return r
+    }
     r.snapshotId = this.snapshot(r.rendered, r.tokens)
     this.recalls++
     if (r.hits.length > 0) this.hitRecalls++
@@ -754,6 +759,7 @@ export class MemoryService extends Service {
   }
 
   doctor(opts: { fix?: boolean; unlock?: boolean } = {}): DoctorReport {
+    const now = this.now()
     const issues: string[] = []
     const fixed: string[] = []
     const ids = new Set<string>()
@@ -811,11 +817,43 @@ export class MemoryService extends Service {
       }
     }
 
+    /**
+     * 失效但未降档（v0.5 数据迁移）。
+     *
+     * v0.4 的保留度不看 `tInvalid`，于是"已失效但停在热/温层"的旧版本会一直占着位置。
+     * 改代码不会自动触及存量库，所以给 doctor 一条显式检查 + `--fix` 批量降档。
+     */
+    let invalidNotDemoted = 0
+    let tombstones = 0
+    let tombstoneBytes = 0
+    this.store.forEachCell((c) => {
+      const tInvalid = Number(c.tInvalid ?? 0)
+      if (tInvalid !== 0 && now - tInvalid > INVALID_GRACE_MS && c.tier < 3) {
+        invalidNotDemoted++
+        if (opts.fix) {
+          c.tier = 3
+          c.emb = pq32(c.emb)
+          this.store.putCell(c)
+        }
+      }
+      if (c.tier >= 4) {
+        tombstones++
+        tombstoneBytes += encodeCell(c).length
+      }
+    })
+    if (invalidNotDemoted) {
+      if (opts.fix) fixed.push(`失效记忆降档 ${invalidNotDemoted} 条 → 归档层`)
+      else issues.push(`已失效但仍在上层 ${invalidNotDemoted} 条（/mnemo doctor --fix 可批量归档）`)
+    }
+
     return {
       ok: issues.length === 0,
       orphanEdges,
       danglingSlots,
       orphanResiduals,
+      invalidNotDemoted,
+      tombstones,
+      tombstoneBytes,
       staleLocks: openLock ? 1 : 0,
       indexConsistent: orphanEdges === 0 && danglingSlots === 0,
       layoutVersion: Number(this.store.meta('layoutVersion') ?? 3),
@@ -823,6 +861,44 @@ export class MemoryService extends Service {
       issues,
       fixed,
     }
+  }
+
+  /**
+   * 墓碑压实（v0.5）。
+   *
+   * 进 tier 4 时调用：释放残差（原文不再可展开）、丢弃向量（不再参与语义匹配）、
+   * 置 `FLAG.tombstone`。保留 id / digest / 槽位 / SDR——血缘和"曾经有过这件事"还在。
+   *
+   * 这是"库只进不出"的正面回答：**不删行**（删了版本链就断了），
+   * 但把最大的一块字节（残差 ≈ 全部存储的 47%）还回去。
+   * 代价是墓碑不可展开原文——这正是"墓碑"这个词的本义。
+   */
+  private compactTombstone(c: MemCell): Uint8Array | null {
+    const sha = c.residual?.sha ?? null
+    c.residual = null
+    c.emb = null
+    c.flags = c.flags & ~FLAG.residual
+    // 返回 sha，由调用方在 putCell **之后**释放：
+    // releaseResidualRef 的判据是"还有没有 cell 引用它"，先释放会因为本条还没落库而变成 no-op
+    // （第一版就是这么写的，结果残差全部变成孤儿，doctor 报 5 条）。
+    return sha
+  }
+
+  /**
+   * 从墓碑复活（v0.5）：用户显式操作，不是自动流程。
+   * 注意：原文已释放，复活后只能看到 digest + 槽位。
+   */
+  restore(cellId: string): { ok: boolean; message: string } {
+    const id = BigInt('0x' + cellId.replace(/^0x/, '').padStart(16, '0'))
+    const cell = this.store.getCell(id)
+    if (!cell) return { ok: false, message: 'cell 不存在' }
+    if (cell.tier < 4) return { ok: false, message: '这条不在墓碑层' }
+    cell.tier = 1
+    cell.importance = Math.max(cell.importance, 0.6)
+    cell.tAccess = BigInt(this.now())
+    this.store.putCell(cell)
+    this.publishPanel()
+    return { ok: true, message: '已从墓碑恢复到温层（原文已释放，只能看到摘要）' }
   }
 
   /**
@@ -843,11 +919,15 @@ export class MemoryService extends Service {
     const referenced = new Set<bigint>()
     const superseded = new Set<bigint>()
     let maxDegree = 1
+    // 只有**结构性**引用才算"仍被引用"：PART_OF / EVIDENCE / SUPERSEDES。
+    // ASSOC / EVOKES 是松散联想，把它们算进来等于"凡是被聊到过就不许进墓碑"。
+    const STRUCTURAL = new Set<number>([REL.PART_OF, REL.EVIDENCE, REL.SUPERSEDES])
     for (const e of edges) {
       degree.set(e.src, (degree.get(e.src) ?? 0) + 1)
       degree.set(e.dst, (degree.get(e.dst) ?? 0) + 1)
-      referenced.add(e.dst)
-      if (e.rel === REL.SUPERSEDES) superseded.add(e.src)
+      if (STRUCTURAL.has(e.rel)) referenced.add(e.dst)
+      // src=新值、dst=旧值（见 ingest 的 SUPERSEDES 写入）。被取代的是 dst。
+      if (e.rel === REL.SUPERSEDES) superseded.add(e.dst)
     }
     for (const d of degree.values()) if (d > maxDegree) maxDegree = d
 
@@ -863,14 +943,17 @@ export class MemoryService extends Service {
         degree: degree.get(c.cellId) ?? 0,
         maxDegree,
         redundancy: Math.min(1, sameAs / 2),
-        hasSupersedes: superseded.has(c.cellId),
-        referencedByOthers: referenced.has(c.cellId),
+        isSuperseded: superseded.has(c.cellId),
       })
       const target = nextTier(c.tier, r.tier)
       if (target === c.tier) return
       c.tier = target
       if (target >= 2) c.emb = pq32(c.emb)
+      // 进墓碑时压实：释放残差、丢掉向量，只留 id + digest + 槽位 + SDR。
+      // 这是"库有进有出"的落点——不删行（血缘还在），但把最大的一块字节还回去。
+      const tombstoneSha = target >= 4 ? this.compactTombstone(c) : null
       this.store.putCell(c)
+      if (tombstoneSha) this.store.releaseResidualRef(tombstoneSha)
       moved++
     })
     return moved
@@ -939,13 +1022,14 @@ export class MemoryService extends Service {
     const referenced = new Set<string>()
     const superseded = new Set<string>()
     let maxDegree = 1
+    const STRUCTURAL = new Set<number>([REL.PART_OF, REL.EVIDENCE, REL.SUPERSEDES])
     for (const e of this.store.allEdges()) {
       const s = toHex(e.src, 16)
       const d = toHex(e.dst, 16)
       degree.set(s, (degree.get(s) ?? 0) + 1)
       degree.set(d, (degree.get(d) ?? 0) + 1)
-      referenced.add(d)
-      if (e.rel === REL.SUPERSEDES) superseded.add(s)
+      if (STRUCTURAL.has(e.rel)) referenced.add(d)
+      if (e.rel === REL.SUPERSEDES) superseded.add(d)
     }
     for (const v of degree.values()) if (v > maxDegree) maxDegree = v
 
@@ -962,10 +1046,9 @@ export class MemoryService extends Service {
         degree: degree.get(key) ?? 0,
         maxDegree,
         redundancy: Math.min(1, sameAs / 2),
-        hasSupersedes: superseded.has(key),
-        referencedByOthers: referenced.has(key),
+        isSuperseded: superseded.has(key),
       })
-      byDisposition[r.disposition] = (byDisposition[r.disposition] ?? 0) + 1
+      byDisposition[r.effective] = (byDisposition[r.effective] ?? 0) + 1
       entries.push({
         cellId: key,
         shortId: shortIds[i],
@@ -973,8 +1056,10 @@ export class MemoryService extends Service {
         kind: c.kind,
         tier: c.tier,
         score: r.score,
-        disposition: r.disposition,
+        disposition: r.effective,
         protectedBy: r.protectedBy,
+        invalid: r.invalid,
+        stale: r.stale,
         parts: { ...r.parts } as unknown as Record<string, number>,
         contributions: { ...r.contributions } as unknown as Record<string, number>,
         anniversary: r.anniversary,
@@ -1126,6 +1211,8 @@ export class MemoryService extends Service {
         this.store.putCell(cell)
         this.publishPanel()
         return { ok: true, message: '槽位已更新（触发重编码）' }
+      case 'restore':
+        return this.restore(a.cellId)
       case 'forget':
         if (a.mode === 'hard' && a.confirm !== 'delete') return { ok: false, message: '硬删除需输入 delete 确认' }
         this.forget(a.cellId, a.mode)

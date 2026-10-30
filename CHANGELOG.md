@@ -6,6 +6,76 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [0.5.0] — 2026-10-30
+
+v0.4 把保留度的**骨架**搭好了（七因子、六道闸、六档、逐级降档），但它的决策链是**惰性**的：
+10 条普通用户陈述、访问时间推到 400 天前，`demoteDue` 移动 **0 条**。这一版让它真的会出手。
+
+向后兼容：**存储布局不变（MC03）**，旧库不需要 rebuild。新增的 tier 4 用的是 tier 字段（u8），
+不占 flag 位（flags 只有 1 字节，`1 << 8` 会在编解码时静默丢失——测试当场抓到，改用 tier 表达）。
+
+### 修复 · 决策链（P1）
+
+- **闸门从"改分"改成"封顶"**。v0.4 的 `protectedFromDeletion` 会把分数抬到 floor，
+  而第五道闸的判据 `trust >= 240 && provenance === 0` 对 100% 用户输入恒真
+  （`TRUST_BY_PROVENANCE[0]` 就是 240）——七因子被整体架空。
+  现在分数永远由公式给出，闸只负责"不许进墓碑"（tier 4 → 3）。
+  结果对象同时给 `disposition`（分数）与 `effective`（实际处置）。
+- **第五道闸加必要条件**：`tInvalid === 0` 且 `support >= 3 || accessCount >= 3`。
+  随口一句不再受保护；被确证/用过三次以上的仍然不删。
+- **第六道闸换成"图式（只增不减）"**。原"仍被其他记忆引用"没有存在必要（墓碑不删行，引用不会悬空），
+  而它会让所有被图式引用的情景记忆永远停在归档层——正是"只进不出"的一半。
+- **陈旧包络**：`score × (0.15 + 0.85·clamp01(1 − (days−30)/700))`。
+  v0.4 的七个因子里六个是静态量，400 天旧陈述仍拿 0.73（P4）；现在 30 天不折损、730 天到地板。
+  90 天落在 P3（不归档、不墓碑），400 天 P2/P3，900 天可进墓碑。
+- **tInvalid 接进保留度**：失效超过 30 天宽限期 → 强制 `P2 / tier 3`，`protectedBy = null`。
+- **SUPERSEDES 方向修正**：两处 `superseded.add(e.src)` → `e.dst`（src=新值、dst=旧值）。
+  接口 `hasSupersedes` → `isSuperseded`；"版本链环节"闸移除。
+
+### 新增 · 墓碑层与库增长（P1/P2）
+
+- `tier 4 = tombstone`，P1 不再与 P2 挤在归档层。`visible()` 默认排除 tier ≥ 4，
+  `includeTombstones: true` 才翻出来。
+- **墓碑压实**：释放残差（`releaseResidualRef` 必须在 `putCell` **之后**调用，否则会因为本条还没落库
+  而变成 no-op——第一版就是这么写的，残差全变孤儿）、丢弃向量，只留 id + digest + 槽位 + SDR。
+- 面板「保留度」页新增「库增长」卡（总条数 / 归档 / 墓碑 / KB）与墓碑行的「复活」按钮；
+  `PanelAction` 新增 `{ kind: 'restore' }`。
+- `doctor` 新增 `tombstones` / `tombstoneBytes` / `invalidNotDemoted`，`--fix` 可批量归档失效版本。
+
+### 修复 · 语义与幂等
+
+- **confidence 与召回解耦**：`onRetrieved` 在无预测误差时 `dConfidence = 0`。
+  v0.4 每次召回 +0.02，20 次后 0.775 → 0.950，把"被问得多"兑换成"更可信、更难降档"。
+- **`RecallQuery.readOnly`**：面板 / doctor / 解释器一律只读，不再更新 tAccess、不建共激活边、不推快照。
+  v0.4 里面板每 3 秒刷新一次就算一次"使用"。
+
+### 修复 · 发布工程（P0）
+
+- **脱敏提到切分之前**：encoder 先 `redact` 整轮原文再 `segment`。
+  v0.4 先切分，`?access_token=...` 被切走 `?` 后 URL token 规则漏判，实测 4 个参数名全明文。
+- **URL token 正则锚点放宽**到 `(^|[\s?&])`，并修正捕获组（只替换值，保留锚点与参数名）。
+- **删除未使用的 `esbuild`**：lockfile 曾只锁 `@esbuild/win32-x64`，npm 10 放行、npm 11 `npm ci` 失败。
+  现在 lockfile 平台中立（0 个 `os`/`cpu` 条目）。
+- `ci-check-publish` 增加平台中立性检查；CI 增加 `npm@latest` 矩阵 job。
+
+### 新增 · 补 v0.4 路线图未完成项（选择性）
+
+- **睡眠选择性重放（M2）**：巩固期把"30 天未访问、已掉到 tier ≥ 2、保留度仍 ≥ 0.45"的记忆抬回一级，
+  预算 ≤ 20 条 / 5%。`PassResult.replayed`。
+- **Gross 情绪调节（M3）**：`AffectPolicy.regulation` 五策略按预算/负荷/效价/张力选一条。
+- **T1 特质层（M3）**：`affect.trait` 从人格锚 + 关系模型**投影**（Big Five + 依恋），不单独存储。
+
+### 测试
+
+- 新增 `test/v05-decision.test.mjs`（16 条）：收敛（400 天必须降档 / 900 天进墓碑且字节下降）、
+  不变量（20 次召回 confidence 漂移 < 0.05、只读召回不改字段）、失效传播（tInvalid 强制归档、
+  SUPERSEDES 方向、doctor 迁移）、恒真闸命中率 < 100%、墓碑不参与召回、URL token 不泄露、
+  重放救回、调节策略与特质层。
+- 更新 3 条 v0.4 测试到新语义（90 天口径、P1→tier 4、闸门条件）。
+- 总数 135 → **151**，全绿。bench 门槛未变（未改打分公式）。
+
+---
+
 ## [0.4.0] — 2026-10-30
 
 v0.3 有两处"说不清"的地方：**为什么这条该留、那条该走**，以及**为什么难过的事会被忘掉**。
