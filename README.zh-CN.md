@@ -1,3 +1,7 @@
+<!-- DOC-VERSION: 0.5.1 -->
+
+# MnemoVault
+
 <div align="center">
   <img src="docs/assets/banner.svg" alt="MnemoVault" width="100%">
 </div>
@@ -11,7 +15,7 @@
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#快速开始)
-[![Tests](https://img.shields.io/badge/tests-151-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -24,11 +28,21 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.5.0** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 10 个包 · 46 个源文件 / 约 13,100 行 TS · 151 条测试 · **零运行时依赖**（只用内置 `node:sqlite` 与 `node:zlib`） |
-| **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 15 条缺点 / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
+| **状态** | **v0.5.1** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 10 个包 · 56 个源文件 / 约 17,300 行 TS（`.ts` + `.tsx`，含 UI）· 160 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **19 条缺点 D1–D19** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
+| **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 19 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
 ---
+
+## 目录
+
+- [v0.5.1：修掉符号、振荡与死开关](#v051修掉符号振荡与死开关) · [v0.5.0：让决策链真的会出手](#v050让决策链真的会出手)
+- [它解决什么](#它解决什么) · [它不解决什么](#它不解决什么) · [快速开始](#快速开始) · [五分钟跑通第一次调用](#五分钟跑通第一次调用)
+- [面板](#面板) · [存储比](#存储比从-250-到-084以及-060-为什么到不了) · [已知限制](#已知限制) · [与开源实现的对照](#与开源实现的对照)
+- [目录](#目录) · [贡献](#贡献) · [许可](#许可)
+
+
 
 ## 它解决什么
 
@@ -60,7 +74,7 @@ DSH 的上下文窗口是有限的，而"用户三个月前说过什么"要么�
 
 ## 快速开始
 
-环境：**Node ≥ 22.5**（依赖内置 `node:sqlite` / `node:zlib`）、npm ≥ 10。跑测试**不需要**装 DSH。
+环境：**Node ≥ 22.13**（依赖内置 `node:sqlite` / `node:zlib`）、npm ≥ 10。跑测试**不需要**装 DSH。
 
 ```bash
 npm ci               # 只有 devDependencies（typescript / react / 类型）
@@ -104,7 +118,7 @@ CI 用 [`scripts/ci-assert-bench.mjs`](scripts/ci-assert-bench.mjs) 把这些数
 
 `npm run check`（SDR 性质）与 `npm run bench`（算子微基准）：
 
-```
+```text
 无关 bundle(24) Jaccard = 0.046        （文档 §6.5：0.047）
 Jaccard 命中 0.081 / containment 1.000 （文档：0.087 / 1.000）
 汉明相似度(无关码) = 0.992              （v0.1 的 D-02 复现）
@@ -146,6 +160,87 @@ npm ci && npm run build
 
 ---
 
+## 五分钟跑通第一次调用
+
+**不需要 DSH 宿主**。`createHarness` 用桩会话/桩工具把真实插件跑起来，看到的就是宿主里那条代码路径。
+
+```ts
+import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
+
+const h = await createHarness({ sessionId: 'hello' })
+await h.turn('我叫阿哲，负责前端。我们用 pnpm 构建。')
+await h.turn('构建工具后来换成了 bun。')
+
+const r = h.memory.recall({ text: '现在用什么构建', budget: 400 })
+console.log(r.rendered)
+// [MEM v2] 每行一条记忆，字段以 | 分隔。
+// M:5c24|T:1030|P:u|F:fact|K:构建=bun|V:0|S:0.77|C:0.81
+console.log(r.tokens, r.strategy, r.slotsUsed)   // 91 'semantic' 1
+
+console.log(h.memory.explain(r.hits[0].cellId))
+// cell 5c24  总分 0.65（阈值 0.42，槽位 1）
+//   sim      1.00 × 1.00 =  1.00
+//   recency  1.00 × 0.35 =  0.35
+
+await h.dispose()
+```
+
+那一行渲染结果就是整件事的重点：时间、来源、帧类型、键值、效价、显著度、置信度压进一行，
+91 token 而不是回放两轮对话。
+
+<details>
+<summary>直接用 <code>MemoryService</code>（不经 harness）</summary>
+
+```ts
+import { Context } from '@deepseek-ai/cordis'
+import { MemoryService, defaultConfig } from '@rain13sad/dsh-mnemo-core'
+
+const ctx = new Context()
+const mnemo = new MemoryService(ctx, { config: defaultConfig({ dbPath: 'vault.db' }) })
+const dispose = mnemo.open()          // 幂等；返回逆序释放函数
+
+// RecallQuery **没有** k：预算单位是 token 不是条数，且必填
+const r = mnemo.recall({ text: '构建工具用的是什么', budget: 900, readOnly: true })
+// readOnly：面板 / doctor / 解释器一律用它，否则"读一次"会变成"用一次"，把记忆钉在热层
+
+console.log(r.rendered, r.tokens, r.strategy, r.slotsUsed)
+console.log(mnemo.explain(r.hits[0]?.cellId ?? ''))   // 分数 + 通道 + 理由
+
+dispose()
+```
+
+写入走 `ingest(cell)`——`MemCell` 是一条定长记录，不是字符串。编码器负责把它造出来，
+上面的 `createHarness` 是最短的"看到一条"的路径。
+
+</details>
+
+---
+
+## v0.5.1：修掉符号、振荡与死开关
+
+0.5.0 让决策链会动了，0.5.1 修它暴露出来的问题——外加一个从 0.2 就存在、
+因为"所有测试都用正数"而一直没人发现的 bug。
+
+| 缺陷 | 具体表现 | 修法 |
+| :--- | :--- | :--- |
+| **i8 边界丢符号** | `buf[0x2c] = -68` 在 `Uint8Array` 上回绕成 `188`，解码又写成 `188 / 127` → **所有负的 valence/arousal/dominance 读回来都是正数**：一条 -0.54 的难过记忆变成 +1.48，下游 `clamp01(|v|)` 再把它钉死在 1.0 | 写入 `& 0xff`、解码 `<< 24 >> 24` 做符号扩展。**不需要 rebuild**——字节本来就是补码，错的是读取端 |
+| **周年加成破坏单调性** | 加成加在陈旧包络**之后**，幅度（0.25）大于档宽（~0.18），于是**已压实的墓碑在第 4 个周年被自动抬回归档层**，而它的原文早已释放 | 周年只对"有效且非墓碑"生效，乘上包络，且抬升上限是**本档上沿**——只能在本档内挪，绝不跨档 |
+| **`includeTombstones` 是死开关** | 压实丢掉了 `emb` 与 `residual`，语义路恒为 0；符号路只吃实体 SDR。忘了 id 的墓碑**再也找不到** | 新增"目录通道"：query 分词 vs `digest` 重叠，只在 `includeTombstones` 时启用，得分封顶 0.85；`memory_recall` 增加 `include_tombstones` |
+| **`demoteDue` 会升档** | `nextTier` 是双向的，纯时间推进就能把记忆重新烫热（+365 天 tier 2→1） | 降档 pass **只降不升**；升档来自使用信号：强命中召回，或睡眠重放 |
+| **测试时钟不传导** | `createHarness({ now })` 只喂了事件时间戳，`MemoryService` 仍读 `Date.now()`，所有时间旅行测试**静默失效** | 新增 `MemoryService.setClock()`，harness 接上；断言 `h.now() === memory.nowMs()` |
+| **PAD 未钳位** | 同一个 1.48 症状的另一半原因 | 编码时把 `valence / arousal / dominance` 钳到 [-1,1] |
+
+新测试是**扫描式**的，不是单点采样——0.5.0 那套测了第 400 天和第 900 天，
+恰好绕过了 365 / 730 两个周年窗口：
+
+```text
+性质 1（单调）  时钟推 10 年、每 7 天一步：tier 只能变冷
+性质 2（可达）  必须能到 tier 4，且此后不回退
+性质 3（不变量）tInvalid 超过宽限期 ⇒ 恒为 P2，与周年/陈旧无关
+```
+
+---
+
 ## v0.5.0：让决策链真的会出手
 
 v0.4 把保留度的**骨架**搭好了，但它的决策链是**惰性**的：
@@ -176,7 +271,7 @@ v0.4 把保留度的**骨架**搭好了，但它的决策链是**惰性**的：
 
 ### 删除决策链（v0.5 之后的实际形态）
 
-```
+```text
 每条记忆
   ├─ FLAG.noDecay（pin / 人格锚）────────────→ 永不评估
   ├─ 30 分钟内访问过 ───────────────────────→ 还在工作记忆，跳过
@@ -216,7 +311,7 @@ v0.4 把保留度的**骨架**搭好了，但它的决策链是**惰性**的：
 
 ### ① 遗忘：七因子保留度 + 六档处置
 
-```
+```text
 score = 0.5 + gain · ( Σ wᵢ·xᵢ − bias )
 x = 激活(ACT-R) · 重要度 · 情绪强度 · 关联度 · 叙事角色 · 用户锚定 · 间隔效应 − 冗余
 ```
@@ -500,7 +595,7 @@ v0.3 把它拆成三件事分别处理：**两处测量错误**、**三处真实
 
 ### 最后是算术：0.60× 到底能不能到
 
-```
+```text
 storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
               ≈ 0.47       + (n × 341) / 2072
 ```
@@ -528,6 +623,9 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 ---
 
 ## 已知限制
+
+完整的 19 条在 [`PROJECT-GUIDE` §12](docs/PROJECT-GUIDE.md)（编号 D1–D19，每条带证据与严重度）。
+下面是实际会咬到使用者的 17 条。
 
 1. **embedding 仍然不是语义模型**。v0.3 重写了它（字符 bigram 骨架 + 24 组同义词族桥接 +
    标识符整体成词），同义改写比 v0.2 好，但它没有词向量、没有上下文。要真正语义化必须接
@@ -627,10 +725,11 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 
 ## 目录
 
-```
+```text
 .
 ├── packages/                    10 个包，依赖单向（core → affect → encoder → recall → …）
-│   ├── core/src/{sdr,cell,codec,store,working,recall,render,service,forgetting,preset,text,hash,crc32,types}.ts
+│   ├── core/src/               21 个文件：cell / store / recall / service / render / sdr / ann / working /
+│   │                           forgetting / **retention** / **reconsolidation** / **neuromod** / **lifecycle** / preset / text …
 │   ├── affect/src/{appraisal,relational,policy,persist,index}.ts
 │   ├── encoder/src/{index,l1}.ts
 │   ├── recall/src/index.ts
@@ -640,8 +739,9 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 │   ├── settings/src/index.ts
 │   ├── ui/src/{index.ts,client/**}
 │   └── devkit/src/index.ts
-├── test/                        8 个测试文件 / 93 条（含 SDR 性质、隐私隔离、面板对拍）
-├── scripts/                     build · demo · panel-build · panel-dev · sdr-check · bench · bench-eval · ci-assert-bench · patches · scaffold
+├── test/                        14 个测试文件 / 160 条（含 SDR 性质、隐私隔离、面板对拍、扫描式回归）
+├── scripts/                     15 个：build · demo · panel-build · panel-dev · sdr-check · bench · bench-eval ·
+│                                ci-assert-bench · ci-check-publish · check-readme · publish-all · readmes · …
 ├── docs/
 │   ├── README.md                文档地图（先看这个）
 │   ├── PROJECT-GUIDE.md         项目说明书：15 条缺点 / 12 条改进意见
@@ -650,7 +750,7 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 │   └── design/                  设计文档 v0.2 + 两份前置研究报告
 ├── artifacts/                   bench.json / panel-snapshot.json（构建产物不进库）
 ├── .github/                     CI（Ubuntu + Windows）· issue 表单 · PR 模板
-├── docs/assets/                 banner.svg · pipeline.svg · social-preview.png
+├── docs/assets/                 banner.svg · pipeline.svg · social-preview.png · panel-{overview,retention,narrow}.png
 ├── README.md（英文首页）· README.{zh-CN,ja,ko,es}.md · CONTRIBUTING.md · CHANGELOG.md · SECURITY.md
 ```
 

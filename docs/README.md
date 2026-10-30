@@ -8,7 +8,7 @@
 | :--- | :--- | ---: |
 | **先知道这是什么** | 根目录 [`README.md`](../README.md)（英文）或 [`README.zh-CN.md`](../README.zh-CN.md)（中文，最详细） | 15 分钟 |
 | **把它跑起来** | 同上，第「Quick start」节；不需要装 DSH | 5 分钟 |
-| **接手维护 / 判断能不能用** | [`PROJECT-GUIDE.md`](PROJECT-GUIDE.md) — 系统怎么运作、15 条缺点、12 条改进意见（P0–P2） | 40 分钟 |
+| **接手维护 / 判断能不能用** | [`PROJECT-GUIDE.md`](PROJECT-GUIDE.md) — 系统怎么运作、19 条缺点（D1–D19）、12 条改进意见（P0–P2） | 40 分钟 |
 | **改代码 / 加插件** | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — 环境、代码地图、硬约束、提交规范 | 15 分钟 |
 | **对着宿主版本核对接口** | [`API-CONTRACT.md`](API-CONTRACT.md) — DSH `0.2.1-rc.3` 实际发布包与设计文档写法的差异 | 20 分钟 |
 | **理解算法为什么这么定** | [`design/MNEMOVAULT-DESIGN.md`](design/MNEMOVAULT-DESIGN.md) — 稀疏码代数、四路召回、MRS 渲染、双相巩固的推导与参数依据 | 3 小时 |

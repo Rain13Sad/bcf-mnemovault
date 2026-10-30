@@ -374,12 +374,36 @@ export function evaluateRetention(cell: MemCell, ctx: RetentionContext): Retenti
   }
 
   const stale = staleFactor(Number(cell.tAccess), ctx.nowMs)
-  const anniversary = anniversaryBoost(Number(cell.tFrom), ctx.nowMs)
-  // 陈旧包络乘在**原始分**上：它压的是"价值判断"，不是"是否记得"。
-  let score = clamp01(retentionScore(parts, w) * stale + anniversary)
-
   const tInvalid = Number(cell.tInvalid ?? 0)
   const invalid = tInvalid !== 0 && ctx.nowMs - tInvalid > INVALID_GRACE_MS
+
+  /**
+   * 周年效应（v0.5.1 重写）。
+   *
+   * v0.5 的写法是 `score = base·stale + anniversary`，三个问题叠在一起：
+   *   ① 加在包络**之后**——包络把分数压到 0.085，+0.25 还能把它抬到 0.336；
+   *   ② 幅度（0.25）大于档宽（0.17–0.20），天然能跨一到两级；
+   *   ③ 不区分"该降"还是"该升"。
+   * 实测后果：已经压实的墓碑在第 4 个周年被 `demoteDue` 自动抬回归档层——
+   * 而残差早已永久释放，等于把"墓碑"这道单向门反向打开。
+   *
+   * 现在的三条约束：
+   *   · 失效版本与墓碑**不参与**周年加成（单向门就是单向的）；
+   *   · 加成乘上包络（深陈旧项拿不到全额）；
+   *   · 抬升上限是**本档上沿**，绝不跨档——所以它只能"在同一个档位里往上挪一点"。
+   */
+  const bandTop: Record<Disposition, number> = { P1: 0.18, P2: 0.35, P3: 0.55, P4: 0.75, P5: 1.0 }
+  let score = clamp01(retentionScore(parts, w) * stale)
+  let anniversary = 0
+  if (!invalid && cell.tier < 4) {
+    const raw = anniversaryBoost(Number(cell.tFrom), ctx.nowMs) * stale
+    if (raw > 0) {
+      const ceiling = Math.min(1, bandTop[disposition(score)] - 0.001)
+      const lifted = Math.min(ceiling, score + raw)
+      anniversary = round3(lifted - score)
+      score = lifted
+    }
+  }
   const protectedBy = protectedFromDeletion(cell)
 
   if (invalid) {

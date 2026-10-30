@@ -87,7 +87,7 @@ export class MemoryService extends Service {
   /** 作用域键（§14.10）：所有新写入的 cell 默认落在这个作用域里 */
   readonly scopeKey: string
   config: MnemoConfig
-  private readonly now: () => number
+  private now: () => number
   private readonly panelPath?: string
   private readonly runtime: RuntimeStatus
   private opened = false
@@ -134,6 +134,18 @@ export class MemoryService extends Service {
     this.store = opts.store ?? createStore({ path: opts.config.dbPath, space: this.space })
     this.panelPath = opts.panelPath
     this.runtime = opts.runtime ?? new RuntimeStatus()
+  }
+
+  /**
+   * 注入时钟（v0.5.1）。
+   *
+   * devkit 的 `createHarness({ now })` 之前只喂给了事件时间戳，`MemoryService`
+   * 仍然读 `Date.now()`——于是"把时钟推到 1000 天后"的时间旅行测试是**静默失效**的：
+   * `demoteDue` 看到的 `now - tAccess` 依然接近 0，直接按"刚访问过"跳过。
+   * 现在 harness 会在拿到服务后调这里，测试里 `h.now()` 与 `memory.nowMs()` 必须相等。
+   */
+  setClock(fn: () => number): void {
+    this.now = fn
   }
 
   // ── 生命周期 ─────────────────────────────────────────────────────
@@ -491,6 +503,14 @@ export class MemoryService extends Service {
         nowMs: now,
       })
       applyReconsolidation(cell, delta, now)
+      /**
+       * 强命中 = 一次真实使用：把已经沉到冷层/归档层的记忆拉回一级（v0.5.1）。
+       * 这是"升档"的唯一自动入口之一（另一个是巩固期的睡眠重放）。
+       * 墓碑不在此列——它要用户显式 `restore`。
+       */
+      if (h.score >= 0.55 && cell.tier >= 2 && cell.tier < 4) {
+        cell.tier = (cell.tier - 1) as MemCell['tier']
+      }
       this.store.putCell(cell)
       this.working.touch(id, Math.min(1, 0.4 + h.score))
       if (delta.plastic || Math.abs(delta.dValence) >= 0.005 || Math.abs(delta.dConfidence) >= 0.005) {
@@ -945,8 +965,15 @@ export class MemoryService extends Service {
         redundancy: Math.min(1, sameAs / 2),
         isSuperseded: superseded.has(c.cellId),
       })
+      /**
+       * v0.5.1：降档 pass **只降不升**。
+       *
+       * `nextTier` 是双向的，而 v0.5 的周年加成会把分数抬回去，于是"纯时间推进"能把
+       * 一条记忆重新烫热（实测 +365 天 tier 2→1，没有任何提取、没有任何重放）。
+       * 升档必须来自**使用信号**：强命中（下面 recall 里）或睡眠重放（consolidator）。
+       */
+      if (r.tier <= c.tier) return
       const target = nextTier(c.tier, r.tier)
-      if (target === c.tier) return
       c.tier = target
       if (target >= 2) c.emb = pq32(c.emb)
       // 进墓碑时压实：释放残差、丢掉向量，只留 id + digest + 槽位 + SDR。

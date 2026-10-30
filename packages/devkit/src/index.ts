@@ -139,6 +139,9 @@ export async function createHarness(opts: HarnessOptions = {}): Promise<Harness>
   if (want.has('settings')) await load(settingsPkg, { panelPageSize: 50, graphMaxNodes: 200, lockSafetyGroup: true })
 
   const memory = ctx.get('memory') as core.MemoryService
+  // v0.5.1：把 harness 的时钟传导给服务层，否则 createHarness({ now }) 是假的
+  // （事件时间戳跟着走、demoteDue 却读 Date.now()，时间旅行测试静默失效）
+  if (opts.now) memory.setClock(now)
   if (!memory) throw new Error('core 未装载成功：ctx.memory 缺失')
   const affect = ctx.get('affect') as affectPkg.AffectService | undefined
   const consolidator = ctx.get('mnemoConsolidator') as unknown as consolidatorPkg.Consolidator | undefined

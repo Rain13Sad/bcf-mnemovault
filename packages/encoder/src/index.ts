@@ -408,9 +408,13 @@ export class Encoder {
       accessCount: 0,
       stability,
       importance,
-      valence: pad.v,
-      arousal: pad.a,
-      dominance: pad.d,
+      // v0.5.1：PAD 三个分量都必须钳到 [-1,1]。
+      // v0.5 只钳了 salience，实测有 cell 拿到 valence=1.48（情绪语料叠加后越界），
+      // 下游 affectIntensityOf 用 clamp01(max(|v|,a)) 会把它恒饱和成 1.0，七因子里的
+      // affect 项就此失去分辨率。
+      valence: clamp11(pad.v),
+      arousal: clamp11(pad.a),
+      dominance: clamp11(pad.d),
       salience: clamp01(pad.s),
       provenance,
       trust,
@@ -521,6 +525,10 @@ function pickKind(text: string, pred: string): number {
 function firstSentence(text: string): string {
   const i = text.search(/[。！？\n.!?]/)
   return (i > 0 ? text.slice(0, i) : text).slice(0, 160)
+}
+
+function clamp11(x: number): number {
+  return Math.min(1, Math.max(-1, Number.isFinite(x) ? x : 0))
 }
 
 function clamp01(x: number): number {

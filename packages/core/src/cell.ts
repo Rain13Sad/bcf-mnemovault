@@ -330,9 +330,17 @@ export function encodeCell(c: MemCell): Uint8Array {
   writeU48(dv, 0x22, c.tAccess)
   dv.setUint16(0x28, Math.max(0, Math.min(65535, Math.round(c.stability * 100))), true)
   dv.setUint16(0x2a, Math.max(0, Math.min(65535, Math.round(c.importance * 65535))), true)
-  buf[0x2c] = q8(c.valence)
-  buf[0x2d] = q8(c.arousal)
-  buf[0x2e] = q8(c.dominance)
+  /**
+   * v0.5.1：i8 写进 Uint8Array 必须显式 `& 0xff`。
+   *
+   * `buf[0x2c] = -68` 在 Uint8Array 上会回绕成 188，而解码端写的是 `bytes[0x2c] / 127`，
+   * 于是**所有负的 valence / arousal / dominance 读回来都变成正数**：
+   * 一条 -0.54 的难过记忆会变成 +1.48（188/127），下游 `clamp01(|v|)` 再把它饱和成 1.0。
+   * 这不是"没钳位"，是符号在编码边界上丢了——实测一条真实入库的 cell 就是 1.48。
+   */
+  buf[0x2c] = q8(c.valence) & 0xff
+  buf[0x2d] = q8(c.arousal) & 0xff
+  buf[0x2e] = q8(c.dominance) & 0xff
   buf[0x2f] = Math.max(0, Math.min(255, Math.round(c.salience * 255)))
   buf[0x30] = c.provenance
   buf[0x31] = c.trust
@@ -416,9 +424,11 @@ export function decodeCell(bytes: Uint8Array, space: SdrSpace): MemCell {
     accessCount: dv.getUint32(0x34, true),
     stability: dv.getUint16(0x28, true) / 100,
     importance: dv.getUint16(0x2a, true) / 65535,
-    valence: bytes[0x2c] / 127,
-    arousal: bytes[0x2d] / 127,
-    dominance: bytes[0x2e] / 127,
+    // 解码按 **i8** 解释（`<< 24 >> 24` 做符号扩展），而不是按 u8 直接除。
+    // 旧库不需要 rebuild：当初写进去的就是 i8 的补码，只是之前读错了符号。
+    valence: ((bytes[0x2c] << 24) >> 24) / 127,
+    arousal: ((bytes[0x2d] << 24) >> 24) / 127,
+    dominance: ((bytes[0x2e] << 24) >> 24) / 127,
     salience: bytes[0x2f] / 255,
     provenance: bytes[0x30] as Provenance,
     trust: bytes[0x31],

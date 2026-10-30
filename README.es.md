@@ -1,182 +1,109 @@
+<!-- DOC-VERSION: 0.5.1 -->
+
+# MnemoVault
+
 <div align="center">
-  <img src="docs/assets/banner.svg" alt="MnemoVault — memoria a largo plazo y afecto para DeepSeek Harness" width="100%">
+  <img src="docs/assets/banner.svg" alt="MnemoVault" width="100%">
 </div>
 
 <div align="center">
 
 **Memoria a largo plazo y afecto para DeepSeek Harness.**
-Las memorias se guardan como **celdas de tamaño fijo** — códigos dispersos (identidad), vectores int8
-(semántica), hiperaristas tipadas (relaciones) y residuales comprimidos (texto original) —, no como texto.
-La inyección rinde **~107 tokens por turno**.
+Las memorias no se guardan como texto sino como **celdas de tamaño fijo** (código disperso + vector int8 +
+hiperaristas tipadas + residuo comprimido). La inyección ronda los **116 tokens por turno** en lugar de
+repetir la transcripción.
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Node](https://img.shields.io/badge/node-%E2%89%A522.5-339933?logo=node.js&logoColor=white)](#inicio-rápido)
-[![Tests](https://img.shields.io/badge/tests-93-brightgreen.svg)](test/)
-[![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
+[![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#inicio-rápido)
+[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Español**
 
 </div>
 
-> Este README es el resumen en español. La **documentación en chino es la canónica**: allí están la
-> justificación del diseño, las 15 debilidades conocidas y las cifras medidas
-> ([`docs/PROJECT-GUIDE.md`](docs/PROJECT-GUIDE.md) · [`docs/design/MNEMOVAULT-DESIGN.md`](docs/design/MNEMOVAULT-DESIGN.md)).
+> **Esta página es un resumen.** La documentación canónica está en el
+> [README en inglés](README.md) y en el [README en chino](README.zh-CN.md): allí están la cadena completa
+> de decisión de borrado, los cambios de v0.5.x y las 19 limitaciones conocidas (D1–D19).
 
 | | |
 | :--- | :--- |
-| **Estado** | v0.2.0 · Developer Preview. Base: DSH `0.2.1-rc.3` (canal `next`); el propio host sigue introduciendo cambios incompatibles |
-| **Tamaño** | 10 paquetes · 42 archivos fuente / 11.215 líneas de TS · 93 pruebas · **cero dependencias en ejecución** (solo `node:sqlite` y `node:zlib` integrados) |
-| **Empieza por** | Mantenerlo → [guía del proyecto](docs/PROJECT-GUIDE.md) (en chino) / Modificarlo → [CONTRIBUTING](CONTRIBUTING.md) / Diseño → [documento de diseño](docs/design/MNEMOVAULT-DESIGN.md) |
+| **Estado** | **v0.5.1** · Developer Preview (base DSH `0.2.1-rc.3`) |
+| **Tamaño** | 10 paquetes · 56 archivos fuente / ~17.300 líneas (`.ts` + `.tsx`) · 160 pruebas |
+| **Dependencias** | En ejecución **no depende de ningún paquete de terceros fuera de `@deepseek-ai/*`** (el único externo es `schemastery` para los esquemas de configuración; el resto es Node integrado: `node:sqlite` / `node:zlib`) |
+| **Requisitos** | Node ≥ 22.13 · npm ≥ 10. Ejecutar las pruebas no requiere un host DSH |
 
 ---
 
-## Por qué existe
+## Qué resuelve
 
-La ventana de contexto es finita, y «lo que el usuario dijo hace tres meses» o no cabe o es demasiado caro.
-La solución habitual es resumir la conversación en texto y recuperarla, pero los resúmenes son
-**con pérdida e irreproducibles**: dos pasadas sobre el mismo diálogo difieren, y al resumir el original desaparece.
+La ventana de contexto es finita: «lo que me contaste hace tres meses» no cabe, o sale demasiado caro.
+La respuesta habitual es resumir la conversación y guardarla como texto, pero **un resumen es lossy e
+irreproducible**.
 
-Aquí se toma otro camino:
+Este proyecto toma otro camino.
 
-1. **Lado de escritura**: divide el enunciado en proposiciones y codifica cada una en una celda de tamaño fijo:
-   código disperso (identidad) + vector int8 (semántica) + hiperaristas tipadas (relaciones) +
-   marcas de evento e invalidación (bitemporal) + lectura afectiva + cadena de versiones.
-   El texto original se guarda aparte como residual brotli y siempre puede recuperarse byte a byte.
-2. **Lado de lectura**: cuatro canales de recuperación (semántica / identidad / grafo / tiempo) se fusionan
-   y una competencia de ranuras 4±1 decide qué se inyecta, renderizado como filas de tabla.
-3. **Fuera de línea**: consolidación bifásica tipo sueño — NREM abstrae esquemas, REM cultiva asociaciones
-   y una curva de olvido de ley de potencias degrada las celdas.
-4. **El afecto es un parámetro, no un guion**: evaluación → PAD → ánimo → relación → ancla de persona,
-   todo persistido como celdas normales: evolucionable y reversible.
+1. **Escritura**: divide el enunciado en proposiciones y codifica cada una en una celda de tamaño fijo
+   (código disperso + vector int8 + aristas tipadas + doble eje temporal + lectura afectiva + cadena de versiones).
+   El texto original se conserva aparte como residuo brotli y siempre puede recuperarse.
+2. **Lectura**: cuatro canales (semántico / identidad / grafo / temporal), fusión de puntuaciones y una
+   competición de 4±1 ranuras que decide qué se inyecta.
+3. **Offline**: NREM abstrae esquemas, REM crea asociaciones, y la **retención de siete factores**
+   (activación ACT-R + importancia + afecto + conectividad + rol narrativo + anclaje del usuario + espaciado − redundancia)
+   decide la jerarquía.
 
-## Lo que no es
+## Novedades de v0.5.x
 
-- **No sustituye a RAG.** Recupera recuerdos *sobre una persona*, no documentos.
-- **No reclama conciencia fenoménica.** Toda salida afectiva es una proyección de variables de estado;
-  `affect_report` devuelve números y su propio descargo de responsabilidad.
-- **No es un producto listo para usar.** Requiere un host DSH, que sigue en Developer Preview
-  (rango soportado: `>=0.2.1-rc.3 <0.3.0`).
-- **La extracción está limitada por reglas.** El puerto L1 (con modelo) existe, pero hoy solo corre la vía
-  «mejorada por reglas». Es una debilidad declarada, no oculta.
-
-## Flujo de datos
-
-<div align="center">
-  <img src="docs/assets/pipeline.svg" alt="Escritura, lectura y consolidación fuera de línea" width="100%">
-</div>
-
-La retícula es estado derivado: se reconstruye reproduciendo `session_log`, y cualquier recuperación
-puede reproducirse byte a byte desde su instantánea.
-
----
+- **La decisión de borrado por fin actúa**: en v0.4, diez enunciados normales envejecidos 400 días producían
+  **cero** degradaciones. Tres defectos se sumaban (una compuerta siempre verdadera, factores estáticos que no
+  envejecían y un paso por pasada contra un suelo P3); v0.5 los separó.
+- **La compuerta ya no reescribe la puntuación**: la calculan los siete factores; la compuerta solo impide
+  llegar a lápida.
+- **tier 4 = lápida**: libera el residuo y el vector, queda fuera de la recuperación y puede revivirse desde
+  el panel (el texto original no vuelve).
+- **v0.5.1**: corrige la pérdida de signo en i8 (valores afectivos negativos se leían positivos), la
+  oscilación de la jerarquía por el bonus de aniversario y el interruptor muerto que hacía invisibles las lápidas.
 
 ## Inicio rápido
 
-**Requisitos:** Node ≥ 22.5 (`node:sqlite` / `node:zlib` integrados) y npm ≥ 10.
-**Las pruebas no necesitan DSH.**
-
 ```bash
 npm ci               # solo devDependencies (typescript / react / tipos)
-npm run build        # compila los 10 paquetes en orden de dependencia (tsc puro, sin bundler)
-npm test             # 93 pruebas
-npm run demo         # diálogo chino de 26 turnos: inyección / consolidación / estadísticas / guarda de salida
-npm run bench:eval   # mnemo-bench: Recall@8 / MRR / deduplicación / razonamiento temporal / coste en tokens
-npm run panel        # vista previa del panel lateral en http://127.0.0.1:5178/
-npm run verify       # todo lo anterior en un solo comando (lo que ejecuta CI)
+npm run build        # compila los 10 paquetes en orden de dependencia (tsc, sin bundler)
+npm test             # 160 pruebas
+npm run demo         # diálogo chino de 26 turnos: inyección / consolidación / estadísticas / egress guard
+npm run bench:eval   # Recall@8 / MRR / deduplicación / razonamiento temporal / coste en tokens
+npm run panel        # vista previa del panel → http://127.0.0.1:5178/
 ```
 
-Publicado en npm (`@rain13sad/*`, público). Instala solo la porción que necesites — los paquetes son
-independientes, así que memoria sin afecto es `core + encoder + recall + tools`:
+Para instalarlo en DSH:
 
 ```bash
 npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # capas opcionales
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                          # panel y ajustes
+npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive
+npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings
 ```
 
-Desde el código, si vas a modificarlo:
+Añade el `cordis.patch.yml` de cada paquete a tu perfil. La forma real de las costuras del host está
+documentada en [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md).
 
-```bash
-git clone https://github.com/Rain13Sad/bcf-mnemovault.git
-cd bcf-mnemovault && npm ci && npm run build
-```
+## Lo que no es
 
-Después inserta los plugins en tu perfil de DSH siguiendo el `cordis.patch.yml` de cada paquete.
-La forma real de las interfaces del host —y en qué difiere del documento de diseño— está en
-[`docs/API-CONTRACT.md`](docs/API-CONTRACT.md).
+- **No sustituye a RAG.** Recupera memorias *sobre una persona*, no documentos.
+- **No reclama conciencia fenoménica.** La salida afectiva es una proyección de variables de estado;
+  `affect_report` devuelve números y su propio descargo de responsabilidad.
+- **No es un producto listo para usar.** Necesita un host DSH, que sigue en Developer Preview.
 
----
-
-## Rendimiento medido
-
-Medido en Node 22.22 / Windows; reproducible desde `artifacts/bench.json` (`npm run bench:eval`).
-
-| Métrica | Medido | Objetivo | Nota |
-| :--- | ---: | :--- | :--- |
-| Recall@8 | **0.941** | ≥ 0.80 | 34 hechos sintéticos con verdad de referencia |
-| MRR | **0.681** | ≥ 0.65 | ídem |
-| Precisión de deduplicación | **0.90** | ≥ 0.90 | repetir un hecho debe fusionarse |
-| Exhaustividad de deduplicación | **1.00** | — | mismo tema con otro valor no debe fusionarse |
-| Razonamiento temporal | **1.00** | ≥ 0.75 | `pnpm → npm → bun` en tres versiones |
-| tokens / turno | **106.9** | ≤ 240 | leyenda amortizada |
-| p95 de recuperación | **30 ms** | ≤ 40 ms @1M | 100 celdas en local, no un millón |
-| Bytes por celda | **341 B** | — | MC03 (844 B en v0.2) |
-| Ratio de almacenamiento (BD de proposiciones cortas) | 5.32× | solo diagnóstico | domina la base fija |
-| Ratio de almacenamiento (turno de 800 caracteres, split por defecto) | **0.84×** | ≤ 0.90 | 762 car./turno, 2.25 celdas/turno |
-| Ratio de almacenamiento (turno de 800 caracteres, una celda) | **0.68×** | ≤ 0.72 | control de granularidad |
-
-<details>
-<summary><b>Por qué falla el ratio de almacenamiento</b></summary>
-
-Cada celda tiene una base fija de 192 B (cabecera) + 256 B (código disperso) + 256 B (vector) = **704 B**,
-más un residual brotli de aproximadamente `0.42 ×` el texto. Por tanto `ratio ≈ (nCells × 750 + 0.42 × L) / L`.
-La estimación del diseño asumía *una celda por turno*; el codificador divide por **proposición**, así que un
-turno produce 2–4 celdas y la base fija se amplifica 2–4×. Es un hueco del documento de diseño, no un bug.
-Mitigaciones (ninguna implementada): división más gruesa, cuantización de producto en la capa fría
-(256 → 32 B), mover el embedding al nivel de turno.
-
-</details>
-
----
-
-## Paquetes
-
-| Paquete | Rol |
-| :--- | :--- |
-| `@rain13sad/dsh-mnemo-core` | retícula, almacenamiento, recuperación, renderizado (`ctx.memory`) |
-| `@rain13sad/dsh-mnemo-affect` | núcleo afectivo (`ctx.affect`) |
-| `@rain13sad/dsh-mnemo-encoder` | escritura (se suscribe a `session/event`) |
-| `@rain13sad/dsh-mnemo-recall` | lectura (compuerta e inyección en `agent/pre-step`) |
-| `@rain13sad/dsh-mnemo-consolidator` | consolidación fuera de línea (NREM / REM / olvido) |
-| `@rain13sad/dsh-mnemo-tools` | 6 herramientas · 15 subcomandos `/mnemo` · guarda de salida |
-| `@rain13sad/dsh-mnemo-proactive` | hablar primero (cuatro compuertas) |
-| `@rain13sad/dsh-mnemo-settings` | panel de ajustes y matriz de efecto |
-| `@rain13sad/dsh-mnemo-ui` | panel lateral (lado cliente) |
-| `@rain13sad/dsh-mnemo-devkit` | ejecutor sin host (`createHarness()`) |
-
-El `inject` de Cordis se basa en dependencias: quien quiera memoria sin afecto instala solo
-`core + encoder + recall + tools`, y `recall` degrada a una vía sin compuerta afectiva.
-
-## Limitaciones conocidas
-
-1. Solo corre la vía L1 «mejorada por reglas»; el puerto con modelo no está verificado en el host.
-2. Los embeddings son hashes de n-gramas de caracteres: estables, no semánticos.
-3. Sin HNSW (por debajo de 100k celdas el escaneo exacto es más rápido).
-4. `ctx.remote` sin conectar. 5. La superficie de comandos depende de `ctx.cmdline`. 6. Sin conciencia fenoménica.
-7. Sin cifrado en reposo: la base contiene conversaciones reales. Ver [SECURITY.md](SECURITY.md).
-
-## Documentación
+## Para seguir leyendo
 
 | Documento | Contenido |
 | :--- | :--- |
-| [`docs/README.md`](docs/README.md) | Mapa de la documentación (por intención) |
-| [`docs/PROJECT-GUIDE.md`](docs/PROJECT-GUIDE.md) | Qué hace el código, 15 debilidades, 12 mejoras ordenadas P0–P2 |
-| [`docs/design/MNEMOVAULT-DESIGN.md`](docs/design/MNEMOVAULT-DESIGN.md) | Derivación completa del diseño |
-| [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md) | Diferencias con los paquetes reales de DSH `0.2.1-rc.3` |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`SECURITY.md`](SECURITY.md) | Contribución, historial, modelo de amenazas |
+| [`README.md`](README.md) | Versión inglesa (cadena de decisión, benchmarks, 19 limitaciones) |
+| [`README.zh-CN.md`](README.zh-CN.md) | Versión china (la más detallada; referencia de términos y cifras) |
+| [`docs/design/V0.5-PLAN.md`](docs/design/V0.5-PLAN.md) | Decisiones de diseño y medidas de v0.5 |
+| [`docs/PROJECT-GUIDE.md`](docs/PROJECT-GUIDE.md) | 19 defectos (D1–D19) y propuestas de mejora |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Entorno, mapa del código y restricciones |
 
 ## Licencia
 
-[MIT](LICENSE). Los informes de investigación y el documento de diseño bajo `docs/design/` pertenecen a
-sus autores; esta implementación solo reproduce sus conclusiones de ingeniería.
+MIT

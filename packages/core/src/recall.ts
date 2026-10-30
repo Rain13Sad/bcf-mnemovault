@@ -400,6 +400,37 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
     }
   })
 
+  /**
+   * Q2b 墓碑目录通道（v0.5.1）。
+   *
+   * v0.5 加了 `includeTombstones` 开关，但墓碑压实后 `emb` 与 `residual` 都没了：
+   * 语义路 `cosine(null, …) = 0`，符号路又只吃实体 SDR——于是开关开不开都召不回，
+   * 是个死开关。后果不是"少一个功能"，而是**一条墓碑如果忘了 id 就再也找不到**。
+   *
+   * 这里给它一条不依赖向量与原文的通道：拿 query 的分词和 `digest` 做覆盖率匹配。
+   * 它只在显式要求 `includeTombstones` 时启用，得分被压在 0.85 以下——
+   * 墓碑能"被找到"，但不该抢走热记忆的槽位。
+   */
+  if (q.includeTombstones) {
+    const qTok = tokenSet(q.text)
+    if (qTok.size > 0) {
+      store.forEachCell((cell) => {
+        if (cell.tier < 4) return
+        if (q.kinds && !q.kinds.includes(cell.kind)) return
+        const dTok = tokenSet(cell.digest ?? '')
+        if (dTok.size === 0) return
+        let hit = 0
+        for (const t of qTok) if (dTok.has(t)) hit++
+        if (hit < 2) return
+        const cover = hit / Math.min(qTok.size, dTok.size)
+        if (cover < 0.3) return
+        const cand = touch(cell)
+        cand.channels.add('symbolic')
+        cand.simSymbolic = Math.max(cand.simSymbolic, Math.min(0.85, 0.45 + cover * 0.4))
+      })
+    }
+  }
+
   // Q3 图路：以 Q1/Q2 的 top 8 为种子，k 跳加权扩散
   const seeds = [...cands.values()]
     .sort((a, b) => Math.max(b.simSemantic, b.simSymbolic) - Math.max(a.simSemantic, a.simSymbolic))
@@ -654,6 +685,29 @@ function cueMatchOf(cell: MemCell, topic?: string): number {
 
 function peakSim(c: Candidate): number {
   return Math.max(c.simSemantic, c.simSymbolic, c.simGraph, c.simTemporal)
+}
+
+/**
+ * 轻量分词（v0.5.1）：拉丁词 + 中文单字。
+ *
+ * 不用 bigram 的原因：中文 digest 通常只有 6–12 个字，bigram 会把查询覆盖率压到 0.1 以下，
+ * 阈值根本调不出来；单字 + 停用字过滤在这个粒度上更稳。
+ * 它不是"语义匹配"，只是让墓碑有一条可发现的目录通道。
+ */
+const CJK_STOP = new Set('的了吗呢吧啊是在我你他她它们这那有和与就都也还不'.split(''))
+
+function tokenSet(text: string): Set<string> {
+  const out = new Set<string>()
+  if (!text) return out
+  for (const w of text.toLowerCase().split(/[^\p{L}\p{N}_]+/u)) {
+    if (w.length < 2) continue
+    if (STOPWORDS.has(w)) continue
+    out.add(w)
+  }
+  for (const ch of text) {
+    if (/[\u4e00-\u9fa5]/.test(ch) && !CJK_STOP.has(ch)) out.add(ch)
+  }
+  return out
 }
 
 export function dominantChannel(c: Candidate): RecallChannel | 'mixed' {

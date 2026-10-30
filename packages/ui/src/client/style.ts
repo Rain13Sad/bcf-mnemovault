@@ -47,6 +47,8 @@ export const CSS = `
   display: flex;
   flex-direction: column;
   min-height: 0;
+  /* toast 是 position:absolute，必须有一个定位上下文，否则它会跑到宿主页面的角落 */
+  position: relative;
   /* 作为 flex 子项时 min-width 默认是 min-content，侧栏 300–420 px 会被内容顶宽 */
   min-width: 0;
   /* v0.4 横屏布局的判据是**容器自身宽度**而不是视口：
@@ -130,7 +132,11 @@ export const CSS = `
 .mnv-flag { font-size: 11px; color: var(--mnv-warn); }
 
 /* ── 内容区 ───────────────────────────────────────────────────── */
-.mnv-body { flex: 1; min-height: 0; min-width: 0; overflow: auto; padding: 12px; }
+.mnv-body {
+  flex: 1; min-height: 0; min-width: 0; overflow: auto; padding: 12px;
+  /* 有无滚动条时内容不左右跳 8px——列表页切换时最明显 */
+  scrollbar-gutter: stable;
+}
 .mnv-body::-webkit-scrollbar { width: 8px; }
 .mnv-body::-webkit-scrollbar-thumb { background: var(--mnv-border-strong); border-radius: 4px; }
 .mnv-body::-webkit-scrollbar-track { background: transparent; }
@@ -199,6 +205,8 @@ export const CSS = `
   border: 1px solid var(--mnv-border); border-radius: var(--mnv-radius); background: var(--mnv-bg);
   padding: 10px 12px; box-shadow: var(--mnv-shadow); min-width: 0;
 }
+.mnv-card { transition: border-color .14s ease, box-shadow .14s ease; }
+.mnv-card:hover { border-color: var(--mnv-border-strong); }
 .mnv-card h4 { margin: 0 0 6px; font-size: 11px; font-weight: 500; color: var(--mnv-fg-faint); letter-spacing: .2px; }
 .mnv-metric { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.3; }
 .mnv-metric small { font-size: 11px; font-weight: 400; color: var(--mnv-fg-faint); margin-left: 3px; }
@@ -340,6 +348,13 @@ export const CSS = `
   transition: background .14s ease, color .14s ease;
 }
 .mnv-nav-btn:hover { background: var(--mnv-bg-sunken); color: var(--mnv-fg); }
+.mnv-nav-btn:focus-visible { outline: none; box-shadow: var(--mnv-ring); }
+/* 选中项左侧的指示条：比整块底色更克制，也更容易扫读 */
+.mnv-nav-btn { position: relative; }
+.mnv-nav-btn[data-active="true"]::before {
+  content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 16px; border-radius: 0 2px 2px 0; background: var(--mnv-accent);
+}
 .mnv-nav-btn[data-active="true"] { background: var(--mnv-accent-soft); color: var(--mnv-accent); font-weight: 600; }
 .mnv-nav-btn > i { font-style: normal; width: 14px; text-align: center; opacity: .85; font-size: 12px; }
 .mnv-nav-count { margin-left: auto; font-size: 10.5px; color: var(--mnv-fg-faint); font-variant-numeric: tabular-nums; }
@@ -366,6 +381,18 @@ export const CSS = `
 .mnv-gauge > div { text-align: center; padding: 6px 2px; border-radius: var(--mnv-radius-sm); background: var(--mnv-bg-soft); }
 .mnv-gauge b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
 .mnv-gauge span { display: block; font-size: 10px; color: var(--mnv-fg-faint); margin-top: 1px; }
+
+/* 列表筛选条：搜索 + 分段 + 排序，一行放下，窄屏换行 */
+.mnv-filter { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.mnv-filter > .mnv-input { flex: 1 1 140px; min-width: 0; }
+.mnv-filter .mnv-seg > button[data-active="true"] { background: var(--mnv-accent); color: var(--mnv-accent-fg); }
+.mnv-empty-sm { padding: 18px 8px; text-align: center; color: var(--mnv-fg-faint); font-size: 12px; }
+.mnv-toast { animation: mnv-toast-in .18s ease; }
+@keyframes mnv-toast-in { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) {
+  .mnv-toast { animation: none; }
+  .mnv-bar > i, .mnv-tierbar > i { transition: none; }
+}
 
 @container (min-width: 760px) {
   .mnv-rail {

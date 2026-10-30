@@ -1,3 +1,7 @@
+<!-- DOC-VERSION: 0.5.1 -->
+
+# MnemoVault
+
 <div align="center">
   <img src="docs/assets/banner.svg" alt="MnemoVault — long-term memory and affect for DeepSeek Harness" width="100%">
 </div>
@@ -12,7 +16,7 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-151-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-160-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -23,64 +27,62 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 > Memory should not be text. Text is a projection for humans, not a storage format for machines.
 >
 > This README is the English summary. The **Chinese documentation is canonical** — it is where the
-> design rationale, the 15 known weaknesses and the measured numbers live.
+> design rationale, the 19 known weaknesses (D1–D19, [`PROJECT-GUIDE`](docs/PROJECT-GUIDE.md) §12)
+> and the measured numbers live.
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.5.0** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 10 packages · 46 source files / ~13,100 lines of TS · 151 tests · **zero runtime dependencies** (only built-in `node:sqlite` and `node:zlib`) |
+| **Status** | **v0.5.1** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 10 packages · 56 source files / ~17,300 lines of TS (`.ts` + `.tsx`, UI included) · 160 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
+| **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (19 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
 ---
 
 ## Table of contents
 
-- [What's new in 0.5.0](#whats-new-in-050) · [How deletion actually works](#how-deletion-actually-works)
-- [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not)
-- [Data flow](#data-flow) · [Quick start](#quick-start) · [Benchmarks](#benchmarks) · [Packages](#packages)
-- [Panel](#panel) · [How it compares](#how-it-compares) · [Known limitations](#known-limitations)
+- [What's new in 0.5.1](#whats-new-in-051) · [How deletion actually works](#how-deletion-actually-works)
+- [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not) · [Data flow](#data-flow)
+- [Quick start](#quick-start) · [Five minutes to first call](#five-minutes-to-first-call) · [Benchmarks](#benchmarks)
+- [Packages](#packages) · [Panel](#panel) · [How it compares](#how-it-compares)
+- [Known limitations](#known-limitations) · [Documentation](#documentation)
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
 
 ---
 
-## What's new in 0.5.0
+## What's new in 0.5.1
 
-0.4 built the retention kernel. **0.5 makes it actually fire.**
+0.5.0 made the decision chain fire. 0.5.1 fixes what that exposed — plus one bug that had been there
+since 0.2 and that nobody had noticed because every test used a positive number.
 
-An audit of the 0.4 code path found that the decision chain was inert: ten ordinary user statements,
-aged 400 days, produced **zero** demotions. Three independent defects stacked up:
-
-| Defect | What it looked like | Fix in 0.5 |
+| Bug | What it did | Fix |
 | :--- | :--- | :--- |
-| **Always-true gate** | `trust >= 240 && provenance === 0` matched 10/10 user statements, because `TRUST_BY_PROVENANCE[0]` *is* 240. The gate then did `score = max(score, 0.55)`, overriding the seven-factor score | The gate no longer touches the score — it only **caps the tier** (never tombstone). The user-fact gate now also requires `support ≥ 3 ∨ accessCount ≥ 3` |
-| **Static factors never aged** | Six of seven factors are static; a 400-day-old statement still scored 0.73 (P4) | **Staleness envelope**: `score × (0.15 + 0.85·clamp01(1 − (days−30)/700))`. 30 days: no loss; 730 days: floor |
-| **Gradual demotion × gate floor** | One tier per pass is right; one tier per pass *plus* a P3 floor means it stops at cold forever | With the gate capping instead of scoring, `1 → 2 → 3 → 4` now completes |
+| **Sign lost on the i8 boundary** | `buf[0x2c] = -68` on a `Uint8Array` wraps to `188`; decoding did `188 / 127` → **every negative valence/arousal/dominance came back positive**. A `-0.54` sad memory read as `+1.48`, and `clamp01(|v|)` then pinned affect intensity at 1.0 | Write with `& 0xff`, decode with `<< 24 >> 24` (sign-extended). **No rebuild needed** — the bytes were always two's complement, only the reader was wrong |
+| **Anniversary boost broke monotonicity** | The boost was added *after* the staleness envelope and was larger than a band (0.25 vs ~0.18), so a compacted **tombstone got promoted back to archive** on its 4th anniversary — with its text already released | Anniversary now applies only to valid, non-tombstone cells, is multiplied by the envelope, and is capped at the **current band's ceiling** — it can nudge, never cross |
+| **`includeTombstones` was a dead switch** | Compaction drops `emb` and `residual`, so the semantic channel scored 0; the symbolic channel only ever looked at entity SDRs. A tombstone whose id you forgot was **unfindable** | New catalogue channel: query tokens vs `digest` overlap, enabled only by `includeTombstones`, capped at 0.85. `memory_recall` gained `include_tombstones` |
+| **`demoteDue` could promote** | `nextTier` is bidirectional, so pure time could warm a memory back up (`tier 2 → 1` at +365 days) | Demotion pass is now **downward only**. Promotion comes from use: a strong recall hit, or sleep replay |
+| **Test clock didn't reach the service** | `createHarness({ now })` fed event timestamps but `MemoryService` still read `Date.now()`, so every time-travel test silently tested nothing | `MemoryService.setClock()`; the harness now wires it. `h.now() === memory.nowMs()` is asserted |
+| **PAD wasn't clamped at encode** | Affected the same `1.48` symptom from the other side | `valence / arousal / dominance` clamped to [-1, 1] at the encoder |
 
-The rest of the batch:
+New tests are **scan-based**, not point samples — the 0.5.0 suite tested day 400 and day 900 and managed
+to miss both anniversary windows (365 / 730) entirely:
 
-| Before | Now |
-| :--- | :--- |
-| `tInvalid` was consumed by recall, merge and abstraction — but **not** by the code that decides deletion. A superseded "we use vitest" still scored P4 (0.716), nearly equal to the current value (P5, 0.750) | Invalidated versions are force-archived after a 30-day grace window, gates off. `doctor` finds the ones already in your DB, `--fix` migrates them |
-| `SUPERSEDES` edges were read from the **wrong end** — the *new* value got "version chain" protection | Reads the `dst` (the superseded one). That gate is gone: being superseded is the strongest reason to cool down |
-| P1 and P2 both mapped to tier 3, so "tombstone" existed only in the docs | **tier 4 = tombstone**: residual released, vector dropped, excluded from recall, revivable from the panel |
-| Rows only ever grew | Tombstone compaction returns the biggest block of bytes (residuals ≈ 47% of storage) while keeping the row, the digest and the lineage |
-| Retrieval raised `confidence` — 20 recalls with no new evidence moved it 0.775 → 0.950 | Retrieval only strengthens stability. Confidence moves on **evidence**, not on being asked |
-| `recall()` wrote to the DB, so the panel refreshing every 3s counted as "use" | `readOnly` recall for the panel, doctor and explainer |
-| URL-token redaction depended on a `?` anchor that segmentation had already removed | Redaction runs **before** segmentation; the rule also accepts line-start/whitespace anchors |
-| lockfile pinned one esbuild platform package (npm 10 passed, npm 11 failed) | `esbuild` was never used — removed. Lockfile is platform-neutral; CI gained an `npm@latest` job and a platform check |
-
-Plus two deferred items from the 0.4 roadmap, chosen because they need no new data structures:
-**selective sleep replay** (consolidation promotes high-retention memories that had drifted to archive)
-and **Gross emotion regulation** (five strategies, one selected per turn, plus a projected trait layer).
+```text
+property 1 (monotone)  step the clock 10 years, 7 days at a time: tier must never go up
+property 2 (reachable) it must reach tier 4, and never come back
+property 3 (invariant) tInvalid older than the grace window ⇒ effective P2, whatever the anniversary says
+```
 
 <details>
-<summary>What 0.4.0 added (retention kernel, reconsolidation, episode machine, desktop panel)</summary>
+<summary>What 0.5.0 fixed (the decision chain was inert)</summary>
 
-- **Seven-factor retention** — ACT-R activation + importance + affect + connectivity + narrative role + user affinity + spacing − redundancy
-- **Six dispositions** P5 keep / P4 compress / P3 summarise / P2 archive / P1 tombstone / P0 physical delete (user-only)
-- **Reconsolidation** — retrieval makes a memory plastic again; corrections lower confidence
-- **Five-state emotion episodes** — an unacknowledged emotion grows stronger with time
-- **Desktop-first panel** — left rail + two-column content via container queries
+Ten ordinary user statements, aged 400 days, produced **zero** demotions, because three defects stacked:
+an always-true gate (`trust >= 240` *is* `TRUST_BY_PROVENANCE[0]`) that also rewrote the score;
+six of seven factors being static; and one-tier-per-pass colliding with a P3 floor.
+0.5.0 replaced the gate with a **tier cap** instead of a score floor, added the staleness envelope,
+wired `tInvalid` in, fixed the `SUPERSEDES` direction, made `tier 4` a real tombstone, and decoupled
+`confidence` from retrieval count.
+
 </details>
 
 ---
@@ -90,7 +92,7 @@ and **Gross emotion regulation** (five strategies, one selected per turn, plus a
 Most "agent memory" systems either never forget or forget by TTL. This one decides, and the decision is
 readable end to end:
 
-```
+```text
 every cell
   ├─ FLAG.noDecay (pin / persona anchor) ────────────────→ never evaluated
   ├─ accessed < 30 min ago ─────────────────────────────→ still in working memory, skip
@@ -179,7 +181,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 151 tests
+npm test             # 160 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)
@@ -214,6 +216,66 @@ npm ci && npm run build
 
 ---
 
+## Five minutes to first call
+
+You do **not** need a DSH host to run it. The harness boots the real Cordis plugins with stub session/tool
+services, so what you see here is the same code path the host uses.
+
+```ts
+import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
+
+const h = await createHarness({ sessionId: 'hello' })
+
+await h.turn('我叫阿哲，负责前端。我们用 pnpm 构建。')
+await h.turn('构建工具后来换成了 bun。')
+
+const r = h.memory.recall({ text: '现在用什么构建', budget: 400 })
+console.log(r.rendered)
+// [MEM v2] 每行一条记忆，字段以 | 分隔。
+// M:5c24|T:1030|P:u|F:fact|K:构建=bun|V:0|S:0.77|C:0.81
+console.log(r.tokens, r.strategy, r.slotsUsed)   // 91 'semantic' 1
+
+console.log(h.memory.explain(r.hits[0].cellId))
+// cell 5c24  总分 0.65（阈值 0.42，槽位 1）
+//   sim      1.00 × 1.00 =  1.00
+//   recency  1.00 × 0.35 =  0.35
+//   …
+
+await h.dispose()
+```
+
+That single rendered row is the whole point: time, provenance, frame type, key/value, valence, salience
+and confidence compressed into one line — 91 tokens instead of replaying two turns of transcript.
+
+<details>
+<summary>Using <code>MemoryService</code> directly (no harness)</summary>
+
+```ts
+import { Context } from '@deepseek-ai/cordis'
+import { MemoryService, defaultConfig } from '@rain13sad/dsh-mnemo-core'
+
+const ctx = new Context()
+const mnemo = new MemoryService(ctx, { config: defaultConfig({ dbPath: 'vault.db' }) })
+const dispose = mnemo.open()          // idempotent; returns a reverse-order disposer
+
+// RecallQuery has no `k` — the budget is in **tokens**, not rows, and it is required.
+const r = mnemo.recall({ text: '构建工具用的是什么', budget: 900, readOnly: true })
+//                                     readOnly: panel / doctor / explainer must use it,
+//                                     otherwise "one read" becomes "one use" and pins the memory warm
+
+console.log(r.rendered, r.tokens, r.strategy, r.slotsUsed)
+console.log(mnemo.explain(r.hits[0]?.cellId ?? ''))   // score + channel + reasons
+
+dispose()
+```
+
+Writing goes through `ingest(cell)` — a `MemCell` is a fixed-size record, not a string. The encoder builds
+them for you; `createHarness` above is the shortest path to see one.
+
+</details>
+
+---
+
 ## Benchmarks
 
 Measured on Node 22.22 / Windows; reproducible from `artifacts/bench.json` (`npm run bench:eval`).
@@ -221,16 +283,16 @@ Measured on Node 22.22 / Windows; reproducible from `artifacts/bench.json` (`npm
 | Metric | Measured | Target | Note |
 | :--- | ---: | :--- | :--- |
 | Recall@8 | **0.941** | ≥ 0.80 | 34 synthetic facts with ground truth |
-| MRR | **0.686** | ≥ 0.65 | same |
+| MRR | **0.681** | ≥ 0.65 | same |
 | Dedupe precision | **0.90** | ≥ 0.90 | restating a fact should merge |
 | Dedupe recall | **1.00** | — | same topic, different value should not merge |
 | Temporal reasoning | **1.00** | ≥ 0.75 | `pnpm → npm → bun` across three versions |
-| tokens / turn | **106.9** | ≤ 240 | legend amortised |
-| Recall p95 | **32 ms** | ≤ 40 ms @1M | 100 cells locally, not a million |
+| tokens / turn | **106.4** | ≤ 240 | legend amortised |
+| Recall p95 | **15 ms** | ≤ 40 ms @1M | 42 cells locally, not a million |
 | Bytes per cell | **341 B** | — | MC03: 112 B header + sparse SDR + 128-dim vector (844 B in v0.2) |
-| Storage ratio (short-proposition DB) | 5.32× | diagnostic only | ~100 B turns, fixed base dominates |
-| Storage ratio (800-char turn, default split) | **0.84×** | ≤ 0.90 | 762 chars/turn, 2.25 cells/turn |
-| Storage ratio (800-char turn, one cell) | **0.68×** | ≤ 0.72 | coarse control, shows split-granularity sensitivity |
+| Storage ratio (short config-style DB) | 5.32× | diagnostic only | ~98 B turns (“我用 pnpm。”) — the fixed 341 B per cell dominates |
+| Storage ratio (800-char turn, default split) | **0.839×** | ≤ 0.90 | 762 chars/turn, 2.25 cells/turn |
+| Storage ratio (800-char turn, one cell) | **0.678×** | ≤ 0.72 | coarse control, shows split-granularity sensitivity |
 
 **Size and latency are a trade — read both numbers.** MC03 cut a cell from 844 B to 341 B at the
 cost of a more expensive decode (sparse delta-varint SDR, `encodeCell` +29%). Size is a persistent
@@ -262,7 +324,7 @@ Persona/relational cells are upserted instead of appended per revision.
 
 The arithmetic that remains:
 
-```
+```text
 ratio = residual compression + (nCells × 341) / L ≈ 0.47 + (n × 341) / 2072
 ```
 
@@ -305,18 +367,18 @@ Tests 109 → 115. `npm run verify` green. `storageRatioRealistic` unchanged at 
 
 ## Packages
 
-| Package | Role | Key exports |
-| :--- | :--- | :--- |
-| [`@rain13sad/dsh-mnemo-core`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core) | lattice + storage + recall + rendering | `ctx.memory`, `SdrSpace`, `encodeCell`, `SensoryRing`, `WorkingSet` |
-| [`@rain13sad/dsh-mnemo-affect`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-affect) | affect kernel | `ctx.affect`, `appraise`, `derivePolicy`, `deriveUserSchema` |
-| [`@rain13sad/dsh-mnemo-encoder`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-encoder) | write side | `Encoder` (subscribes to `session/event`) |
-| [`@rain13sad/dsh-mnemo-recall`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-recall) | read side | `agent/pre-step` gating and injection |
-| [`@rain13sad/dsh-mnemo-consolidator`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-consolidator) | offline consolidation | `Consolidator` (NREM / REM / forgetting) |
-| [`@rain13sad/dsh-mnemo-tools`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-tools) | tools + commands | 6 tools, 15 `/mnemo` subcommands, egress guard |
-| [`@rain13sad/dsh-mnemo-proactive`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-proactive) | **speaking up first** | `ctx.mnemoProactive`, `candidate()`, `tick()` |
-| [`@rain13sad/dsh-mnemo-settings`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-settings) | settings panel | `ctx.mnemoSettings`, effect matrix |
-| [`@rain13sad/dsh-mnemo-ui`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-ui) | **sidebar panel (client)** | `main` + `sidebar.panellist` slot registration |
-| [`@rain13sad/dsh-mnemo-devkit`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-devkit) | host-free harness | `createHarness()` (real Cordis fiber) |
+| Package | Role | Status | Key exports |
+| :--- | :--- | :--- | :--- |
+| [`…-core`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core) | lattice + storage + recall + retention | **Preview** — API will move | `ctx.memory`, `SdrSpace`, `encodeCell`, `evaluateRetention` |
+| [`…-affect`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-affect) | affect kernel | Preview | `ctx.affect`, `appraise`, `derivePolicy`, `classifyEmotion` |
+| [`…-encoder`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-encoder) | write side | Preview | `Encoder` (subscribes to `session/event`) |
+| [`…-recall`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-recall) | read side | Preview | `agent/pre-step` gating and injection |
+| [`…-consolidator`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-consolidator) | offline consolidation + sleep replay | Preview | `Consolidator` (NREM / REM / replay / forgetting) |
+| [`…-tools`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-tools) | tools + commands | Stable-ish | 6 tools, 15 `/mnemo` subcommands, egress guard |
+| [`…-proactive`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-proactive) | speaking up first | Experimental | `ctx.mnemoProactive`, `candidate()`, `tick()` |
+| [`…-settings`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-settings) | settings panel | Experimental | `ctx.mnemoSettings`, effect matrix |
+| [`…-ui`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-ui) | panel (client, React) | Experimental — needs `react` | `main` + `sidebar.panellist` slot registration |
+| [`…-devkit`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-devkit) | host-free harness | Testing utility | `createHarness()` (real Cordis fiber) |
 
 The split is not cosmetic: Cordis `inject` is dependency-driven, so users who want memory without
 affect install `core + encoder + recall + tools` only, and `recall` degrades to a no-affect gating path.
@@ -392,36 +454,46 @@ rule-based and deterministic, which is why the same dialogue replays to the same
 
 ## Known limitations
 
-1. Embeddings are still not a semantic model. v0.3 rewrote them (bigram backbone + 24 synonym families
-   + whole-identifier tokens) but there are no word vectors and no context. Real semantics needs the
-   host's embedding service (`EmbeddingPort` is defined, not wired).
-2. The L1 port is recognised but has never run against a real host. `fromHostLlm` now covers 8 entries
-   × nested paths, plus a startup probe; the panel shows "lite rule split" until a probe passes.
-3. HNSW is implemented but off by default below 2000 cells (exact scan is faster and has no
-   approximation error). No million-cell benchmark exists, only overlap tests (≥0.85).
-4. `ctx.remote` is wired via `ctx.provide('mnemoRemote', …)` plus four registry shapes; the host
-   registry itself is still unverified, and the panel falls back to the local service.
-5. The command surface probes four shapes and only degrades to `mnemo_command` when none match.
-6. No phenomenal consciousness, by design.
-7. No encryption at rest — the database holds real conversations. See [SECURITY.md](SECURITY.md).
-8. MC03 changed the on-disk layout: existing vaults need `/mnemo rebuild --from-log`.
-9. **Retention is not materialised.** The seven-factor score is computed on read (last 120 cells for
-   the panel, one full pass per demotion tick). At 10⁵ cells this needs a `retention_score` column —
-   the schema is prepared for it, the column is not there yet.
-9b. **Tombstones are irreversible in content.** Compaction releases the residual, so reviving a tombstone
-   gives you the digest and slots, not the original sentence. That is the trade that makes byte
-   reclamation possible; the row and its lineage survive.
-10. **CA3 auto-association and STDP are still 0.3-era.** The v0.4 proposal's associative network
-    (pattern completion, synaptic homeostasis) was deferred: it changes edge-weight semantics and would
-    invalidate the bench baseline. What shipped is the part that does not: the four neuromodulator
-    signals, used only as global gains.
-11. **Reconsolidation's prediction error is a proxy.** It fires when conflict detection reports a
-    correction; there is no per-turn user feedback signal yet (`predictionErrorProxy` exists, unwired).
-12. **The staleness envelope is a policy, not a law.** 30/700/0.15 were chosen so that a 90-day fact
-    stays out of the archive and a 2-year fact does not. They are constants in `retention.ts`, not config —
-    changing them changes what "old" means, so it should be a deliberate edit with a test.
-13. **Sleep replay only rescues, it does not create.** It promotes cells that already have a high score;
-    it cannot invent a memory the encoder never wrote.
+The full catalogue is **19 known weaknesses (D1–D19)** in [`PROJECT-GUIDE` §12](docs/PROJECT-GUIDE.md),
+each with evidence and a severity. Below are the 17 that bite users in practice.
+
+1. **Embeddings are not a semantic model.** Bigram backbone + 24 synonym families + whole-identifier
+   tokens, but no word vectors and no context. Real semantics needs the host's embedding service
+   (`EmbeddingPort` is defined, not wired).
+2. **The L1 port is recognised but has never run against a real host.** Eight entry shapes plus a startup
+   probe; the panel shows "lite rule split" until a probe passes.
+3. **HNSW is implemented but off below 2000 cells** (exact scan is faster and has no approximation error).
+   There is no million-cell benchmark — only overlap tests (≥0.85).
+4. **`ctx.remote` is wired, but the host registry shape is unverified.** The panel falls back to the local service.
+5. **The command surface probes four shapes** and only degrades to `mnemo_command` when none match.
+6. **Writes are O(n).** `ingest` runs a full scan for dedupe and another for conflict detection: ~23 ms per
+   write at 1000 cells. A SDR inverted index is the fix; it is not here yet.
+7. **Retention is not materialised.** The seven-factor score is computed on read (last 120 cells for the
+   panel, one full pass per demotion tick). At 10⁵ cells this needs a `retention_score` column.
+8. **Tombstones are irreversible in content.** Compaction releases the residual, so reviving a tombstone
+   gives you the digest and slots, not the original sentence. That is the trade that makes byte reclamation
+   possible; the row and its lineage survive.
+9. **The shadow log is a second copy.** `session_log` keeps the redacted transcript so the lattice can be
+   rebuilt; `forget --hard` does not delete it (deleting it would make rebuild impossible). See [SECURITY.md](SECURITY.md).
+10. **Storage ratio depends on how long your turns are.** ~0.84× on 300-character turns, but **~6× on short
+    config-style sentences** ("我用 pnpm。") because the fixed per-cell cost dominates. Both numbers are in
+    [Benchmarks](#benchmarks); the 0.45–0.60× figure in older docs was measured on neither.
+11. **CA3 auto-association and STDP are still 0.3-era.** Pattern completion and synaptic homeostasis change
+    edge-weight semantics and would invalidate the bench baseline; only the four neuromodulator signals shipped.
+12. **Reconsolidation's prediction error is a proxy.** It fires when conflict detection reports a correction;
+    there is no per-turn user feedback signal yet (`predictionErrorProxy` exists, unwired).
+13. **The staleness envelope is a policy, not a law.** 30 / 700 / 0.15 are constants in `retention.ts`, not
+    config — changing them changes what "old" means, so it should be a deliberate edit with a test.
+14. **Sleep replay only rescues, it does not create.** It promotes cells that already score high; it cannot
+    invent a memory the encoder never wrote.
+15. **P2/P1 need time to appear.** A fresh vault is almost all P5 — that is data freshness, not a broken
+    formula; the retention page says so explicitly.
+16. **No encryption at rest.** The database holds real conversations. See [SECURITY.md](SECURITY.md).
+17. **No phenomenal consciousness**, by design. Every affect output is a projection of state variables;
+    `affect_report` returns numbers and ships its own disclaimer.
+
+> **Upgrading from ≤ 0.2:** MC03 changed the on-disk layout; run `/mnemo rebuild --from-log` once.
+> Upgrading from 0.4 → 0.5.x needs no rebuild (tier 4 uses the existing tier byte).
 
 ---
 

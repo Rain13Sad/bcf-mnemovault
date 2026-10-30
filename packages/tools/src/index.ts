@@ -131,6 +131,12 @@ export function apply(ctx: Context, config: Config) {
             description: '时间范围（epoch ms）',
           },
           limit: { type: 'integer', minimum: 1, maximum: 16, description: '最多返回条数，默认按槽位' },
+          include_tombstones: {
+            type: 'boolean',
+            description:
+              'v0.5.1：把墓碑（已压实的记忆）也纳入检索。墓碑只保留摘要与槽位，原文已释放；' +
+              '默认 false。用户问"很久以前那件事"而正常检索为空时，值得打开一次。',
+          },
         },
         required: ['query'],
         additionalProperties: false,
@@ -180,13 +186,20 @@ export function apply(ctx: Context, config: Config) {
         }
       },
       async execute(args: unknown) {
-        const a = args as { query: string; kinds?: number[]; time_range?: { from: number; to: number }; limit?: number }
+        const a = args as {
+          query: string
+          kinds?: number[]
+          time_range?: { from: number; to: number }
+          limit?: number
+          include_tombstones?: boolean
+        }
         const r = memory.recall({
           text: a.query,
           budget: 500,
           manual: true,
           kinds: a.kinds as never,
           timeRange: a.time_range,
+          includeTombstones: a.include_tombstones === true,
         })
         const hits = a.limit ? r.hits.slice(0, a.limit) : r.hits
         return {

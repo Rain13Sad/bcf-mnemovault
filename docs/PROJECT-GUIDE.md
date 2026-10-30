@@ -1,7 +1,7 @@
 # MnemoVault 项目说明书
 
-> 版本：0.3.1　|　对应设计文档：[`docs/design/MNEMOVAULT-DESIGN.md`](design/MNEMOVAULT-DESIGN.md) v0.2　|　基线：DSH `0.2.1-rc.3`
-> 代码规模：51 个源文件 / 14,700 行（TypeScript + TSX）；脚本 13 个 / 1,520 行；测试 12 个文件 / 115 条　|　日期：2026-10-29
+> 版本：0.5.1　|　对应设计文档：[`docs/design/MNEMOVAULT-DESIGN.md`](design/MNEMOVAULT-DESIGN.md) v0.2　|　基线：DSH `0.2.1-rc.3`
+> 代码规模：56 个源文件 / 约 17,300 行（TypeScript + TSX）；脚本 15 个 / 约 1,800 行；测试 14 个文件 / 160 条　|　日期：2026-10-30
 >
 > 本文是**给要接手这个项目的人**看的：它说明系统是什么、怎么用、内部怎么运作、
 > 哪些地方靠得住、哪些地方靠不住，以及下一步该改什么、为什么。

@@ -52,6 +52,11 @@ jobs:
       - name: SDR 性质校验（错了就全盘失效的那一层）
         run: npm run check
 
+      # v0.5.1：README 里的数字（规模 / 测试数 / Node 版本 / 缺点条数 / 依赖口径）
+      # 必须与代码一致。评审发现同一个事实最多有四个值，根因是"手写死的"。
+      - name: README 数字校验
+        run: npm run check:readme
+
       - name: mnemo-bench
         run: npm run bench:eval
 
@@ -89,3 +94,6 @@ jobs:
 
       - name: 版本与依赖一致性门禁（含平台中立性）
         run: node scripts/ci-check-publish.mjs
+
+      - name: README 数字校验
+        run: npm run check:readme

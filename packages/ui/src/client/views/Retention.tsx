@@ -12,7 +12,7 @@
  *   ④ 逐条分解（七因子柱 + 一句话解释）
  *   ⑤ 再巩固日志（最近哪条记忆被改写过）
  */
-import { createElement as h, type ReactNode } from 'react'
+import { createElement as h, useState, type ReactNode } from 'react'
 import type { PanelAction, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
 import { SubHead, fmt2, relTime } from '../ui.js'
 
@@ -56,6 +56,11 @@ const WEIGHT_LABEL: Record<string, string> = {
 const FACTOR_ORDER = ['activation', 'importance', 'affectIntensity', 'connectivity', 'narrativeRole', 'userAffinity', 'spacing', 'redundancy']
 
 export function Retention(props: RetentionProps): ReactNode {
+  // 筛选状态必须放在早退之前（hooks 顺序不能变）
+  const [q, setQ] = useState('')
+  const [only, setOnly] = useState<'all' | 'P5' | 'P4' | 'P3' | 'P2' | 'P1'>('all')
+  const [sort, setSort] = useState<'score' | 'tier'>('score')
+
   const r = props.snapshot.retention
   if (!r) {
     return h(
@@ -66,6 +71,12 @@ export function Retention(props: RetentionProps): ReactNode {
       h('div', null, '升级宿主后刷新即可；旧数据会自动按新公式重算，不需要 rebuild。'),
     )
   }
+
+  const needle = q.trim().toLowerCase()
+  const shown = r.entries
+    .filter((e) => only === 'all' || e.disposition === only)
+    .filter((e) => !needle || `${e.digest} ${e.shortId} ${e.why}`.toLowerCase().includes(needle))
+    .sort((a, b) => (sort === 'score' ? b.score - a.score : b.tier - a.tier || b.score - a.score))
 
   const total = DISPOSITIONS.reduce((n, d) => n + (r.byDisposition[d] ?? 0), 0) || 1
   const p5share = (r.byDisposition.P5 ?? 0) / total
@@ -199,12 +210,50 @@ export function Retention(props: RetentionProps): ReactNode {
       'div',
       { className: 'mnv-panel' },
       h(SubHead, { title: '逐条分解', hint: '点一条跳到检索页' }),
+      h(
+        'div',
+        { className: 'mnv-filter' },
+        h('input', {
+          className: 'mnv-input',
+          placeholder: '按摘要过滤…',
+          value: q,
+          'aria-label': '按摘要过滤记忆',
+          onChange: (ev: { target: { value: string } }) => setQ(ev.target.value),
+        }),
+        h(
+          'div',
+          { className: 'mnv-seg', role: 'group', 'aria-label': '按档位筛选' },
+          ...(['all', ...DISPOSITIONS] as const).map((d) =>
+            h(
+              'button',
+              {
+                key: d,
+                'data-active': only === d,
+                'aria-pressed': only === d,
+                onClick: () => setOnly(d as typeof only),
+              },
+              d === 'all' ? '全部' : d,
+            ),
+          ),
+        ),
+        h(
+          'button',
+          {
+            className: 'mnv-btn',
+            onClick: () => setSort(sort === 'score' ? 'tier' : 'score'),
+            title: '切换排序',
+          },
+          sort === 'score' ? '按分数' : '按档位',
+        ),
+      ),
       r.entries.length === 0
         ? h('div', { className: 'mnv-muted' }, '库里还没有记忆')
+        : shown.length === 0
+        ? h('div', { className: 'mnv-empty-sm' }, '没有匹配的记忆——换个词，或把档位筛选切回「全部」')
         : h(
             'div',
             null,
-            ...r.entries.slice(0, 30).map((e) =>
+            ...shown.slice(0, 30).map((e) =>
               h(
                 'div',
                 { key: e.cellId, className: 'mnv-row', style: { cursor: 'pointer' }, onClick: () => props.onOpen(e.cellId) },

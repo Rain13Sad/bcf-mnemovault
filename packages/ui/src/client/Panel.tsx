@@ -226,7 +226,7 @@ export function MnemoPanel(props: PanelProps): ReactNode {
       // ── 左侧导航（≥760px 显示；窄宽度由 .mnv-tabs 接管） ──────────
       h(
         'aside',
-        { className: 'mnv-rail' },
+        { className: 'mnv-rail', 'aria-label': '记忆面板导航' },
         h(
           'div',
           { className: 'mnv-brand' },
@@ -235,12 +235,18 @@ export function MnemoPanel(props: PanelProps): ReactNode {
         ),
         h(
           'nav',
-          { className: 'mnv-nav' },
+          { className: 'mnv-nav', role: 'navigation' },
           ...TABS.map((t) => {
             const n = badgeOf(t.key)
             return h(
               'button',
-              { key: t.key, className: 'mnv-nav-btn', 'data-active': tab === t.key, onClick: () => setTab(t.key) },
+              {
+                key: t.key,
+                className: 'mnv-nav-btn',
+                'data-active': tab === t.key,
+                'aria-current': tab === t.key ? 'page' : undefined,
+                onClick: () => setTab(t.key),
+              },
               t.label,
               n !== null
                 ? h('span', { className: 'mnv-nav-count', style: t.key === 'inbox' ? { color: 'var(--mnv-warn)' } : undefined }, String(n))
@@ -306,12 +312,19 @@ export function MnemoPanel(props: PanelProps): ReactNode {
         // 页签：只在窄容器里出现（宽屏由左侧栏承担导航）
         h(
           'div',
-          { className: 'mnv-tabs' },
+          { className: 'mnv-tabs', role: 'tablist', 'aria-label': '记忆面板页签' },
           ...TABS.map((t) => {
             const n = badgeOf(t.key)
             return h(
               'button',
-              { key: t.key, className: 'mnv-tab', 'data-active': tab === t.key, onClick: () => setTab(t.key) },
+              {
+                key: t.key,
+                className: 'mnv-tab',
+                role: 'tab',
+                'data-active': tab === t.key,
+                'aria-selected': tab === t.key,
+                onClick: () => setTab(t.key),
+              },
               t.label,
               n !== null ? h('span', { className: 'mnv-flag' }, ` ${n}`) : null,
             )
@@ -416,7 +429,8 @@ export function MnemoPanel(props: PanelProps): ReactNode {
       ),
     ),
 
-    toast ? h('div', { className: 'mnv-toast', style: toastStyle }, toast) : null,
+    // role=status + aria-live：屏幕阅读器会念出"已固定 / 已恢复"这类操作结果
+    toast ? h('div', { className: 'mnv-toast', style: toastStyle, role: 'status', 'aria-live': 'polite' }, toast) : null,
   )
 }
 
