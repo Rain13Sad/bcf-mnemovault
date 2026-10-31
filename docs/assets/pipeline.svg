@@ -1,101 +1,130 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="400" viewBox="0 0 1240 400" role="img" aria-label="MnemoVault data flow: write side, read side, offline consolidation">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="520" viewBox="0 0 1280 520" role="img" aria-label="MnemoVault data flow: write lane, read lane and sleep cycle">
+  <title>MnemoVault — one turn, end to end</title>
+  <desc>Every message writes one fixed-size cell; every reply reads four channels and injects about 116 tokens; a sleep cycle abstracts, associates and demotes.</desc>
+
   <defs>
-    <linearGradient id="dbg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0c1120"/>
-      <stop offset="1" stop-color="#151a2e"/>
+    <linearGradient id="fbg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#0b0820"/>
+      <stop offset="0.45" stop-color="#0a1030"/>
+      <stop offset="1" stop-color="#04141c"/>
     </linearGradient>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#4b5578"/>
+    <radialGradient id="fglowA" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#5b4bff" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#5b4bff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="fglowB" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#25d3c2" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#25d3c2" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a6390"/>
     </marker>
-    <marker id="arrowTeal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#59e3c8"/>
+    <marker id="arT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3fe0d0"/>
     </marker>
-    <marker id="arrowViolet" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <marker id="arV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b7cff"/>
     </marker>
+    <marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#e0a45e"/>
+    </marker>
+    <style>
+      .h1   { font: 600 23px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; letter-spacing: -.2px; }
+      .h2   { font: 400 13px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #6f7f9f; letter-spacing: 1.2px; }
+      .lane { font: 600 12px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; letter-spacing: 2.2px; }
+      .when { font: 400 11.5px/1 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #5d6790; }
+      .bt   { font: 500 14.5px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #dfe4f5; }
+      .bs   { font: 400 11px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #8a93b5; }
+      .cap  { font: 400 12.5px/1 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #5d6790; }
+    </style>
   </defs>
 
-  <rect width="1240" height="400" rx="14" fill="url(#dbg)"/>
-  <rect x="0.5" y="0.5" width="1239" height="399" rx="14" fill="none" stroke="#252d47"/>
+  <rect width="1280" height="520" rx="16" fill="url(#fbg)"/>
+  <ellipse cx="1050" cy="110" rx="380" ry="230" fill="url(#fglowA)"/>
+  <ellipse cx="220" cy="490" rx="380" ry="170" fill="url(#fglowB)"/>
+  <rect x="0.5" y="0.5" width="1279" height="519" rx="16" fill="none" stroke="#ffffff" stroke-opacity="0.07"/>
 
-  <!-- lane labels -->
-  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="2.2">
-    <text x="40" y="95" fill="#59e3c8">WRITE</text>
-    <text x="40" y="205" fill="#8b7cff">READ</text>
-    <text x="40" y="315" fill="#e0a45e">OFFLINE</text>
-  </g>
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="11.5" fill="#5d6790">
-    <text x="40" y="113">every turn</text>
-    <text x="40" y="223">every turn</text>
-    <text x="40" y="333">sleep cycle</text>
-  </g>
+  <text class="h1" x="44" y="54">One turn, end to end</text>
+  <text class="h2" x="44" y="80">WRITE ONE CELL · READ FOUR CHANNELS · INJECT ~116 TOKENS</text>
+  <line x1="44" y1="102" x2="1236" y2="102" stroke="#ffffff" stroke-opacity="0.06"/>
+  <line x1="168" y1="126" x2="168" y2="392" stroke="#ffffff" stroke-opacity="0.05"/>
 
-  <!-- lane separators -->
-  <g stroke="#1d2438" stroke-width="1">
-    <line x1="150" y1="60" x2="150" y2="345"/>
-  </g>
+  <!-- ============ WRITE ============ -->
+  <text class="lane" x="44" y="176" fill="#3fe0d0">WRITE</text>
+  <text class="when" x="44" y="194">every turn</text>
 
-  <!-- WRITE lane -->
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
-    <rect x="180" y="70" width="176" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
-    <text x="268" y="101" fill="#dfe4f5" text-anchor="middle">session/event</text>
+  <rect x="188" y="142" width="180" height="66" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text class="bt" x="204" y="169">utterance</text>
+  <text class="bs" x="204" y="188">+ tool result</text>
 
-    <rect x="404" y="70" width="236" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
-    <text x="522" y="101" fill="#dfe4f5" text-anchor="middle">Encoder · propositions</text>
+  <rect x="404" y="142" width="206" height="66" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text class="bt" x="420" y="169">encoder</text>
+  <text class="bs" x="420" y="188">→ propositions</text>
 
-    <rect x="688" y="70" width="420" height="52" rx="9" fill="#12211f" stroke="#2f6b5e"/>
-    <text x="898" y="94" fill="#c9f4e9" text-anchor="middle">MemCell · 704 B fixed base</text>
-    <text x="898" y="112" fill="#7fb6a8" text-anchor="middle" font-size="12">SDR + int8 vector + typed edges + brotli residual</text>
+  <rect x="646" y="142" width="330" height="66" rx="10" fill="#3fe0d0" fill-opacity="0.07" stroke="#3fe0d0" stroke-opacity="0.34"/>
+  <text class="bt" x="662" y="165">MemCell · 341 B fixed base</text>
+  <text class="bs" x="662" y="184">SDR 2048 · int8 vector · typed edges</text>
+  <text class="bs" x="662" y="198" fill="#6f7f9f">bi-temporal · affect reading · version chain</text>
 
-    <line x1="356" y1="96" x2="400" y2="96" stroke="#4b5578" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="640" y1="96" x2="684" y2="96" stroke="#59e3c8" stroke-width="1.5" marker-end="url(#arrowTeal)"/>
-  </g>
+  <rect x="1012" y="142" width="224" height="66" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text class="bt" x="1028" y="169">brotli residual</text>
+  <text class="bs" x="1028" y="188">original bytes, recoverable</text>
 
-  <!-- READ lane -->
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
-    <rect x="180" y="180" width="176" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
-    <text x="268" y="211" fill="#dfe4f5" text-anchor="middle">user message</text>
+  <line x1="372" y1="175" x2="398" y2="175" stroke="#5a6390" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="614" y1="175" x2="640" y2="175" stroke="#3fe0d0" stroke-width="1.4" marker-end="url(#arT)"/>
+  <line x1="980" y1="175" x2="1006" y2="175" stroke="#5a6390" stroke-width="1.4" marker-end="url(#ar)"/>
 
-    <rect x="404" y="180" width="196" height="52" rx="9" fill="#1a1733" stroke="#453a86"/>
-    <text x="502" y="203" fill="#dfe4f5" text-anchor="middle">4-channel recall</text>
-    <text x="502" y="220" fill="#8f86c9" text-anchor="middle" font-size="11.5">semantic · identity · graph · time</text>
+  <!-- ============ READ ============ -->
+  <text class="lane" x="44" y="262" fill="#8b7cff">READ</text>
+  <text class="when" x="44" y="280">every turn</text>
 
-    <rect x="648" y="180" width="212" height="52" rx="9" fill="#1a1733" stroke="#453a86"/>
-    <text x="754" y="203" fill="#dfe4f5" text-anchor="middle">4±1 slot competition</text>
-    <text x="754" y="220" fill="#8f86c9" text-anchor="middle" font-size="11.5">redundancy penalty · empty slot ok</text>
+  <rect x="188" y="228" width="180" height="66" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text class="bt" x="204" y="255">user message</text>
+  <text class="bs" x="204" y="274">the query</text>
 
-    <rect x="908" y="180" width="200" height="52" rx="9" fill="#1a1733" stroke="#453a86"/>
-    <text x="1008" y="203" fill="#dfe4f5" text-anchor="middle">MRS render</text>
-    <text x="1008" y="220" fill="#8f86c9" text-anchor="middle" font-size="11.5">~116 tokens / turn</text>
+  <rect x="404" y="228" width="252" height="66" rx="10" fill="#8b7cff" fill-opacity="0.07" stroke="#8b7cff" stroke-opacity="0.32"/>
+  <text class="bt" x="420" y="253">4-channel recall</text>
+  <text class="bs" x="420" y="272">semantic · identity</text>
+  <text class="bs" x="420" y="286">graph · temporal</text>
 
-    <line x1="356" y1="206" x2="400" y2="206" stroke="#4b5578" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="600" y1="206" x2="644" y2="206" stroke="#8b7cff" stroke-width="1.5" marker-end="url(#arrowViolet)"/>
-    <line x1="860" y1="206" x2="904" y2="206" stroke="#8b7cff" stroke-width="1.5" marker-end="url(#arrowViolet)"/>
-  </g>
+  <rect x="692" y="228" width="238" height="66" rx="10" fill="#8b7cff" fill-opacity="0.07" stroke="#8b7cff" stroke-opacity="0.32"/>
+  <text class="bt" x="708" y="255">4±1 slot competition</text>
+  <text class="bs" x="708" y="274">redundancy penalty · empty ok</text>
 
-  <!-- OFFLINE lane -->
-  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="14">
-    <rect x="180" y="290" width="196" height="52" rx="9" fill="#161c30" stroke="#2b3352"/>
-    <text x="278" y="313" fill="#dfe4f5" text-anchor="middle">lattice snapshot</text>
-    <text x="278" y="330" fill="#8a93b5" text-anchor="middle" font-size="11.5">cells + hyperedges</text>
+  <rect x="966" y="228" width="270" height="66" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text class="bt" x="982" y="255">MRS render → context</text>
+  <text class="bs" x="982" y="274">~116 tokens per turn, as table rows</text>
 
-    <rect x="420" y="290" width="212" height="52" rx="9" fill="#231a14" stroke="#6d5231"/>
-    <text x="526" y="313" fill="#f3dcc0" text-anchor="middle">NREM · abstract</text>
-    <text x="526" y="330" fill="#b09170" text-anchor="middle" font-size="11.5">merge into schemas</text>
+  <line x1="372" y1="261" x2="398" y2="261" stroke="#5a6390" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="660" y1="261" x2="686" y2="261" stroke="#8b7cff" stroke-width="1.4" marker-end="url(#arV)"/>
+  <line x1="934" y1="261" x2="960" y2="261" stroke="#8b7cff" stroke-width="1.4" marker-end="url(#arV)"/>
 
-    <rect x="676" y="290" width="212" height="52" rx="9" fill="#231a14" stroke="#6d5231"/>
-    <text x="782" y="313" fill="#f3dcc0" text-anchor="middle">REM · diverge</text>
-    <text x="782" y="330" fill="#b09170" text-anchor="middle" font-size="11.5">grow ASSOC edges</text>
+  <!-- ============ SLEEP ============ -->
+  <text class="lane" x="44" y="348" fill="#e0a45e">SLEEP</text>
+  <text class="when" x="44" y="366">offline</text>
 
-    <rect x="932" y="290" width="176" height="52" rx="9" fill="#231a14" stroke="#6d5231"/>
-    <text x="1020" y="313" fill="#f3dcc0" text-anchor="middle">forget</text>
-    <text x="1020" y="330" fill="#b09170" text-anchor="middle" font-size="11.5">(1 + F·t/S)^-0.5</text>
+  <rect x="188" y="314" width="180" height="66" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+  <text class="bt" x="204" y="341">lattice snapshot</text>
+  <text class="bs" x="204" y="360">cells + hyperedges</text>
 
-    <line x1="376" y1="316" x2="416" y2="316" stroke="#4b5578" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="632" y1="316" x2="672" y2="316" stroke="#e0a45e" stroke-width="1.5" marker-end="url(#arrow)"/>
-    <line x1="888" y1="316" x2="928" y2="316" stroke="#e0a45e" stroke-width="1.5" marker-end="url(#arrow)"/>
-  </g>
+  <rect x="404" y="314" width="206" height="66" rx="10" fill="#e0a45e" fill-opacity="0.07" stroke="#e0a45e" stroke-opacity="0.3"/>
+  <text class="bt" x="420" y="341">NREM · abstract</text>
+  <text class="bs" x="420" y="360">merge into schemas</text>
 
-  <!-- caption -->
-  <text x="40" y="378" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5" fill="#5d6790">The lattice is derived state: it can be rebuilt by replaying session_log, and any recall can be replayed byte-for-byte from its snapshot.</text>
+  <rect x="646" y="314" width="246" height="66" rx="10" fill="#e0a45e" fill-opacity="0.07" stroke="#e0a45e" stroke-opacity="0.3"/>
+  <text class="bt" x="662" y="341">REM · diverge</text>
+  <text class="bs" x="662" y="360">grow ASSOC edges</text>
+
+  <rect x="928" y="314" width="308" height="66" rx="10" fill="#e0a45e" fill-opacity="0.07" stroke="#e0a45e" stroke-opacity="0.3"/>
+  <text class="bt" x="944" y="341">forget · demote</text>
+  <text class="bs" x="944" y="360">(1 + F·t/S)^-0.5 · one tier per pass</text>
+
+  <line x1="372" y1="347" x2="398" y2="347" stroke="#5a6390" stroke-width="1.4" marker-end="url(#ar)"/>
+  <line x1="614" y1="347" x2="640" y2="347" stroke="#e0a45e" stroke-width="1.4" marker-end="url(#arA)"/>
+  <line x1="896" y1="347" x2="922" y2="347" stroke="#e0a45e" stroke-width="1.4" marker-end="url(#arA)"/>
+
+  <line x1="44" y1="412" x2="1236" y2="412" stroke="#ffffff" stroke-opacity="0.06"/>
+  <rect x="44" y="436" width="34" height="3" rx="1.5" fill="#3fe0d0"/>
+  <text class="cap" x="44" y="468">The lattice is derived state: rebuild it by replaying session_log, and replay any recall byte-for-byte from its snapshot.</text>
+  <text class="cap" x="44" y="490" fill="#4a5470">No step on the write path is a summary — the original bytes stay in the residual, so a lossy projection is always reversible.</text>
 </svg>

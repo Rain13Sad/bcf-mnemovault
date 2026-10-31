@@ -3,7 +3,7 @@
 # MnemoVault
 
 <div align="center">
-  <img src="docs/assets/banner.svg" alt="MnemoVault" width="100%">
+  <img src="docs/assets/banner.png" alt="MnemoVault" width="100%">
 </div>
 
 <div align="center">
@@ -37,12 +37,31 @@
 
 ## 目录
 
-- [v0.5.2：让它在真实规模上站得住](#v052让它在真实规模上站得住) · [v0.5.1：修掉符号、振荡与死开关](#v051修掉符号振荡与死开关) · [v0.5.0：让决策链真的会出手](#v050让决策链真的会出手)
+- [关于](#关于) · [v0.5.2：让它在真实规模上站得住](#v052让它在真实规模上站得住) · [v0.5.1：修掉符号、振荡与死开关](#v051修掉符号振荡与死开关) · [v0.5.0：让决策链真的会出手](#v050让决策链真的会出手)
 - [它解决什么](#它解决什么) · [它不解决什么](#它不解决什么) · [快速开始](#快速开始) · [五分钟跑通第一次调用](#五分钟跑通第一次调用)
 - [面板](#面板) · [存储比](#存储比从-250-到-084以及-060-为什么到不了) · [已知限制](#已知限制) · [与开源实现的对照](#与开源实现的对照)
 - [目录](#目录) · [贡献](#贡献) · [许可](#许可)
 
 
+
+## 关于
+
+**功能。** 给 DSH 的 agent 一份活得比上下文窗口更长的记忆。每轮对话写成一条定长晶胞，每次回复
+用四路召回从中取数，注入约 **116 token**，而不是把历史对话重新塞一遍。除事实之外还存一份情感
+状态——评价 → PAD → 心境 → 关系 → 人格锚——所以"当时是怎么说的"和"说了什么"一样取得到。
+22 条子命令、七页签面板，以及一条硬规矩：遗忘是一个能读出来的决策，不是一个看不见的 TTL。
+
+**技术。** 这里没有一处以文本形态存储。一条 cell 是 341 B：2048 位稀疏码（身份）、折叠到 128 维
+的 int8 向量（语义）、有类型超边（关系）、双时态时间戳、情感读数与版本链；原文单独存进 brotli
+残差，所以没有任何一步是永久有损的。存储是单个 `node:sqlite` 文件；召回走 SDR 倒排索引 +
+连续 int8 向量矩阵，快路径与慢路径打分逐位一致。保留度是一条可打分的流水线：七因子 → 陈旧包络 →
+五个打分档（P5…P1）→ 六道只能封顶的闸 → 五个 tier，一次只降一级。**检索全程不调用模型。**
+
+**优势。** 读侧没有任何生成步骤，所以召回是**确定性的**，可以从快照逐字节重放——同一个库、
+同一个查询，永远返回同样的行。因为残差保留，"摘要完把原文丢掉"这件事不会发生。因为删除是
+打分加解释的，库可以变小而不至于悄悄抹掉"这件事发生过"。成本也不随规模膨胀：822 条时召回
+p50 **约 4 ms**，10k 条时 p95 **25–32 ms**，运行期除 `@deepseek-ai/*` 外零第三方依赖，
+10 个包、176 条测试，只用 Node 内置模块。
 
 ## 它解决什么
 
@@ -60,7 +79,7 @@ DSH 的上下文窗口是有限的，而"用户三个月前说过什么"要么�
 4. **情感**不是台词，是参数：评价 → PAD → 心境 → 关系 → 人格锚，全部落盘为普通 cell，可演化可回滚。
 
 <div align="center">
-  <img src="docs/assets/pipeline.svg" alt="写入 / 读取 / 离线巩固三条链路" width="100%">
+  <img src="docs/assets/pipeline.png" alt="写入 / 读取 / 离线巩固三条链路：话语 → MemCell，四路召回 → 4±1 槽位，巩固与降层" width="100%">
 </div>
 
 ## 它不解决什么
@@ -344,6 +363,13 @@ v0.4 把保留度的**骨架**搭好了，但它的决策链是**惰性**的：
 与 **Gross 情绪调节**（五策略选一条，附特质层投影）。
 
 ### 删除决策链（v0.5 之后的实际形态）
+
+<div align="center">
+  <img src="docs/assets/retention-chain.png" alt="七因子算出分数，陈旧包络缩放它，分数映射到处置档，六道闸只能封顶 tier，每次 pass 只降一级" width="100%">
+</div>
+
+下面这张文本图是同一链条的逐行版本——每一个箭头都对应 [`retention.ts`](packages/core/src/retention.ts)
+与 [`lifecycle.ts`](packages/core/src/lifecycle.ts) 里的一段代码：
 
 ```text
 每条记忆
@@ -825,7 +851,7 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 │   └── design/                  设计文档 v0.2 + 两份前置研究报告
 ├── artifacts/                   bench.json / panel-snapshot.json（构建产物不进库）
 ├── .github/                     CI（Ubuntu + Windows）· issue 表单 · PR 模板
-├── docs/assets/                 banner.svg · pipeline.svg · social-preview.png · panel-{overview,retention,narrow}.png
+├── docs/assets/                 banner.{svg,png} · pipeline.{svg,png} · retention-chain.{svg,png} · panel-{overview,retention,narrow}.png
 ├── README.md（英文首页）· README.{zh-CN,ja,ko,es}.md · CONTRIBUTING.md · CHANGELOG.md · SECURITY.md
 ```
 

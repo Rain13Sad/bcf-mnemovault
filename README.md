@@ -3,7 +3,7 @@
 # MnemoVault
 
 <div align="center">
-  <img src="docs/assets/banner.svg" alt="MnemoVault — long-term memory and affect for DeepSeek Harness" width="100%">
+  <img src="docs/assets/banner.png" alt="MnemoVault — long-term memory and affect for DeepSeek Harness" width="100%">
 </div>
 
 <div align="center">
@@ -41,12 +41,38 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 
 ## Table of contents
 
-- [What's new in 0.5.2](#whats-new-in-052) · [How deletion actually works](#how-deletion-actually-works)
+- [About](#about) · [What's new in 0.5.2](#whats-new-in-052) · [How deletion actually works](#how-deletion-actually-works)
 - [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not) · [Data flow](#data-flow)
 - [Quick start](#quick-start) · [Five minutes to first call](#five-minutes-to-first-call) · [Benchmarks](#benchmarks)
 - [Packages](#packages) · [Panel](#panel) · [How it compares](#how-it-compares)
 - [Known limitations](#known-limitations) · [Documentation](#documentation)
-- [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
+- [Contributing](#contributing) · [License](#license)
+
+---
+
+## About
+
+**Function.** MnemoVault gives a DeepSeek Harness agent a memory that outlives the context window.
+Every turn is written as one fixed-size cell; every reply recalls from it in four channels and injects
+**~116 tokens** instead of replaying the transcript. Beside facts it keeps an affect state —
+appraisal → PAD → mood → relationship → persona anchor — so *how* something was said stays available,
+not only *what* was said. 22 subcommands, a seven-tab panel, and a hard rule that forgetting is a
+decision you can read, not a TTL you cannot.
+
+**Technology.** Nothing here is stored as text. A cell is 341 B: a 2048-bit sparse code (identity), an
+int8 vector folded to 128 dimensions (semantics), typed hyperedges (relations), bi-temporal timestamps,
+an affect reading and a version chain — with the original bytes kept in a brotli residual, so no step is
+lossy forever. Storage is one `node:sqlite` file; recall runs an SDR inverted index plus a contiguous
+int8 vector matrix, so the fast path scores bit-identically to the slow one. Retention is a scored
+pipeline: seven factors → staleness envelope → five scored bands (P5…P1) → six gates that can only cap
+a tier → five tiers, one step per pass. **Retrieval never calls a model.**
+
+**Advantage.** Because nothing on the read path is generative, recall is **deterministic and replayable
+byte-for-byte** from a snapshot, and the same query on the same library always returns the same rows.
+Because the residual is kept, "summarise it and drop the original" never happens. Because deletion is
+scored and explained, the library can shrink without silently losing that something happened. And the
+cost stays flat: recall p50 **~4 ms** at 822 cells, p95 **25–32 ms** at 10k cells, no third-party
+runtime dependency outside `@deepseek-ai/*`, 10 packages, 176 tests, Node built-ins only.
 
 ---
 
@@ -134,6 +160,13 @@ tombstone, and decoupled `confidence` from retrieval count.
 Most "agent memory" systems either never forget or forget by TTL. This one decides, and the decision is
 readable end to end:
 
+<div align="center">
+  <img src="docs/assets/retention-chain.png" alt="Seven factors produce a score, a staleness envelope scales it, the score maps to a disposition, six gates cap the tier, and a cell moves one tier per pass" width="100%">
+</div>
+
+The same chain, spelled out — every arrow below is a line of code in
+[`retention.ts`](packages/core/src/retention.ts) and [`lifecycle.ts`](packages/core/src/lifecycle.ts):
+
 ```text
 every cell
   ├─ FLAG.noDecay (pin / persona anchor) ────────────────→ never evaluated
@@ -206,7 +239,7 @@ This project takes a different route:
 ## Data flow
 
 <div align="center">
-  <img src="docs/assets/pipeline.svg" alt="Write side, read side and offline consolidation" width="100%">
+  <img src="docs/assets/pipeline.png" alt="Write lane, read lane and sleep cycle: utterance to MemCell, four-channel recall to 4±1 slots, consolidation and demotion" width="100%">
 </div>
 
 The lattice is derived state: it can be rebuilt by replaying `session_log`, and any recall can be

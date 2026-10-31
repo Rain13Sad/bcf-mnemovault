@@ -1,0 +1,160 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="500" viewBox="0 0 1280 500" role="img" aria-label="MnemoVault retention: seven factors to a disposition, six gates, five tiers">
+  <title>MnemoVault — how a memory is demoted</title>
+  <desc>Seven factors produce a score, a staleness envelope multiplies it, the score maps to one of five dispositions, six gates cap the tier, and a cell moves one tier per pass.</desc>
+
+  <defs>
+    <linearGradient id="rbg" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#0b0820"/>
+      <stop offset="0.45" stop-color="#0a1030"/>
+      <stop offset="1" stop-color="#04141c"/>
+    </linearGradient>
+    <radialGradient id="rglowA" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#5b4bff" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#5b4bff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="rglowB" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#25d3c2" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#25d3c2" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="rar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#5a6390"/>
+    </marker>
+    <marker id="rarV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b7cff"/>
+    </marker>
+    <style>
+      .h1   { font: 600 23px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; letter-spacing: -.2px; }
+      .h2   { font: 400 13px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #6f7f9f; letter-spacing: 1.2px; }
+      .bt   { font: 500 14px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #dfe4f5; }
+      .bs   { font: 400 11px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #8a93b5; }
+      .chip { font: 500 12px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; letter-spacing: .3px; }
+      .tl   { font: 600 10.5px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; letter-spacing: 1.6px; }
+      .tn   { font: 600 17px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; }
+      .ts   { font: 400 10.5px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #8a93b5; }
+      .cap  { font: 400 12.5px/1 -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: #5d6790; }
+    </style>
+  </defs>
+
+  <rect width="1280" height="500" rx="16" fill="url(#rbg)"/>
+  <ellipse cx="1060" cy="90" rx="360" ry="220" fill="url(#rglowA)"/>
+  <ellipse cx="200" cy="470" rx="360" ry="160" fill="url(#rglowB)"/>
+  <rect x="0.5" y="0.5" width="1279" height="499" rx="16" fill="none" stroke="#ffffff" stroke-opacity="0.07"/>
+
+  <text class="h1" x="44" y="54">How a memory is demoted</text>
+  <text class="h2" x="44" y="80">SEVEN FACTORS → SCORE → STALENESS → DISPOSITION → GATE → TIER</text>
+  <line x1="44" y1="100" x2="1236" y2="100" stroke="#ffffff" stroke-opacity="0.06"/>
+
+  <!-- stage row -->
+  <g>
+    <rect x="44" y="124" width="186" height="74" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+    <text class="bt" x="58" y="150">seven factors</text>
+    <text class="bs" x="58" y="170">activation · importance</text>
+    <text class="bs" x="58" y="185">affect · graph · spacing</text>
+
+    <rect x="244" y="124" width="186" height="74" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+    <text class="bt" x="258" y="150">score</text>
+    <text class="bs" x="258" y="170">0.5 + gain·(Σwx − bias)</text>
+    <text class="bs" x="258" y="185">gain &lt; 1, so no saturation</text>
+
+    <rect x="444" y="124" width="186" height="74" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+    <text class="bt" x="458" y="150">staleness</text>
+    <text class="bs" x="458" y="170">× 0.15 … 1.0 by age</text>
+    <text class="bs" x="458" y="185">30 d: 1.0 → 730 d: 0.15</text>
+
+    <rect x="644" y="124" width="186" height="74" rx="10" fill="#ffffff" fill-opacity="0.035" stroke="#ffffff" stroke-opacity="0.08"/>
+    <text class="bt" x="658" y="150">disposition</text>
+    <text class="bs" x="658" y="170">P5 .75 · P4 .55 · P3 .35</text>
+    <text class="bs" x="658" y="185">P2 .18 · P1 the rest</text>
+
+    <rect x="844" y="124" width="186" height="74" rx="10" fill="#8b7cff" fill-opacity="0.08" stroke="#8b7cff" stroke-opacity="0.34"/>
+    <text class="bt" x="858" y="150">gate</text>
+    <text class="bs" x="858" y="170">caps the tier only</text>
+    <text class="bs" x="858" y="185">never touches the score</text>
+
+    <rect x="1044" y="124" width="192" height="74" rx="10" fill="#3fe0d0" fill-opacity="0.07" stroke="#3fe0d0" stroke-opacity="0.32"/>
+    <text class="bt" x="1058" y="150">tier</text>
+    <text class="bs" x="1058" y="170">one step per pass</text>
+    <text class="bs" x="1058" y="185">0 hot … 4 tombstone</text>
+  </g>
+
+  <g stroke-width="1.4">
+    <line x1="234" y1="161" x2="240" y2="161" stroke="#5a6390" marker-end="url(#rar)"/>
+    <line x1="434" y1="161" x2="440" y2="161" stroke="#5a6390" marker-end="url(#rar)"/>
+    <line x1="634" y1="161" x2="640" y2="161" stroke="#5a6390" marker-end="url(#rar)"/>
+    <line x1="834" y1="161" x2="840" y2="161" stroke="#5a6390" marker-end="url(#rar)"/>
+    <line x1="1034" y1="161" x2="1040" y2="161" stroke="#5a6390" marker-end="url(#rar)"/>
+  </g>
+
+  <!-- gates -->
+  <text class="tl" x="44" y="228" fill="#8b7cff">SIX GATES</text>
+  <text class="cap" x="44" y="246" fill="#4a5470">each one can only forbid the last step</text>
+
+  <g>
+    <rect x="244" y="210" width="52" height="34" rx="17" fill="#8b7cff" fill-opacity="0.1" stroke="#8b7cff" stroke-opacity="0.3"/>
+    <text class="chip" x="270" y="231" fill="#c3b9ff" text-anchor="middle">pin</text>
+
+    <rect x="306" y="210" width="96" height="34" rx="17" fill="#8b7cff" fill-opacity="0.1" stroke="#8b7cff" stroke-opacity="0.3"/>
+    <text class="chip" x="354" y="231" fill="#c3b9ff" text-anchor="middle">emotional</text>
+
+    <rect x="412" y="210" width="92" height="34" rx="17" fill="#8b7cff" fill-opacity="0.1" stroke="#8b7cff" stroke-opacity="0.3"/>
+    <text class="chip" x="458" y="231" fill="#c3b9ff" text-anchor="middle">persona</text>
+
+    <rect x="514" y="210" width="98" height="34" rx="17" fill="#8b7cff" fill-opacity="0.1" stroke="#8b7cff" stroke-opacity="0.3"/>
+    <text class="chip" x="563" y="231" fill="#c3b9ff" text-anchor="middle">milestone</text>
+
+    <rect x="622" y="210" width="150" height="34" rx="17" fill="#8b7cff" fill-opacity="0.1" stroke="#8b7cff" stroke-opacity="0.3"/>
+    <text class="chip" x="697" y="231" fill="#c3b9ff" text-anchor="middle">confirmed fact</text>
+
+    <rect x="782" y="210" width="78" height="34" rx="17" fill="#8b7cff" fill-opacity="0.1" stroke="#8b7cff" stroke-opacity="0.3"/>
+    <text class="chip" x="821" y="231" fill="#c3b9ff" text-anchor="middle">schema</text>
+  </g>
+
+  <!-- tier ladder -->
+  <g>
+    <rect x="44" y="286" width="220" height="104" rx="10" fill="#ff9d6b" fill-opacity="0.09" stroke="#ff9d6b" stroke-opacity="0.32"/>
+    <rect x="44" y="286" width="220" height="3" rx="1.5" fill="#ff9d6b"/>
+    <text class="tl" x="60" y="314" fill="#ff9d6b">TIER 0</text>
+    <text class="tn" x="60" y="340">hot</text>
+    <text class="ts" x="60" y="362">int8 vector · residual</text>
+    <text class="ts" x="60" y="378" fill="#6f7f9f">full recall, full detail</text>
+
+    <rect x="276" y="286" width="220" height="104" rx="10" fill="#f0c674" fill-opacity="0.09" stroke="#f0c674" stroke-opacity="0.3"/>
+    <rect x="276" y="286" width="220" height="3" rx="1.5" fill="#f0c674"/>
+    <text class="tl" x="292" y="314" fill="#f0c674">TIER 1</text>
+    <text class="tn" x="292" y="340">warm</text>
+    <text class="ts" x="292" y="362">int8 vector · residual</text>
+    <text class="ts" x="292" y="378" fill="#6f7f9f">still first-class</text>
+
+    <rect x="508" y="286" width="220" height="104" rx="10" fill="#5b8cff" fill-opacity="0.09" stroke="#5b8cff" stroke-opacity="0.3"/>
+    <rect x="508" y="286" width="220" height="3" rx="1.5" fill="#5b8cff"/>
+    <text class="tl" x="524" y="314" fill="#8fb0ff">TIER 2</text>
+    <text class="tn" x="524" y="340">cold</text>
+    <text class="ts" x="524" y="362">vector → 32 B PQ</text>
+    <text class="ts" x="524" y="378" fill="#6f7f9f">coarser, still searchable</text>
+
+    <rect x="740" y="286" width="220" height="104" rx="10" fill="#8b7cff" fill-opacity="0.09" stroke="#8b7cff" stroke-opacity="0.3"/>
+    <rect x="740" y="286" width="220" height="3" rx="1.5" fill="#8b7cff"/>
+    <text class="tl" x="756" y="314" fill="#b3a6ff">TIER 3</text>
+    <text class="tn" x="756" y="340">archive</text>
+    <text class="ts" x="756" y="362">32 B PQ · residual kept</text>
+    <text class="ts" x="756" y="378" fill="#6f7f9f">out of the default path</text>
+
+    <rect x="972" y="286" width="220" height="104" rx="10" fill="#6b7390" fill-opacity="0.12" stroke="#6b7390" stroke-opacity="0.38"/>
+    <rect x="972" y="286" width="220" height="3" rx="1.5" fill="#6b7390"/>
+    <text class="tl" x="988" y="314" fill="#9aa2bf">TIER 4</text>
+    <text class="tn" x="988" y="340">tombstone</text>
+    <text class="ts" x="988" y="362">id + digest + slots only</text>
+    <text class="ts" x="988" y="378" fill="#6f7f9f">row is never deleted</text>
+  </g>
+
+  <g stroke-width="1.2">
+    <line x1="266" y1="338" x2="272" y2="338" stroke="#5a6390" marker-end="url(#rar)"/>
+    <line x1="498" y1="338" x2="504" y2="338" stroke="#5a6390" marker-end="url(#rar)"/>
+    <line x1="730" y1="338" x2="736" y2="338" stroke="#5a6390" marker-end="url(#rar)"/>
+    <line x1="962" y1="338" x2="968" y2="338" stroke="#5a6390" marker-end="url(#rar)"/>
+  </g>
+
+  <line x1="44" y1="418" x2="1236" y2="418" stroke="#ffffff" stroke-opacity="0.06"/>
+  <rect x="44" y="440" width="34" height="3" rx="1.5" fill="#8b7cff"/>
+  <text class="cap" x="44" y="470">A tombstone is not a delete: the row, its digest and its edges stay, and only the bytes go — so the library can shrink without losing that it happened.</text>
+</svg>

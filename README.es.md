@@ -3,7 +3,7 @@
 # MnemoVault
 
 <div align="center">
-  <img src="docs/assets/banner.svg" alt="MnemoVault" width="100%">
+  <img src="docs/assets/banner.png" alt="MnemoVault" width="100%">
 </div>
 
 <div align="center">
@@ -36,6 +36,30 @@ repetir la transcripción.
 
 ---
 
+## Acerca de
+
+**Función.** Da al agente de DSH una memoria que dura más que la ventana de contexto. Cada turno se
+escribe como una celda de tamaño fijo; cada respuesta lee de ella por cuatro canales e inyecta
+**~116 tokens** en lugar de repetir la transcripción. Además de los hechos guarda un estado afectivo
+(evaluación → PAD → ánimo → relación → ancla de persona), así que se recupera tanto *qué* se dijo como
+*cómo* se dijo. 22 subcomandos, un panel de siete pestañas y una regla dura: olvidar es una decisión
+legible, no un TTL invisible.
+
+**Tecnología.** Aquí nada se guarda como texto. Una celda son 341 B: código disperso de 2048 bits
+(identidad), vector int8 plegado a 128 dimensiones (semántica), hiperaristas tipadas (relaciones),
+marcas temporales bi-temporales, lectura afectiva y cadena de versiones; los bytes originales quedan en
+un residuo brotli, así que ningún paso es lossy para siempre. El almacenamiento es un único archivo
+`node:sqlite`; la recuperación usa un índice invertido SDR y una matriz de vectores int8 contigua, de
+modo que la ruta rápida puntúa bit a bit igual que la lenta. La retención es una tubería puntuable:
+siete factores → envolvente de obsolescencia → cinco bandas puntuadas (P5…P1) → seis puertas que solo
+pueden limitar el tier → cinco tiers, un escalón por pasada. **La recuperación nunca llama a un modelo.**
+
+**Ventaja.** Como en la lectura no hay nada generativo, la recuperación es **determinista y reproducible
+byte a byte** desde una instantánea. Como el residuo se conserva, «resumir y tirar el original» no
+ocurre. Como el borrado se puntúa y se explica, la biblioteca puede encogerse sin perder en silencio que
+algo ocurrió. Y el coste no crece: p50 **~4 ms** con 822 celdas, p95 **25–32 ms** con 10k celdas, cero
+dependencias de terceros fuera de `@deepseek-ai/*`, 10 paquetes, 176 pruebas, solo módulos de Node.
+
 ## Qué resuelve
 
 La ventana de contexto es finita: «lo que me contaste hace tres meses» no cabe, o sale demasiado caro.
@@ -52,6 +76,10 @@ Este proyecto toma otro camino.
 3. **Offline**: NREM abstrae esquemas, REM crea asociaciones, y la **retención de siete factores**
    (activación ACT-R + importancia + afecto + conectividad + rol narrativo + anclaje del usuario + espaciado − redundancia)
    decide la jerarquía.
+
+<div align="center">
+  <img src="docs/assets/pipeline.png" alt="Tres carriles: escritura, lectura y consolidación offline; enunciado → MemCell, cuatro canales → 4±1 ranuras" width="100%">
+</div>
 
 ## Novedades de v0.5.x
 
