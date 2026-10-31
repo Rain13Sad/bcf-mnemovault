@@ -24,12 +24,12 @@
       <feGaussianBlur stdDeviation="7"/>
     </filter>
     <style>
-      .title { font: 700 76px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; letter-spacing: -1.5px; }
-      .sub   { font: 400 26px/1.2 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #b9b6d8; letter-spacing: .2px; }
-      .mono  { font: 400 14px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #7d7ea6; letter-spacing: 1.5px; }
-      .k     { font: 600 11.5px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; letter-spacing: 1.5px; }
-      .v     { font: 700 19px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; }
-      .url   { font: 400 14px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #6f7f9f; letter-spacing: 1px; }
+      .title { font: 700 72px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; letter-spacing: -1.4px; }
+      .sub   { font: 400 24.8px/1.2 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #b9b6d8; letter-spacing: .2px; }
+      .mono  { font: 400 13.9px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #7d7ea6; letter-spacing: 1.6px; }
+      .k     { font: 600 11.2px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; letter-spacing: 1.5px; }
+      .v     { font: 700 15.3px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; }
+      .url   { font: 400 12.7px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #6f7f9f; letter-spacing: .9px; }
     </style>
   </defs>
 
@@ -79,29 +79,29 @@
   </g>
 
   <!-- 左侧：标题与主张 -->
-  <text class="title" x="86" y="200">MnemoVault</text>
-  <text class="sub" x="87" y="251">Long-term memory &amp; affect for DeepSeek Harness</text>
-  <text class="mono" x="87" y="288">2048-BIT SPARSE CODES · 4-CHANNEL RECALL · ~116 TOKENS PER TURN</text>
+  <text class="title" x="81.5" y="201">MnemoVault</text>
+  <text class="sub" x="84" y="251.5">Long-term memory &amp; affect for DeepSeek Harness</text>
+  <text class="mono" x="84" y="293.5">2048-bit sparse codes · 4-channel recall · ~116 tokens per turn</text>
 
   <!-- 四个数据卡：数字全部来自 artifacts/bench.json、test/ 与 packages/*/package.json -->
   <g>
-    <rect x="84" y="300" width="196" height="50" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="100" y="319" fill="#3fe0d0">RECALL@8</text>
-    <text class="v" x="100" y="341">0.941</text>
+    <rect x="84" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="102" y="363" fill="#3fe0d0">RECALL@8</text>
+    <text class="v" x="102" y="381">0.941</text>
 
-    <rect x="292" y="300" width="196" height="50" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="308" y="319" fill="#7ee787">TESTS</text>
-    <text class="v" x="308" y="341">176 passing</text>
+    <rect x="292" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="310" y="363" fill="#7ee787">TESTS</text>
+    <text class="v" x="310" y="381">176 passing</text>
 
-    <rect x="500" y="300" width="196" height="50" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="516" y="319" fill="#f0c674">3P RUNTIME DEPS</text>
-    <text class="v" x="516" y="341">0</text>
+    <rect x="500" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="518" y="363" fill="#f0c674">3P RUNTIME DEPS</text>
+    <text class="v" x="518" y="381">0</text>
 
-    <rect x="708" y="300" width="196" height="50" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="724" y="319" fill="#9b8dff">PACKAGES</text>
-    <text class="v" x="724" y="341">10 · TypeScript</text>
+    <rect x="708" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="726" y="363" fill="#9b8dff">PACKAGES</text>
+    <text class="v" x="726" y="381">10 · TypeScript</text>
   </g>
 
-  <rect x="86" y="430" width="46" height="3" rx="1.5" fill="url(#accent)"/>
-  <text class="url" x="86" y="470">github.com/Rain13Sad/bcf-mnemovault</text>
+  <rect x="84" y="432" width="46" height="3" rx="1.5" fill="url(#accent)"/>
+  <text class="url" x="84" y="469.5">github.com/Rain13Sad/bcf-mnemovault</text>
 </svg>
