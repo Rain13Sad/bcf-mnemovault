@@ -1739,12 +1739,17 @@ dsh-mnemo/
 
 ### 15.3 `packages/core/cordis.patch.yml`
 
+> ⚠ **v0.5.3 更正**：下面这份是 v0.2 的设计稿，其中 `dbPath: !!js …` **不要照抄**。
+> 组合包 patch 在**安装期**由不带自定义标签的 YAML 解析器读取，遇到 `!!js` 会抛
+> `YAMLException` 并回滚整个安装；而 `${ctx.baseDir}` 在 Loader 上并不存在（它叫 `baseUrl`），
+> 求值结果是 `undefined`。现在的做法是 patch 只写字面量，路径在 `apply()` 里解析
+> （`packages/core/src/paths.ts`），见 [`docs/releases/v0.5.3.md`](../releases/v0.5.3.md)。
+
 ```yaml
 - insert:
     - id: mnemo-core
       name: '@rain13sad/dsh-mnemo-core'
       config:
-        dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
         sdrDim: 2048
         sdrK: 8
         embDim: 256

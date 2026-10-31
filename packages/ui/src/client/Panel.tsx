@@ -335,6 +335,10 @@ export function MnemoPanel(props: PanelProps): ReactNode {
         h(
           'div',
           { className: 'mnv-body' },
+          // 降级提示（v0.5.3）。以前只读数据源时面板照常显示一排 0，
+          // 用户看不出"这是没数据"还是"这是没接上"。现在第一屏就说清楚：
+          // 现在跑的是哪条链路、少了什么、要装什么才有。
+          degradedNotice(props.source.kind, s.cells, snapshot),
           tab === 'overview'
             ? h(Overview, {
                 snapshot,
@@ -438,6 +442,56 @@ function sourceLabel(kind: MnemoDataSource['kind']): string {
   if (kind === 'remote') return '已连接宿主'
   if (kind === 'event') return '只读（事件流）'
   return '演示数据'
+}
+
+/**
+ * 降级提示条（v0.5.3）。
+ *
+ * 之前面板在任何数据源下都长得一样：一排 0、一张空图谱。用户没法区分
+ * "这个库还空着" 和 "宿主没接上"，而这两种情况的下一步动作完全不同。
+ * 这条提示只在**真的降级**时出现（remote 数据源永远不显示），并给出可执行的下一步。
+ */
+function degradedNotice(
+  kind: MnemoDataSource['kind'],
+  cells: number,
+  snapshot: PanelSnapshot,
+): ReactNode {
+  if (kind === 'remote') return null
+
+  if (kind === 'demo') {
+    return h(
+      'div',
+      { className: 'mnv-notice', 'data-tone': 'warn' },
+      h('b', null, '演示数据'),
+      h('span', null, '面板在跑内置 fixtures，所有改动都不落库。接上宿主后这里会自动切换。'),
+    )
+  }
+
+  // 只读事件源：要么没装 tools（没有 mnemoRemote），要么宿主没提供 remote 注册表
+  if (cells === 0) {
+    return h(
+      'div',
+      { className: 'mnv-notice', 'data-tone': 'warn' },
+      h('b', null, '未连接记忆库'),
+      h(
+        'span',
+        null,
+        '面板已加载，但拿不到宿主的数据面。确认这几件事：',
+        h('code', null, 'dsh-mnemo-core'),
+        '（晶格服务）与',
+        h('code', null, 'dsh-mnemo-tools'),
+        '（面板数据桥）都在同一个 profile 里启用；然后重启 DSH。',
+      ),
+    )
+  }
+
+  return h(
+    'div',
+    { className: 'mnv-notice', 'data-tone': 'muted' },
+    h('b', null, '只读模式'),
+    h('span', null, '当前只能看本会话的事件流，改不了库。装上 ', h('code', null, 'dsh-mnemo-tools'), ' 可获得完整读写。'),
+    snapshot.runtime?.remoteFace === false ? h('span', null, '（宿主 remote 面未挂载）') : null,
+  )
 }
 
 const toastStyle = {

@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.2 -->
+<!-- DOC-VERSION: 0.5.3 -->
 
 # MnemoVault
 
@@ -15,7 +15,7 @@
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#快速开始)
-[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-184-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -28,8 +28,8 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.5.2** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 10 个包 · 59 个源文件 / 约 18,700 行 TS（`.ts` + `.tsx`，含 UI）· 176 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **状态** | **v0.5.3** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 10 个包 · 60 个源文件 / 约 18,900 行 TS（`.ts` + `.tsx`，含 UI）· 184 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
 | **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **28 条缺点 D1–D28** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
 | **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 28 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -37,7 +37,7 @@
 
 ## 目录
 
-- [关于](#关于) · [v0.5.2：让它在真实规模上站得住](#v052让它在真实规模上站得住) · [v0.5.1：修掉符号、振荡与死开关](#v051修掉符号振荡与死开关) · [v0.5.0：让决策链真的会出手](#v050让决策链真的会出手)
+- [关于](#关于) · [v0.5.3：让"能装上"这件事成立](#v053让能装上这件事成立) · [v0.5.2：让它在真实规模上站得住](#v052让它在真实规模上站得住) · [v0.5.1：修掉符号、振荡与死开关](#v051修掉符号振荡与死开关) · [v0.5.0：让决策链真的会出手](#v050让决策链真的会出手)
 - [它解决什么](#它解决什么) · [它不解决什么](#它不解决什么) · [快速开始](#快速开始) · [五分钟跑通第一次调用](#五分钟跑通第一次调用)
 - [面板](#面板) · [存储比](#存储比从-250-到-084以及-060-为什么到不了) · [已知限制](#已知限制) · [与开源实现的对照](#与开源实现的对照)
 - [目录](#目录) · [贡献](#贡献) · [许可](#许可)
@@ -61,7 +61,7 @@
 同一个查询，永远返回同样的行。因为残差保留，"摘要完把原文丢掉"这件事不会发生。因为删除是
 打分加解释的，库可以变小而不至于悄悄抹掉"这件事发生过"。成本也不随规模膨胀：822 条时召回
 p50 **约 4 ms**，10k 条时 p95 **25–32 ms**，运行期除 `@deepseek-ai/*` 外零第三方依赖，
-10 个包、176 条测试，只用 Node 内置模块。
+10 个包、184 条测试，只用 Node 内置模块。
 
 ## 它解决什么
 
@@ -98,7 +98,7 @@ DSH 的上下文窗口是有限的，而"用户三个月前说过什么"要么�
 ```bash
 npm ci               # 只有 devDependencies（typescript / react / 类型）
 npm run build        # 按依赖顺序编译 10 个包（没有 bundler，逐包 tsc）
-npm test             # 93 条测试
+npm test             # 184 条测试
 npm run demo         # 26 轮中文对话：注入 / 巩固 / 统计 / 守卫
 npm run bench:eval   # mnemo-bench：Recall@8 / MRR / 去重 P,R / 时间推理 / 成本
 npm run panel        # 面板预览：http://127.0.0.1:5178/
@@ -169,14 +169,47 @@ popcount 183 ns   jaccard 193 ns   containment 297 ns
 
 ### 装到 DSH 里
 
-已发布到 npm（`@rain13sad/*`，public）。按需装切片——包之间是独立的，只要记忆不要情感就是
-`core + encoder + recall + tools`：
+已发布到 npm（`@rain13sad/*`，public）。**每个包都是自足的 DSH 组合包**：自带 `cordis.patch.yml`，
+所以 `dsh plugin add` 一步就完成"装上 + 启用"。不要手改 profile 里的 bundle 列表。
+
+全家桶，一条命令：
 
 ```bash
-npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # 可选层
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                          # 面板与设置
+dsh plugin add \
+  @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-encoder \
+  @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive \
+  @rain13sad/dsh-mnemo-tools @rain13sad/dsh-mnemo-settings @rain13sad/dsh-mnemo-ui
 ```
+
+或者按需装切片——只要记忆不要情感就是 `core + encoder + recall + tools`：
+
+```bash
+dsh plugin add @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder \
+               @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
+dsh plugin add @rain13sad/dsh-mnemo-ui       # 面板；会顺带拉 tools → core + affect
+```
+
+装完重启 DSH。确认某一层**真的挂上了**而不是被静默跳过，最快的办法是：
+
+```bash
+dsh --profile <名字> --dump-config | grep mnemo
+```
+
+| 包 | 行 id | 它插入什么 |
+| :--- | :--- | :--- |
+| `dsh-mnemo-core` | `mnemo-core` | 晶格服务（`ctx.memory`）、库、四路召回 |
+| `dsh-mnemo-affect` | `mnemo-affect` | 内感受 → 评价 → PAD → 心境 → 关系模型 |
+| `dsh-mnemo-encoder` | `mnemo-encoder` | 写侧：turn/end → 0..N 个 `MemCell` |
+| `dsh-mnemo-recall` | `mnemo-recall` | 读侧：`agent/pre-step` 门控 + 注入 |
+| `dsh-mnemo-consolidator` | `mnemo-consolidator` | 离线 NREM/REM、降权、剪枝 |
+| `dsh-mnemo-proactive` | `mnemo-proactive` | 决定**要不要**先开口（多数时候决定不开口） |
+| `dsh-mnemo-tools` | `mnemo-tools` | 6 个工具 + `/mnemo` 命令面 + egress 守卫 + 面板数据桥 |
+| `dsh-mnemo-settings` | `mnemo-settings` | 预设档、生效矩阵、配置快照 |
+| `dsh-mnemo-ui` | `mnemo-ui` | 侧栏面板（client 侧在 `lib/client.js`） |
+| `dsh-mnemo-devkit` | — | **不是组合包**：无宿主运行器（`createHarness`），给测试与 demo 用 |
+
+宿主侧接口的实际形状（与设计文档有出入的地方）见 [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md)。
+安装被拒时，在仓库里跑 `npm run check:manifests` 会直接告诉你是哪一条契约没满足。
 
 想从源码跑（改代码 / 跑 demo）：
 
@@ -185,19 +218,17 @@ git clone https://github.com/Rain13Sad/bcf-mnemovault.git && cd bcf-mnemovault
 npm ci && npm run build
 ```
 
-然后按各包的 `cordis.patch.yml` 把插件 insert 进你的 DSH profile。每个 patch 里写的是
-插件 id、包名与默认配置，例如 `packages/core/cordis.patch.yml`：
+单个包的 patch 长这样（`packages/core/cordis.patch.yml`）。注意**没有 `!!js`**——安装期的 YAML
+解析器不认自定义标签，写了整个安装会被回滚：
 
 ```yaml
 - insert:
     - id: mnemo-core
       name: '@rain13sad/dsh-mnemo-core'
       config:
-        dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
         sdrDim: 2048
+        preset: balanced
 ```
-
-宿主侧接口的实际形状（与设计文档有出入的地方）见 [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md)。
 
 ---
 
@@ -254,6 +285,58 @@ dispose()
 上面的 `createHarness` 是最短的"看到一条"的路径。
 
 </details>
+
+---
+
+## v0.5.3：让"能装上"这件事成立
+
+**0.5.3 是"能装上"的那一版。** 0.5.2 发出去了，CI 全绿，176 条测试通过——而它十个包里有四个
+**根本装不进 DSH**。这四个缺陷全部落在"代码是对的"和"宿主接受它"之间的缝隙里，而那正是没有任何
+单测在看的地方。
+
+最先暴露的症状就是 issue 里那一句：
+
+> 这个包没有声明组合包，不能作为插件管理
+
+| 出了什么错 | 为什么一直没被发现 | 怎么修的 |
+| :--- | :--- | :--- |
+| `ui` 声明了 `dsh.client`，却**没有 `dsh.bundle`** | 它的 `lib/index.js` 只导出几个常量，没人把它当成"组合包"看 | 补一个真正的空转 host 半（`apply` + `inject`）+ `dsh.bundle` + 插入自己那一行的 patch |
+| `devkit` / `proactive` / `ui` 声明了 `dsh.bundle.patch`，指向的**文件不存在** | `files[]` 里写着它，所以发布是干净的；Loader 只在加载时才发现 ENOENT，然后**静默跳过整层** | `proactive` 补上 patch；`devkit` 不再假装是插件（它是库） |
+| `core` 的 patch 用了 `!!js` 模板表达式 | 组合包 patch 在**安装期**由不带自定义标签的 YAML 解析器读取 → `YAMLException` → 整个安装被回滚 | 路径改到 `apply()` 里解析；patch 只写字面量 |
+| `dbPath: ~/.dsh/mnemo/vault.db` 与 `!!js ${ctx.baseDir}` | `~` **从来没被展开过**；`ctx.baseDir` 在 Loader 上并不存在（叫 `baseUrl`）——库真的被写进了名字叫 `~` 或 `undefined` 的目录 | 新增 `packages/core/src/paths.ts`：展开 `~`、相对路径按 profile 目录解析 |
+| `exports["./client"]` 指向 `lib/client.js`，而**这个文件从来没被生成过**；且宿主只伺服单个文件，格式必须是 `window.__ModuleLoader__.load({...})` | 预览、SSR 测试、bundle 测试全都直接 import `lib/client/Panel.js`——它们走的是另一条路 | 新增 `scripts/client-build.mjs`，把 tsc 产物折成真正的 module-loader bundle（不引入打包器依赖） |
+
+最后一条值得单独说：**面板在 DSH 里一次都没被渲染过。** 它在 `npm run panel` 里是好的，因为那条
+链路是把编译后的 ESM 逐个用 HTTP 伺服、再把 react 重写成 shim；宿主则是伺服**一个** `client.js`，
+它必须调用 `__ModuleLoader__.load()` 并从 `require` 形状的模块表里取 react。两套契约，其中一套从没被测过。
+
+### 安装链路（端到端验证过的）
+
+```bash
+# 一条命令九个组合包：每个包都成为 profile 的直接依赖，reconciliation 会把它们全部启用
+dsh plugin add \
+  @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-encoder \
+  @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive \
+  @rain13sad/dsh-mnemo-tools @rain13sad/dsh-mnemo-settings @rain13sad/dsh-mnemo-ui
+```
+
+也可以在插件管理器里一个一个装——每个包都能独立安装、独立移除。
+只装 `@rain13sad/dsh-mnemo-ui` 会顺带拉进 `tools → core + affect`：一个背后没有库的面板不算功能。
+
+### 新增门禁（让这类问题不会再发生）
+
+- **`npm run check:manifests`**——组合包契约：声明的 patch 必须存在且在 `files` 白名单里；
+  声明 `dsh.bundle` 的包必须真的导出 `apply`；patch 里不许有 `!!js` 与制表符；
+  每个 insert 行的包名必须是本包或本包的依赖；两个包不许插入同一个行 id。
+  已接进 `verify` 与两条 CI job。
+- **`test/client-bundle.test.mjs`**——用一个只提供 `window.__ModuleLoader__` 与 `require` 的假内核
+  执行真的 `lib/client.js`，断言 `apply` 注册了主面板与侧栏入口。
+- **`test/paths.test.mjs`**——`~` 展开、`:memory:` 透传、以及 `baseDir` / `baseUrl` 那个坑。
+
+### 面板
+
+数据源不是宿主 remote 面时，第一屏会出现一条降级提示：现在是演示数据、只读事件流、还是背后没有库，
+以及要启用什么。以前这三种情况长得一模一样——一屏的 0。
 
 ---
 

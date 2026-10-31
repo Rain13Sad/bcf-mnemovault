@@ -119,14 +119,42 @@ if (outcome !== 'allowed-once') { /* 拒绝或取消，什么都不写 */ }
 
 ### 2.1 模块形状
 
+**`lib/client.js` 不是 ESM。** 这是 v0.5.3 才核实清楚的一条（此前文档写的"ESM 形态"是错的）：
+宿主（`@deepseek-ai/dsh-client-modules`）把 `exports["./client"]` 指向的**单个文件**原样伺服到
+`/plugins/<id>/client.js`，浏览器里由内核 `import()` 它，而该文件必须自己登记进模块表：
+
 ```js
-// lib/client.js（宿主打包后的形态，源码等价于下面）
+// lib/client.js —— 真实形态（由 scripts/client-build.mjs 生成，不要手写）
+window.__ModuleLoader__.load({
+  id: '@rain13sad/dsh-mnemo-ui',
+  factory: (require) => {
+    var module = { exports: {} };
+    var exports = module.exports;
+    /* …内部模块注册表；裸模块名走 require('react') / require('react/jsx-runtime')… */
+    Object.assign(module.exports, __load('index.js'));
+    return module.exports;
+  },
+});
+```
+
+`factory` 返回的命名空间就是插件，形状与源码一致：
+
+```js
 export const name = 'mnemo-ui'
 export const inject = ['slots', 'layout']       // client 服务名，不带 @scope
 export function apply(ctx) { /* ... */ }
 ```
 
-`package.json` 里声明它需要哪些 client 包：
+三条推论，缺一条面板就不会出现（v0.5.2 四条全缺，所以它在宿主里从未渲染过）：
+
+1. `exports["./client"].default` 指向的文件**必须存在**（tsc 只产出 `lib/client/index.js`，
+   所以构建里必须有一道折包步骤）。
+2. 文件**不能有相对导入**：宿主只伺服一个文件，`./Panel.js` 会 404。
+3. 文件**必须调用 `window.__ModuleLoader__.load()`**：不调用就只是个被执行完的脚本，
+   不会进模块表，`apply` 永远不会被调用。
+
+`package.json` 里声明它需要哪些 client 包（`dsh.client` 是**浏览器名单**的来源，
+而名单由扫描 Loader 树得到——所以这一行必须真的存在于某个 patch 里）：
 
 ```json
 "dsh": { "client": { "platform": "web", "inject": [

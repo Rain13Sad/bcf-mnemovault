@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/dsh-mnemo-recall",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "读侧：agent/pre-step 四路召回 + 4±1 槽位注入",
   "keywords": [
     "dsh",
@@ -52,8 +52,8 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "@rain13sad/dsh-mnemo-core": "^0.5.2",
-    "@rain13sad/dsh-mnemo-affect": "^0.5.2"
+    "@rain13sad/dsh-mnemo-core": "^0.5.3",
+    "@rain13sad/dsh-mnemo-affect": "^0.5.3"
   },
   "publishConfig": {
     "access": "public"

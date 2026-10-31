@@ -479,6 +479,53 @@ v0.3 有两处"说不清"的地方：**为什么这条该留、那条该走**，
   `snapshot()` 会因 `lastDay` 变化把 `todayCount` 归零，该用例必挂。
 - 新增 `devkit` 的 `encoder` 配置覆盖，供 bench 做切分粒度对照实验。
 
+## [0.5.3] — 2026-10-31
+
+0.5.2 已经发到 npm，CI 全绿，176 条测试通过——而它十个包里有四个**装不进 DSH**。
+这一版修的就是这件事。四个缺陷全部落在"代码是对的"和"宿主接受它"之间的缝隙，
+不在任何业务逻辑里。详见 [`docs/releases/v0.5.3.md`](docs/releases/v0.5.3.md)。
+
+向后兼容：**存储布局不变（MC03）**，旧库不需要 rebuild；配置项不变。
+
+### 修复 · 安装（P0，四个静默失败）
+
+- **`ui` 没有 `dsh.bundle`** → 插件管理器拒绝安装：「这个包没有声明组合包，不能作为插件管理」。
+  现在 `packages/ui/src/index.ts` 是合法的 Cordis 插件（`name` / `inject` / `apply`，host 侧空转），
+  包声明 `dsh.bundle` 并有 `cordis.patch.yml` 插入自己那一行。
+- **`devkit` / `proactive` / `ui` 声明了不存在的 patch 文件** → Loader 读到 ENOENT 就**静默跳过整层**。
+  `proactive` 补上 patch；`devkit` 删掉 `dsh.bundle`（它是库，不是插件）。
+- **`core` 的 patch 用了 `!!js`** → 安装期 YAML 解析器不认自定义标签，整个安装被回滚。
+  patch 改为只写字面量，路径在 `apply()` 里解析。
+- **`~` 从未被展开、`ctx.baseDir` 并不存在**（Loader 上叫 `baseUrl`）→ 库被写进名字叫 `~` / `undefined`
+  的目录。新增 `packages/core/src/paths.ts`：`:memory:` 透传 / `~` 展开 / 绝对路径 / 相对 profile 目录。
+- **client 入口从未生成**：`exports["./client"]` 指向 `lib/client.js`，而 tsc 只产出 `lib/client/index.js`；
+  且宿主只伺服单个文件、格式必须是 `window.__ModuleLoader__.load({...})`。
+  新增 `scripts/client-build.mjs`（无打包器依赖），在 `npm run build` 里把 17 个模块折成 `lib/client.js`。
+  **面板此前在 DSH 里一次都没被渲染过**，这是这一版最实质的修复。
+
+### 新增 · 门禁
+
+- `scripts/check-manifests.mjs`（`npm run check:manifests`）：版本/兄弟依赖、patch 存在且在 `files` 里、
+  `dsh.bundle` 的包必须真的导出 `apply`、patch 无 `!!js` 与 tab、insert 行的包名必须是本包或依赖、
+  行 id 全局唯一。已接进 `verify` 与两条 CI job。
+- `test/client-bundle.test.mjs`（3 条）：用只提供 `window.__ModuleLoader__` + `require` 的假内核执行真产物，
+  断言 `apply` 注册 `main` / `sidebar.panellist` 两槽且 disposer 交给 `ctx.effect`。
+- `test/paths.test.mjs`（5 条）：`~` 展开、`:memory:` 透传、`baseDir`/`baseUrl` 那个坑。
+
+### 优化 · 用户体验
+
+- 面板新增降级提示条：数据源不是宿主 remote 面时，第一屏区分「演示数据 / 只读事件流 / 未连接记忆库」
+  并给出下一步。此前这三种情况长得一样：一屏的 0。
+- README 安装段重写为 `dsh plugin add`（一条命令九个组合包）+ 「每个包插入哪一行」对照表 +
+  `--dump-config | grep mnemo` 的自检办法。
+- 修 `registrant: '@rain13sad/dsh-mnemmo-ui'` 拼写（三处 m）。
+- `dsh-mnemo-ui` 的 host 半不再 `export { MnemoPanel }`——不把 react 与整个面板拖进 node 进程。
+
+### 变更
+
+- 测试 176 → **184**；源文件 59 → **60**（新增 `core/src/paths.ts`）。
+- `dsh-mnemo-ui` 新增运行时依赖 `@rain13sad/dsh-mnemo-tools`：只装面板会顺带拉进 `tools → core + affect`。
+
 ## [Unreleased]
 
 ### 新增

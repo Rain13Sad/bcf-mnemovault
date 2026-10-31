@@ -86,7 +86,7 @@ export function apply(ctx: ClientContext, config: Config = defaultConfig): void 
   // 面板本体：`main` 是 keyed/root 槽，key 即 MainPanelId。
   ctx.effect(() => {
     const dispose = ctx.slots.register(
-      { name: 'main', key: PANEL_ID, registrant: '@rain13sad/dsh-mnemmo-ui' },
+      { name: 'main', key: PANEL_ID, registrant: '@rain13sad/dsh-mnemo-ui' },
       () =>
         h(MnemoPanel, {
           source,

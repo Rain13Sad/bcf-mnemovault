@@ -44,6 +44,13 @@ jobs:
       - name: 编译 10 个包
         run: npm run build
 
+      # v0.5.3：组合包契约。这一层检查的是"清单与磁盘是否一致"，
+      # 因为 v0.5.2 有四个包在 build + 176 个单测全绿的情况下**根本装不上**
+      # （ui 没有 dsh.bundle、devkit/proactive/ui 声明的 patch 文件不存在、
+      #  core 的 patch 用了安装期解析不了的 !!js）。这些只有真的装一次才暴露。
+      - name: 组合包契约（bundle / patch / client / 行归属）
+        run: npm run check:manifests
+
       - name: 类型检查（含测试用到的 .d.ts 形状）
         run: npm run typecheck
 
@@ -110,6 +117,9 @@ jobs:
       #   ② check-readme 在 lib 缺席时退回静态计数（见脚本注释）。
       - name: 编译 10 个包
         run: npm run build
+
+      - name: 组合包契约
+        run: npm run check:manifests
 
       - name: README 数字校验
         run: npm run check:readme

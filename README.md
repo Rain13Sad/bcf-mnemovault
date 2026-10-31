@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.2 -->
+<!-- DOC-VERSION: 0.5.3 -->
 
 # MnemoVault
 
@@ -16,7 +16,7 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-184-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -32,8 +32,8 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.5.2** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 10 packages · 59 source files / ~18,700 lines of TS (`.ts` + `.tsx`, UI included) · 176 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
+| **Status** | **v0.5.3** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 10 packages · 60 source files / ~18,900 lines of TS (`.ts` + `.tsx`, UI included) · 184 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 | **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (28 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -41,7 +41,7 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 
 ## Table of contents
 
-- [About](#about) · [What's new in 0.5.2](#whats-new-in-052) · [How deletion actually works](#how-deletion-actually-works)
+- [About](#about) · [What's new in 0.5.3](#whats-new-in-053) · [How deletion actually works](#how-deletion-actually-works)
 - [Why this exists](#why-this-exists) · [What it is not](#what-it-is-not) · [Data flow](#data-flow)
 - [Quick start](#quick-start) · [Five minutes to first call](#five-minutes-to-first-call) · [Benchmarks](#benchmarks)
 - [Packages](#packages) · [Panel](#panel) · [How it compares](#how-it-compares)
@@ -72,7 +72,66 @@ byte-for-byte** from a snapshot, and the same query on the same library always r
 Because the residual is kept, "summarise it and drop the original" never happens. Because deletion is
 scored and explained, the library can shrink without silently losing that something happened. And the
 cost stays flat: recall p50 **~4 ms** at 822 cells, p95 **25–32 ms** at 10k cells, no third-party
-runtime dependency outside `@deepseek-ai/*`, 10 packages, 176 tests, Node built-ins only.
+runtime dependency outside `@deepseek-ai/*`, 10 packages, 184 tests, Node built-ins only.
+
+---
+
+## What's new in 0.5.3
+
+**0.5.3 is the release where it can be installed.** 0.5.2 was published, green in CI, 176 tests passing —
+and four of its ten packages could not be installed into DSH at all. Every one of those defects lived in
+the gap between "the code is right" and "the host accepts it", which is exactly the gap no unit test
+was watching.
+
+The first symptom is the one in the issue tracker:
+
+> 这个包没有声明组合包，不能作为插件管理
+> *(this package declares no bundle, so it cannot be managed as a plugin)*
+
+| What was wrong | Why it was invisible | Fix |
+| :--- | :--- | :--- |
+| `ui` declared `dsh.client` but **no `dsh.bundle`** | Its `lib/index.js` exported constants, not a Cordis plugin, so nobody thought of it as a bundle | Real no-op host half (`apply` + `inject`) + `dsh.bundle` + a patch that inserts its own row |
+| `devkit`, `proactive`, `ui` declared `dsh.bundle.patch` pointing at **files that did not exist** | `files[]` lists them, so publishing was clean; the loader only discovers the ENOENT at load time and **skips the whole layer** | `proactive` got its patch; `devkit` stopped pretending to be a plugin (it is a library) |
+| `core`'s patch used `!!js` template expressions | Bundle patches are parsed by a **tag-less YAML parser** during install → `YAMLException` → the whole install is rolled back | Paths are resolved in `apply()` instead; patches carry literals only |
+| `dbPath: ~/.dsh/mnemo/vault.db` and `!!js ${ctx.baseDir}` | `~` was **never expanded**, and `ctx.baseDir` does not exist on the Loader (it is `baseUrl`) — so the vault landed in a directory literally named `~` or `undefined` | `packages/core/src/paths.ts`: expand `~`, resolve relative paths against the profile dir |
+| `exports["./client"]` pointed at `lib/client.js`, which **was never generated** — and the host only serves one file, in `window.__ModuleLoader__.load({...})` form | The preview, the SSR test and the bundle test all import `lib/client/Panel.js` directly, so they exercised a different path than the host | `scripts/client-build.mjs` folds the tsc output into a real module-loader bundle (no bundler dependency — see below) |
+
+That last row is the one worth dwelling on: **the panel had never been rendered inside DSH.** It worked in
+`npm run panel` because that pipeline copies the compiled ESM modules and serves them over HTTP with a
+React shim; the host instead serves a single `client.js` that must call `__ModuleLoader__.load()` and take
+React from a `require`-shaped module table. Two different contracts, one of them never tested.
+
+### Install path, end to end
+
+```bash
+# one command, nine bundles — every package becomes a direct dependency, so the
+# profile's reconciliation enables all of them
+dsh plugin add \
+  @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-encoder \
+  @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive \
+  @rain13sad/dsh-mnemo-tools @rain13sad/dsh-mnemo-settings @rain13sad/dsh-mnemo-ui
+```
+
+or pick one from the plugin manager — each package is independently installable and removable.
+`dsh plugin add @rain13sad/dsh-mnemo-ui` alone also pulls `tools → core + affect`, because a panel with
+no vault behind it is not a feature.
+
+### New gates (so this cannot happen twice)
+
+- **`npm run check:manifests`** — bundle/patch/client/row-ownership consistency: declared patch files must
+  exist and be published, `dsh.bundle` packages must actually export `apply`, patches must not contain
+  `!!js` or tabs, every inserted row must belong to the package or one of its dependencies, and no two
+  packages may insert the same row id. Runs in `verify` and in both CI jobs.
+- **`test/client-bundle.test.mjs`** — executes the real `lib/client.js` under a fake kernel that offers
+  only `window.__ModuleLoader__` and `require`, then asserts `apply` registers the main panel and the
+  sidebar entry.
+- **`test/paths.test.mjs`** — `~` expansion, `:memory:` passthrough, and the `baseDir`/`baseUrl` trap.
+
+### Panel
+
+A degraded-state banner now appears whenever the data source is not the host's remote face: it says
+whether you are looking at demo fixtures, a read-only event stream, or a panel with no vault behind it —
+and what to enable. Previously all three looked identical: a screen full of zeros.
 
 ---
 
@@ -256,7 +315,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 176 tests
+npm test             # 184 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)
@@ -265,18 +324,47 @@ npm run verify       # all of the above in one shot (this is what CI runs)
 
 ### Installing into DSH
 
-Published on npm as `@rain13sad/*` (public). Install the slice you want — the packages are independent,
-so memory without affect is `core + encoder + recall + tools`:
+Published on npm as `@rain13sad/*` (public). **Every package is a self-contained DSH bundle**: it carries
+a `cordis.patch.yml`, so `dsh plugin add` both installs it and turns it on. Do not hand-edit the profile.
+
+Full stack — one command:
 
 ```bash
-npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # optional layers
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                    # panel + settings
+dsh plugin add \
+  @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-encoder \
+  @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive \
+  @rain13sad/dsh-mnemo-tools @rain13sad/dsh-mnemo-settings @rain13sad/dsh-mnemo-ui
 ```
 
-Then insert the plugins into your DSH profile using each package's `cordis.patch.yml`
-(plugin id, package name, default config). The actual shape of the host-side seams — and where it
-differs from the design doc — is recorded in [`docs/API-CONTRACT.md`](docs/API-CONTRACT.md).
+Or pick a slice — memory without affect is `core + encoder + recall + tools`:
+
+```bash
+dsh plugin add @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder \
+               @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
+dsh plugin add @rain13sad/dsh-mnemo-ui       # panel; also pulls tools → core + affect
+```
+
+Then restart DSH. `dsh --profile <name> --dump-config | grep mnemo` shows the composed rows — that is the
+quickest way to confirm a bundle is actually mounted instead of silently skipped.
+
+**What each package inserts**
+
+| Package | Row id | What it adds |
+| :--- | :--- | :--- |
+| `dsh-mnemo-core` | `mnemo-core` | the lattice service (`ctx.memory`), vault, four-channel recall |
+| `dsh-mnemo-affect` | `mnemo-affect` | interoception → appraisal → PAD → mood → relationship model |
+| `dsh-mnemo-encoder` | `mnemo-encoder` | write side: turn/end → 0..N `MemCell` |
+| `dsh-mnemo-recall` | `mnemo-recall` | read side: `agent/pre-step` gating + injection |
+| `dsh-mnemo-consolidator` | `mnemo-consolidator` | offline NREM/REM pass, decay, pruning |
+| `dsh-mnemo-proactive` | `mnemo-proactive` | decides *whether* to speak first (and mostly decides not to) |
+| `dsh-mnemo-tools` | `mnemo-tools` | 6 tools + `/mnemo` commands + egress guard + the panel's data bridge |
+| `dsh-mnemo-settings` | `mnemo-settings` | presets, effect matrix, config snapshot |
+| `dsh-mnemo-ui` | `mnemo-ui` | sidebar panel (client half lives in `lib/client.js`) |
+| `dsh-mnemo-devkit` | — | **not a bundle**: a host-free harness (`createHarness`) for tests and demos |
+
+The actual shape of the host-side seams — and where it differs from the design doc — is recorded in
+[`docs/API-CONTRACT.md`](docs/API-CONTRACT.md). If an install is rejected, `npm run check:manifests`
+in the checkout tells you which contract the package violates.
 
 <details>
 <summary>Working from source instead</summary>

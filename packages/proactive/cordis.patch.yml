@@ -1,0 +1,17 @@
+# 主动开口：静默时段 / 最小间隔 / 每日上限 / 边界 / 情绪未平复
+#
+# v0.5.2 及以前这个包声明了 `dsh.bundle.patch` 却没有这个文件，
+# 结果是 DSH 装它的时候报 ENOENT 并**静默跳过整层**——插件看起来装上了，
+# 实际一条都没加载。`scripts/check-manifests.mjs` 现在会拦住这种"声明了但不存在"。
+- insert:
+    - id: mnemo-proactive
+      name: '@rain13sad/dsh-mnemo-proactive'
+      config:
+        enabled: true
+        minIntervalMin: 45
+        maxPerDay: 3
+        quietStart: 23
+        quietEnd: 8
+        idleMin: 90
+        requireReason: true
+        minUrgency: 0.3

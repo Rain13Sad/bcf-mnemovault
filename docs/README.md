@@ -16,7 +16,7 @@
 | **发布 / 建仓 / 打 tag** | [`PUBLISH.md`](PUBLISH.md) | 5 分钟 |
 | **看这版改了什么** | [`../CHANGELOG.md`](../CHANGELOG.md) | 5 分钟 |
 | **看某一版的范围与取舍** | [`design/V0.5.2-PLAN.md`](design/V0.5.2-PLAN.md)（当前）、[`design/V0.5-PLAN.md`](design/V0.5-PLAN.md)、[`design/V0.4-PLAN.md`](design/V0.4-PLAN.md) | 各 20 分钟 |
-| **看某一版的发布说明** | [`releases/`](releases/) — `v0.5.2.md` / `v0.5.1.md` / … | 各 10 分钟 |
+| **看某一版的发布说明** | [`releases/`](releases/) — `v0.5.3.md` / `v0.5.2.md` / `v0.5.1.md` / … | 各 10 分钟 |
 
 ## 语言
 

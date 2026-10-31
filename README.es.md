@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.2 -->
+<!-- DOC-VERSION: 0.5.3 -->
 
 # MnemoVault
 
@@ -17,7 +17,7 @@ repetir la transcripción.
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#inicio-rápido)
-[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-184-brightgreen.svg)](test/)
 
 [English](README.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [한국어](README.ko.md) · **Español**
 
@@ -29,8 +29,8 @@ repetir la transcripción.
 
 | | |
 | :--- | :--- |
-| **Estado** | **v0.5.2** · Developer Preview (base DSH `0.2.1-rc.3`) |
-| **Tamaño** | 10 paquetes · 59 archivos fuente / ~18.700 líneas (`.ts` + `.tsx`) · 176 pruebas |
+| **Estado** | **v0.5.3** · Developer Preview (base DSH `0.2.1-rc.3`) |
+| **Tamaño** | 10 paquetes · 60 archivos fuente / ~18.700 líneas (`.ts` + `.tsx`) · 184 pruebas |
 | **Dependencias** | En ejecución **no depende de ningún paquete de terceros fuera de `@deepseek-ai/*`** (el único externo es `schemastery` para los esquemas de configuración; el resto es Node integrado: `node:sqlite` / `node:zlib`) |
 | **Requisitos** | Node ≥ 22.13 · npm ≥ 10. Ejecutar las pruebas no requiere un host DSH |
 
@@ -58,7 +58,7 @@ pueden limitar el tier → cinco tiers, un escalón por pasada. **La recuperaci�
 byte a byte** desde una instantánea. Como el residuo se conserva, «resumir y tirar el original» no
 ocurre. Como el borrado se puntúa y se explica, la biblioteca puede encogerse sin perder en silencio que
 algo ocurrió. Y el coste no crece: p50 **~4 ms** con 822 celdas, p95 **25–32 ms** con 10k celdas, cero
-dependencias de terceros fuera de `@deepseek-ai/*`, 10 paquetes, 176 pruebas, solo módulos de Node.
+dependencias de terceros fuera de `@deepseek-ai/*`, 10 paquetes, 184 pruebas, solo módulos de Node.
 
 ## Qué resuelve
 
@@ -88,6 +88,7 @@ Este proyecto toma otro camino.
   envejecían y un paso por pasada contra un suelo P3); v0.5 los separó.
 - **La compuerta ya no reescribe la puntuación**: la calculan los siete factores; la compuerta solo impide
   llegar a lápida.
+- **v0.5.3 — se puede instalar.** La 0.5.2 pasaba CI y sus 176 tests, y aun así cuatro de sus diez paquetes no se podían instalar en DSH: `ui` no declaraba `dsh.bundle` («este paquete no declara un bundle, no se puede gestionar como plugin»), `devkit`/`proactive` declaraban patches que no existían, el patch de `core` usaba `!!js` (el parser de instalación lo rechaza y revierte todo) y `client.js` nunca se generaba — el panel jamás llegó a renderizarse dentro del host. Se añaden `npm run check:manifests` y dos tests para que no vuelva a pasar.
 - **v0.5.2 — aguanta a escala real.** El cuello de botella no era "las escrituras son O(n)" sino
   **"cada recuperación decodificaba todos los blobs de la biblioteca para hacer 128 multiplicaciones"**.
   Con 822 celdas, un turno pasa de 25,4 ms a **3,1 ms** (la tendencia deja de crecer); con 10.000 celdas,
@@ -104,7 +105,7 @@ Este proyecto toma otro camino.
 ```bash
 npm ci               # solo devDependencies (typescript / react / tipos)
 npm run build        # compila los 10 paquetes en orden de dependencia (tsc, sin bundler)
-npm test             # 160 pruebas
+npm test             # 184 pruebas
 npm run demo         # diálogo chino de 26 turnos: inyección / consolidación / estadísticas / egress guard
 npm run bench:eval   # Recall@8 / MRR / deduplicación / razonamiento temporal / coste en tokens
 npm run panel        # vista previa del panel → http://127.0.0.1:5178/

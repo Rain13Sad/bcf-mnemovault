@@ -1,10 +1,16 @@
 # 晶格服务：存储、索引、四路召回、MRS 渲染
+#
+# ⚠ 这里**不能出现 `!!js`**。DSH 在安装期用不带自定义标签的 YAML 解析器校验
+# 组合包（`dsh plugin add` / 插件管理器），遇到 `!!js` 会直接抛
+# `cannot resolve a node with !<tag:yaml.org,2002:js> explicit tag` 并回滚整个安装。
+# 依赖宿主上下文的默认值一律交给插件在 apply() 里解析（见 core/src/paths.ts）。
+#
+# 因此 dbPath / residualDir 都不写：用 schema 默认值 `~/.dsh/mnemo/...`，
+# 由 core 展开 `~`。要改库位置，改这里或设置面板，别写表达式。
 - insert:
     - id: mnemo-core
       name: '@rain13sad/dsh-mnemo-core'
       config:
-        dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
-        residualDir: !!js `${ctx.baseDir}/mnemo/blob`
         sdrDim: 2048
         sdrK: 8
         embDim: 256

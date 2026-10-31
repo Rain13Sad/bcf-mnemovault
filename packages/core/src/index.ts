@@ -10,6 +10,7 @@ import z from '@deepseek-ai/schemastery'
 import { applyPreset, PRESETS, EFFECT_MATRIX, estimateTokensPerTurn } from './preset.js'
 import { MemoryService } from './service.js'
 import { RuntimeStatus } from './runtime.js'
+import { baseUrlOf, resolveVaultPath } from './paths.js'
 import type { MnemoConfig } from './types.js'
 
 export const name = 'mnemo-core'
@@ -146,7 +147,17 @@ export function defaultConfig(overrides: Partial<MnemoConfig> = {}): MnemoConfig
 export type ConfigShape = MnemoConfig
 
 export function apply(ctx: Context, raw: MnemoConfig) {
-  const config = applyPreset(raw)
+  /**
+   * v0.5.3：路径在**这里**解析，不在 patch 里。
+   * schema 默认值 `~/.dsh/mnemo/...` 以前从没被展开过（会真的在当前目录建一个
+   * 名字叫 `~` 的文件夹），而 `!!js ${ctx.baseDir}` 既解析不了又指向一个不存在的属性。
+   * 见 `paths.ts` 顶部注释。
+   */
+  const baseUrl = baseUrlOf(ctx)
+  const resolved = applyPreset(raw)
+  resolved.dbPath = resolveVaultPath(resolved.dbPath, baseUrl)
+  resolved.residualDir = resolveVaultPath(resolved.residualDir, baseUrl)
+  const config = resolved
   const runtime = new RuntimeStatus()
   // 登记处本身也是一个服务：encoder（L1 状态）与 tools（命令面/remote/工具清单）
   // 都往这里写，面板与 doctor 从 memory.panelSnapshot() 读同一份。
@@ -201,6 +212,7 @@ export function apply(ctx: Context, raw: MnemoConfig) {
 }
 
 export { MemoryService, cellIdFor, slotValue, pq32, deriveLens, buildTags, buildCategories } from './service.js'
+export { expandHome, resolveVaultPath, baseUrlOf } from './paths.js'
 export { RuntimeStatus, type L1Status, type CommandFace, type L1Mode } from './runtime.js'
 export { applyPreset, PRESETS, EFFECT_MATRIX, REBUILD_KEYS, estimateTokensPerTurn, timingOf, type EffectRow, type EffectTiming, type PresetName } from './preset.js'
 export * from './types.js'

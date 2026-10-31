@@ -1,0 +1,12 @@
+# 侧栏面板（client 侧插件）
+#
+# 这一行本身在 host 侧是空转的（见 src/index.ts）。它的作用是让 Loader 树里
+# **存在**一个带 `dsh.client` 的行——client 名单由扫描这棵树得到，
+# 没有行，浏览器就永远不会请求 `lib/client.js`，面板也就不会出现。
+#
+# 面板的数据面是可选依赖：`ctx.get('mnemoRemote')` 由 tools 包的桥提供。
+# 没装 tools 时面板仍然打开，只是退化成"只读事件源 + 演示数据"，
+# 并且会在标题栏明说，而不是白屏。
+- insert:
+    - id: mnemo-ui
+      name: '@rain13sad/dsh-mnemo-ui'

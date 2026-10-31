@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.2 -->
+<!-- DOC-VERSION: 0.5.3 -->
 
 # MnemoVault
 
@@ -16,7 +16,7 @@
 [![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#クイックスタート)
-[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-184-brightgreen.svg)](test/)
 
 [English](README.md) · [简体中文](README.zh-CN.md) · **日本語** · [한국어](README.ko.md) · [Español](README.es.md)
 
@@ -28,8 +28,8 @@
 
 | | |
 | :--- | :--- |
-| **状態** | **v0.5.2** · Developer Preview（基線 DSH `0.2.1-rc.3`） |
-| **規模** | 10 パッケージ · 59 ソースファイル / 約 18,700 行（`.ts` + `.tsx`）· 176 テスト |
+| **状態** | **v0.5.3** · Developer Preview（基線 DSH `0.2.1-rc.3`） |
+| **規模** | 10 パッケージ · 60 ソースファイル / 約 18,900 行（`.ts` + `.tsx`）· 184 テスト |
 | **依存** | 実行時に **`@deepseek-ai/*` 以外の第三者パッケージに依存しません**（唯一の外部は設定スキーマ用の `schemastery`、残りは Node 組み込みの `node:sqlite` / `node:zlib`） |
 | **要件** | Node ≥ 22.13 · npm ≥ 10。テストの実行に DSH ホストは不要 |
 
@@ -55,7 +55,7 @@
 再生できます。残差を残すので「要約して原文を捨てる」ことは起きません。削除は採点と説明を伴うので、
 ライブラリは縮んでも「起きたこと」を黙って失いません。コストも規模で膨らみません：822 セルで
 p50 **約 4 ms**、10k セルで p95 **25–32 ms**、実行時の第三者依存は `@deepseek-ai/*` 以外ゼロ、
-10 パッケージ、176 テスト、Node 組み込みのみ。
+10 パッケージ、184 テスト、Node 組み込みのみ。
 
 ## 何を解決するか
 
@@ -82,6 +82,7 @@ p50 **約 4 ms**、10k セルで p95 **25–32 ms**、実行時の第三者依�
   原因は 3 つ（常に真になるゲート、時間で減衰しない静的因子、1 段階降格 × P3 フロア）で、v0.5 で解消しました。
 - **ゲートはスコアを書き換えない**：スコアは 7 因子が決め、ゲートは「墓碑へ行かせない」だけを担当します。
 - **tier 4 = 墓碑**：残差とベクトルを解放し、検索から外れ、パネルから復活できます（原文は戻りません）。
+- **v0.5.3**：「インストールできる」ようにしました。0.5.2 は CI も全テストも緑のまま、10 個のうち 4 個が DSH に入らない状態でした——`ui` に `dsh.bundle` が無い（「このパッケージはバンドルを宣言していないため、プラグインとして管理できません」）、`devkit`/`proactive` が存在しない patch を宣言、`core` の patch にインストール時に解釈できない `!!js`、そして `client.js` が生成すらされていなかった（＝パネルはホスト内で一度も描画されていません）。再発防止に `npm run check:manifests` と 2 本のテストを追加しました。
 - **v0.5.1**：i8 の符号欠落（負の感情値が正に化ける）、周年ボーナスによる階層の揺り戻し、
   墓碑が検索できない「死んだスイッチ」を修正しました。
 - **v0.5.2**：実規模で成立させました。ボトルネックは「書き込みが O(n)」ではなく
@@ -95,7 +96,7 @@ p50 **約 4 ms**、10k セルで p95 **25–32 ms**、実行時の第三者依�
 ```bash
 npm ci               # devDependencies のみ（typescript / react / 型定義）
 npm run build        # 10 パッケージを依存順に tsc でビルド（バンドラなし）
-npm test             # 176 テスト
+npm test             # 184 テスト
 npm run demo         # 26 ターンの中国語対話：注入 / 統合 / 統計 / egress ガード
 npm run bench:eval   # Recall@8 / MRR / 重複排除 / 時間推論 / token コスト
 npm run panel        # パネルのプレビュー → http://127.0.0.1:5178/

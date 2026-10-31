@@ -229,6 +229,23 @@ export const CSS = `
 .mnv-explain b { color: var(--mnv-accent); font-weight: 600; }
 .mnv-note { font-size: 11px; color: var(--mnv-fg-faint); line-height: 1.75; }
 .mnv-error { color: var(--mnv-danger); font-size: 12px; padding: 10px 2px; }
+/* 降级提示条（v0.5.3）：只在数据源不是 remote 时出现，第一屏就说清楚"现在跑的是哪条链路" */
+.mnv-notice {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px;
+  margin: 0 0 10px; padding: 8px 10px; border-radius: var(--mnv-radius-sm);
+  font-size: 11.5px; line-height: 1.7; color: var(--mnv-fg-soft);
+  background: var(--mnv-bg-soft); border: 1px solid var(--mnv-border);
+}
+.mnv-notice > b { font-weight: 600; }
+.mnv-notice code {
+  font-family: var(--mnv-mono); font-size: 11px; padding: 0 3px;
+  border-radius: 3px; background: var(--mnv-bg-sunken); color: var(--mnv-fg);
+}
+.mnv-notice[data-tone="warn"] {
+  color: var(--mnv-warn); border-color: color-mix(in srgb, var(--mnv-warn) 34%, var(--mnv-border));
+  background: color-mix(in srgb, var(--mnv-warn) 7%, transparent);
+}
+.mnv-notice[data-tone="muted"] { color: var(--mnv-fg-faint); }
 .mnv-scroll-sentinel { height: 1px; }
 
 /* ── 图谱 / 情感 ──────────────────────────────────────────────── */

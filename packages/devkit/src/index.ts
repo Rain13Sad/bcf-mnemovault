@@ -7,6 +7,10 @@
  * 只把 `sessions` / `tools` 换成最小桩，其余走真实代码路径。
  *
  * 因此 demo、集成测试、面板预览拿到的是**同一份行为**，不是两套模拟。
+ *
+ * ⚠ **这个包不是 DSH 组合包**（v0.5.3）。它导出的是 `createHarness`，不是 Cordis 插件，
+ * 所以 package.json 里**不能**有 `dsh.bundle`——v0.5.2 有，而它指向的 patch 文件又不存在，
+ * 结果是"装上去会把一个没有 apply 的模块当插件加载"。需要装到宿主里的东西在另外九个包里。
  */
 
 import { Context } from '@deepseek-ai/cordis'
