@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 540" width="1280" height="640" role="img" aria-label="MnemoVault — long-term memory and affect for DeepSeek Harness">
   <title>MnemoVault — long-term memory &amp; affect for DeepSeek Harness</title>
-  <desc>2048-bit sparse codes, 4-channel recall, ~116 tokens per turn. Recall@8 0.941, 176 tests passing, zero third-party runtime dependencies, 10 TypeScript packages.</desc>
+  <desc>2048-bit sparse codes, 4-channel recall, ~116 tokens per turn. Recall@8 0.941, 176 tests passing, recall p95 25 ms at 10k cells, 10 TypeScript packages.</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0.55" y2="1">
@@ -24,12 +24,12 @@
       <feGaussianBlur stdDeviation="7"/>
     </filter>
     <style>
-      .title { font: 700 72px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; letter-spacing: -1.4px; }
-      .sub   { font: 400 24.8px/1.2 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #b9b6d8; letter-spacing: .2px; }
-      .mono  { font: 400 13.9px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #7d7ea6; letter-spacing: 1.6px; }
-      .k     { font: 600 11.2px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; letter-spacing: 1.5px; }
-      .v     { font: 700 15.3px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; }
-      .url   { font: 400 12.7px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #6f7f9f; letter-spacing: .9px; }
+      .title { font: 700 74px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; letter-spacing: -1.5px; }
+      .sub   { font: 400 25px/1.2 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #b9b6d8; letter-spacing: .2px; }
+      .mono  { font: 400 15px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #7d7ea6; letter-spacing: 1.4px; }
+      .k     { font: 600 12px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; letter-spacing: 1.6px; }
+      .v     { font: 700 19px/1 -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif; fill: #ffffff; }
+      .url   { font: 400 14px/1 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; fill: #6f7f9f; letter-spacing: 1px; }
     </style>
   </defs>
 
@@ -40,68 +40,68 @@
   <!-- 星座图：记忆晶格（节点 = cell，边 = 超边） -->
   <g stroke-linecap="round" fill="none">
     <g stroke="#6d5bd0" stroke-opacity="0.55" stroke-width="1.1">
-      <path d="M700 278 L738 178"/>
-      <path d="M738 178 L828 138"/>
-      <path d="M828 138 L906 196"/>
-      <path d="M906 196 L986 162"/>
-      <path d="M906 196 L944 254"/>
-      <path d="M738 178 L788 256"/>
-      <path d="M788 256 L700 278"/>
-      <path d="M788 256 L944 254"/>
+      <path d="M700 268 L738 168"/>
+      <path d="M738 168 L828 128"/>
+      <path d="M828 128 L906 186"/>
+      <path d="M906 186 L986 152"/>
+      <path d="M906 186 L944 244"/>
+      <path d="M738 168 L788 246"/>
+      <path d="M788 246 L700 268"/>
+      <path d="M788 246 L944 244"/>
     </g>
     <g stroke="#2fbfae" stroke-opacity="0.5" stroke-width="1.1">
-      <path d="M944 254 L900 310"/>
-      <path d="M900 310 L788 256"/>
-      <path d="M900 310 L1030 278"/>
-      <path d="M986 162 L1030 278"/>
-      <path d="M828 138 L870 94"/>
+      <path d="M944 244 L900 300"/>
+      <path d="M900 300 L788 246"/>
+      <path d="M900 300 L1030 268"/>
+      <path d="M986 152 L1030 268"/>
+      <path d="M828 128 L870 84"/>
     </g>
     <g stroke="#3f4fa8" stroke-opacity="0.35" stroke-width="1">
-      <path d="M700 278 L676 206"/>
-      <path d="M676 206 L738 178"/>
+      <path d="M700 268 L676 196"/>
+      <path d="M676 196 L738 168"/>
     </g>
   </g>
 
   <g>
-    <circle cx="700" cy="278" r="9" fill="#7b6bff" filter="url(#soft)" opacity="0.85"/>
-    <circle cx="700" cy="278" r="5.5" fill="#9b8dff"/>
-    <circle cx="738" cy="178" r="5" fill="#8f7dff"/>
-    <circle cx="828" cy="138" r="4" fill="#a99bff"/>
-    <circle cx="906" cy="196" r="5.5" fill="#8f7dff"/>
-    <circle cx="986" cy="162" r="4.5" fill="#b3a6ff"/>
-    <circle cx="944" cy="254" r="8" fill="#3fe0d0" filter="url(#soft)" opacity="0.8"/>
-    <circle cx="944" cy="254" r="5" fill="#66efe0"/>
-    <circle cx="788" cy="256" r="4.5" fill="#a99bff"/>
-    <circle cx="900" cy="310" r="4" fill="#66efe0"/>
-    <circle cx="1030" cy="278" r="3.5" fill="#4fd8c8"/>
-    <circle cx="870" cy="94" r="3" fill="#8f7dff"/>
-    <circle cx="676" cy="206" r="3" fill="#7b6bff"/>
+    <circle cx="700" cy="268" r="9" fill="#7b6bff" filter="url(#soft)" opacity="0.85"/>
+    <circle cx="700" cy="268" r="5.5" fill="#9b8dff"/>
+    <circle cx="738" cy="168" r="5" fill="#8f7dff"/>
+    <circle cx="828" cy="128" r="4" fill="#a99bff"/>
+    <circle cx="906" cy="186" r="5.5" fill="#8f7dff"/>
+    <circle cx="986" cy="152" r="4.5" fill="#b3a6ff"/>
+    <circle cx="944" cy="244" r="8" fill="#3fe0d0" filter="url(#soft)" opacity="0.8"/>
+    <circle cx="944" cy="244" r="5" fill="#66efe0"/>
+    <circle cx="788" cy="246" r="4.5" fill="#a99bff"/>
+    <circle cx="900" cy="300" r="4" fill="#66efe0"/>
+    <circle cx="1030" cy="268" r="3.5" fill="#4fd8c8"/>
+    <circle cx="870" cy="84" r="3" fill="#8f7dff"/>
+    <circle cx="676" cy="196" r="3" fill="#7b6bff"/>
   </g>
 
   <!-- 左侧：标题与主张 -->
-  <text class="title" x="81.5" y="201">MnemoVault</text>
-  <text class="sub" x="84" y="251.5">Long-term memory &amp; affect for DeepSeek Harness</text>
-  <text class="mono" x="84" y="293.5">2048-bit sparse codes · 4-channel recall · ~116 tokens per turn</text>
+  <text class="title" x="84" y="176">MnemoVault</text>
+  <text class="sub" x="86" y="226">Long-term memory &amp; affect for DeepSeek Harness</text>
+  <text class="mono" x="86" y="266">2048-BIT SPARSE CODES · 4-CHANNEL RECALL · ~116 TOKENS PER TURN</text>
 
-  <!-- 四个数据卡：数字全部来自 artifacts/bench.json、test/ 与 packages/*/package.json -->
+  <!-- 四个数据卡：数字全部来自 artifacts/bench.json 与 bench-scale.json -->
   <g>
-    <rect x="84" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="102" y="363" fill="#3fe0d0">RECALL@8</text>
-    <text class="v" x="102" y="381">0.941</text>
+    <rect x="84" y="316" width="196" height="58" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="100" y="339" fill="#3fe0d0">RECALL@8</text>
+    <text class="v" x="100" y="361">0.941</text>
 
-    <rect x="292" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="310" y="363" fill="#7ee787">TESTS</text>
-    <text class="v" x="310" y="381">176 passing</text>
+    <rect x="292" y="316" width="196" height="58" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="308" y="339" fill="#7ee787">TESTS</text>
+    <text class="v" x="308" y="361">176 passing</text>
 
-    <rect x="500" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="518" y="363" fill="#f0c674">3P RUNTIME DEPS</text>
-    <text class="v" x="518" y="381">0</text>
+    <rect x="500" y="316" width="196" height="58" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="516" y="339" fill="#f0c674">RECALL P95 · 10K</text>
+    <text class="v" x="516" y="361">25 ms</text>
 
-    <rect x="708" y="345" width="196" height="46" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
-    <text class="k" x="726" y="363" fill="#9b8dff">PACKAGES</text>
-    <text class="v" x="726" y="381">10 · TypeScript</text>
+    <rect x="708" y="316" width="196" height="58" rx="5" fill="#ffffff" fill-opacity="0.045" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text class="k" x="724" y="339" fill="#9b8dff">PACKAGES</text>
+    <text class="v" x="724" y="361">10 · TypeScript</text>
   </g>
 
-  <rect x="84" y="432" width="46" height="3" rx="1.5" fill="url(#accent)"/>
-  <text class="url" x="84" y="469.5">github.com/Rain13Sad/bcf-mnemovault</text>
+  <rect x="86" y="418" width="46" height="3" rx="1.5" fill="url(#accent)"/>
+  <text class="url" x="86" y="472">github.com/Rain13Sad/bcf-mnemovault</text>
 </svg>
