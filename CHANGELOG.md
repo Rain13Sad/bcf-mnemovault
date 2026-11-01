@@ -17,11 +17,21 @@
 
 0.5.2 让它在真实规模上站得住；0.6.0 让它**离开宿主也活着**。
 
+### 命名：整个包族从 dsh 层迁到 llm 层
+
+包名从 `@rain13sad/dsh-mnemo-*` 改为 `@rain13sad/llm-mnemo-*`，模型适配层是 `@rain13sad/llm-mnemo`
+（不带后缀）。**旧名保留在 npm 上到 0.5.3**，已装的人不会断；新装一律用新名。
+
+这不是改名游戏：0.6.0 之后项目的一等公民是 `EmotionMemoryEngine` + 端口，
+DSH 只是**其中一个宿主**。包名跟着定位走，才不会出现"叫 dsh 但要独立用"的错位。
+
+> 本文 0.6.0 之前的条目里出现的包名，已按新名同步，便于检索；当时的真实包名是旧名。
+
 ### 决策 · 架构（本版的主线）
 
 - **从"DSH 插件"到"LLM 情感记忆引擎"**。拆三层：`core`（同步内核，零第三方依赖，只认端口）
   → `llm`（HTTP → 端口，只认宿主）→ `host`（DSH / MCP / 你的 Agent，只认引擎）。
-- **新包 `@rain13sad/dsh-mnemo-llm`**：6 家 provider 预设（DeepSeek / OpenAI / Anthropic / Google /
+- **新包 `@rain13sad/llm-mnemo`**：6 家 provider 预设（DeepSeek / OpenAI / Anthropic / Google /
   Ollama / OpenAI 兼容）+ 11 个模型画像。**加一家模型 = 加一行数据**，不是加一个分支。
   只用内置 `fetch`，零第三方依赖的承诺仍然成立。
 - **`EmotionMemoryEngine`**：`observe / remember / recall / forget / status`，宿主无关。

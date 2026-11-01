@@ -3,17 +3,18 @@
 # MnemoVault
 
 <div align="center">
-  <img src="docs/assets/banner.svg" alt="MnemoVault — long-term memory and affect for DeepSeek Harness" width="100%">
+  <img src="docs/assets/banner.svg" alt="MnemoVault — an emotion-aware memory engine for LLMs" width="100%">
 </div>
 
 <div align="center">
 
-**Long-term memory and affect for [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh).**
+**An emotion-aware memory engine for LLMs.** Sparse-code memory lattice, four-channel recall,
+affect kernel, 3D star map. Runs standalone, or as a plugin inside [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh).
 Memories are stored as fixed-size cells — sparse codes, int8 vectors, typed hyperedges, compressed
 residuals — not as text. Injection renders **~116 tokens per turn** instead of replaying the transcript.
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
+[![npm](https://img.shields.io/npm/v/@rain13sad/llm-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
 [![Tests](https://img.shields.io/badge/tests-227-brightgreen.svg)](test/)
@@ -270,16 +271,32 @@ npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide
 npm run verify       # all of the above in one shot (this is what CI runs)
 ```
 
-### Installing into DSH
+### Two ways to use it
 
-Published on npm as `@rain13sad/*` (public). Install the slice you want — the packages are independent,
+**① Standalone — any LLM, no host.** Engine plus a model adapter is all you need:
+
+```bash
+npm i @rain13sad/llm-mnemo @rain13sad/llm-mnemo-core
+```
+
+```ts
+import { createEnginePorts } from '@rain13sad/llm-mnemo'
+import { EmotionMemoryEngine } from '@rain13sad/llm-mnemo-core'
+```
+
+**② Inside DeepSeek Harness — as plugins.** Install the slice you want; the packages are independent,
 so memory without affect is `core + encoder + recall + tools`:
 
 ```bash
-npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # optional layers
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                    # panel + settings
+npm i @rain13sad/llm-mnemo-core @rain13sad/llm-mnemo-encoder @rain13sad/llm-mnemo-recall @rain13sad/llm-mnemo-tools
+npm i @rain13sad/llm-mnemo-affect @rain13sad/llm-mnemo-consolidator @rain13sad/llm-mnemo-proactive   # optional layers
+npm i @rain13sad/llm-mnemo-ui @rain13sad/llm-mnemo-settings                                          # panel + settings
+npm i @rain13sad/llm-mnemo                                                                           # model adapters (optional)
 ```
+
+> **Renamed in 0.6.0.** The family moved from `@rain13sad/dsh-mnemo-*` to `@rain13sad/llm-mnemo-*`,
+> and the model adapter is just `@rain13sad/llm-mnemo`. The old names remain on npm up to 0.5.3 —
+> nothing breaks for existing installs, but new installs should use the new names.
 
 Then insert the plugins into your DSH profile using each package's `cordis.patch.yml`
 (plugin id, package name, default config). The actual shape of the host-side seams — and where it
@@ -304,7 +321,7 @@ You do **not** need a DSH host to run it. The harness boots the real Cordis plug
 services, so what you see here is the same code path the host uses.
 
 ```ts
-import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
+import { createHarness } from '@rain13sad/llm-mnemo-devkit'
 
 const h = await createHarness({ sessionId: 'hello' })
 
@@ -334,7 +351,7 @@ and confidence compressed into one line — 91 tokens instead of replaying two t
 
 ```ts
 import { Context } from '@deepseek-ai/cordis'
-import { MemoryService, defaultConfig } from '@rain13sad/dsh-mnemo-core'
+import { MemoryService, defaultConfig } from '@rain13sad/llm-mnemo-core'
 
 const ctx = new Context()
 const mnemo = new MemoryService(ctx, { config: defaultConfig({ dbPath: 'vault.db' }) })
@@ -477,16 +494,17 @@ Tests 109 → 115. `npm run verify` green. `storageRatioRealistic` unchanged at 
 
 | Package | Role | Status | Key exports |
 | :--- | :--- | :--- | :--- |
-| [`…-core`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core) | lattice + storage + recall + retention | **Preview** — API will move | `ctx.memory`, `SdrSpace`, `encodeCell`, `evaluateRetention` |
-| [`…-affect`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-affect) | affect kernel | Preview | `ctx.affect`, `appraise`, `derivePolicy`, `classifyEmotion` |
-| [`…-encoder`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-encoder) | write side | Preview | `Encoder` (subscribes to `session/event`) |
-| [`…-recall`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-recall) | read side | Preview | `agent/pre-step` gating and injection |
-| [`…-consolidator`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-consolidator) | offline consolidation + sleep replay | Preview | `Consolidator` (NREM / REM / replay / forgetting) |
-| [`…-tools`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-tools) | tools + commands | Stable-ish | 6 tools, 26 subcommands, egress guard |
-| [`…-proactive`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-proactive) | speaking up first | Experimental | `ctx.mnemoProactive`, `candidate()`, `tick()` |
-| [`…-settings`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-settings) | settings panel | Experimental | `ctx.mnemoSettings`, effect matrix |
-| [`…-ui`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-ui) | panel (client, React) | Experimental — needs `react` | `main` + `sidebar.panellist` slot registration |
-| [`…-devkit`](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-devkit) | host-free harness | Testing utility | `createHarness()` (real Cordis fiber) |
+| [`…-llm`](https://www.npmjs.com/package/@rain13sad/llm-mnemo) | model adapters + engine | **Preview** — first release | `createEnginePorts`, `HttpEmbeddingProvider`, `LlmExtractor`, `PROVIDERS` |
+| [`…-core`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core) | lattice + storage + recall + retention | **Preview** — API will move | `ctx.memory`, `SdrSpace`, `encodeCell`, `evaluateRetention` |
+| [`…-affect`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-affect) | affect kernel | Preview | `ctx.affect`, `appraise`, `derivePolicy`, `classifyEmotion` |
+| [`…-encoder`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-encoder) | write side | Preview | `Encoder` (subscribes to `session/event`) |
+| [`…-recall`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-recall) | read side | Preview | `agent/pre-step` gating and injection |
+| [`…-consolidator`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-consolidator) | offline consolidation + sleep replay | Preview | `Consolidator` (NREM / REM / replay / forgetting) |
+| [`…-tools`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-tools) | tools + commands | Stable-ish | 6 tools, 26 subcommands, egress guard |
+| [`…-proactive`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-proactive) | speaking up first | Experimental | `ctx.mnemoProactive`, `candidate()`, `tick()` |
+| [`…-settings`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-settings) | settings panel | Experimental | `ctx.mnemoSettings`, effect matrix |
+| [`…-ui`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-ui) | panel (client, React) | Experimental — needs `react` | `main` + `sidebar.panellist` slot registration |
+| [`…-devkit`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-devkit) | host-free harness | Testing utility | `createHarness()` (real Cordis fiber) |
 
 The split is not cosmetic: Cordis `inject` is dependency-driven, so users who want memory without
 affect install `core + encoder + recall + tools` only, and `recall` degrades to a no-affect gating path.

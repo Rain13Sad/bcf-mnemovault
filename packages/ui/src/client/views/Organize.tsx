@@ -8,7 +8,7 @@
  *   · 看遗忘审计（谁在什么时候删了什么、为什么）
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/llm-mnemo-core'
 import { KIND_LABEL, SubHead, fmt2, fmtTime, relTime } from '../ui.js'
 import { Graph } from './Graph.js'
 

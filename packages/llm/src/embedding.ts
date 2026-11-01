@@ -18,7 +18,7 @@
  *    固有成本。把空间写进端口，`engine.status()` 才能拦住混用。
  */
 
-import type { EmbeddingPort } from '@rain13sad/dsh-mnemo-core'
+import type { EmbeddingPort } from '@rain13sad/llm-mnemo-core'
 import { HttpError, postJson, type HttpOptions } from './http.js'
 import { authHeaders, endpointOf, resolveProvider, withQueryKey, type ProviderSpec } from './providers.js'
 

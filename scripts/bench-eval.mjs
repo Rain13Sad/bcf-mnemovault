@@ -15,7 +15,7 @@
  *
  * 所有随机性走固定 seed，同 seed 结果一致（§18.5）。
  */
-import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
+import { createHarness } from '@rain13sad/llm-mnemo-devkit'
 import { writeFileSync, mkdirSync } from 'node:fs'
 
 const args = process.argv.slice(2)

@@ -123,18 +123,19 @@ const PACKAGES = [
   },
 ]
 
-const family = PACKAGES.map((p) => `| \`@rain13sad/dsh-mnemo-${p.dir}\` | ${p.tagline.replace(/\|/g, '\\|')} |`).join('\n')
+const family = PACKAGES.map((p) => `| \`@rain13sad/llm-mnemo-${p.dir}\` | ${p.tagline.replace(/\|/g, '\\|')} |`).join('\n')
 
 const render = (p) => {
-  const name = `@rain13sad/dsh-mnemo-${p.dir}`
+  const name = `@rain13sad/llm-mnemo-${p.dir}`
   const isClient = p.dir === 'ui'
   return `# ${name}
 
 ${p.tagline}
 
-Part of **MnemoVault** — long-term memory and affect for
-[DeepSeek Harness](${REPO}). Sparse-code memory lattice, four-channel recall,
-biphasic consolidation, ~116 tokens injected per turn, zero runtime dependencies.
+Part of **MnemoVault** — an emotion-aware memory engine for LLMs
+([repo](${REPO})). Sparse-code memory lattice, four-channel recall, biphasic consolidation,
+~117 tokens injected per turn, zero runtime dependencies. Runs standalone through
+\`EmotionMemoryEngine\`, or as a plugin inside DeepSeek Harness.
 
 ## Install
 
@@ -142,7 +143,7 @@ biphasic consolidation, ~116 tokens injected per turn, zero runtime dependencies
 npm i ${name}
 \`\`\`
 
-${isClient ? 'Registers itself on the `sidebar.panellist` slot; no manual wiring needed.' : 'Loaded by the harness as a Cordis plugin — declare it in your plugin list and it applies itself.'}
+${isClient ? 'Registers itself on the `sidebar.panellist` slot; no manual wiring needed.' : 'Inside DeepSeek Harness it loads as a Cordis plugin — declare it in your plugin list and it applies itself. Standalone, import it directly.'}
 
 ## What it does
 

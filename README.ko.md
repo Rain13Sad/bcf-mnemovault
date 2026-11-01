@@ -8,12 +8,12 @@
 
 <div align="center">
 
-**DeepSeek Harness를 위한 장기 기억 + 정서 플러그인 모음.**
+**LLM을 위한 정서 인식 기억 엔진.** 단독으로도, DeepSeek Harness 플러그인으로도 동작합니다.
 기억은 텍스트가 아니라 **고정 길이 셀**(희소 코드 + int8 벡터 + 타입이 있는 하이퍼엣지 + 압축 잔차)로 저장되며,
 주입은 대화 기록 재생이 아니라 **턴당 약 116 token**으로 끝납니다.
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
+[![npm](https://img.shields.io/npm/v/@rain13sad/llm-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#빠른-시작)
 [![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
@@ -77,9 +77,9 @@ npm run panel        # 패널 미리보기 → http://127.0.0.1:5178/
 DSH에 설치하는 경우:
 
 ```bash
-npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings
+npm i @rain13sad/llm-mnemo-core @rain13sad/llm-mnemo-encoder @rain13sad/llm-mnemo-recall @rain13sad/llm-mnemo-tools
+npm i @rain13sad/llm-mnemo-affect @rain13sad/llm-mnemo-consolidator @rain13sad/llm-mnemo-proactive
+npm i @rain13sad/llm-mnemo-ui @rain13sad/llm-mnemo-settings
 ```
 
 각 패키지의 `cordis.patch.yml`을 프로파일에 추가하세요.

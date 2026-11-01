@@ -204,7 +204,7 @@ export class EmotionMemoryEngine {
     if (!this.encode) {
       throw new Error(
         '[mnemo-engine] remember() 需要 encoder 回调：new EmotionMemoryEngine({ encode })；' +
-          'DSH 宿主里由 @rain13sad/dsh-mnemo-encoder 提供，独立使用时用 devkit.createHarness()。',
+          'DSH 宿主里由 @rain13sad/llm-mnemo-encoder 提供，独立使用时用 devkit.createHarness()。',
       )
     }
     const cells = this.encode(text, meta)

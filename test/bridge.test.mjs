@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
+import { createHarness } from '@rain13sad/llm-mnemo-devkit'
 import { Context } from '@deepseek-ai/cordis'
 import { fromHostLlm, normalizeLlmOutput, parseLlmPropositions, probeLlmPort, segmentWithPort } from '../packages/encoder/lib/l1.js'
 import { attachCommandFace } from '../packages/tools/lib/bridge.js'

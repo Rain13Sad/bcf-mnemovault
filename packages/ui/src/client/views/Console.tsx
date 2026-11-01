@@ -20,7 +20,7 @@
  */
 
 import { createElement as h, useMemo, useState, type ReactNode } from 'react'
-import type { PanelAction, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelSnapshot } from '@rain13sad/llm-mnemo-core'
 
 export interface ConsoleProps {
   snapshot: PanelSnapshot

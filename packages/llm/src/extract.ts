@@ -14,7 +14,7 @@
  *    降级率 > 5% 时明确告警——**不做静默退化**是本项目从 v0.5 起的规矩。
  */
 
-import { EXTRACTION_SYSTEM_PROMPT, sanitizeFacts, type ExtractedFact, type ExtractorPort } from '@rain13sad/dsh-mnemo-core'
+import { EXTRACTION_SYSTEM_PROMPT, sanitizeFacts, type ExtractedFact, type ExtractorPort } from '@rain13sad/llm-mnemo-core'
 import { HttpError, postJson, type HttpOptions } from './http.js'
 import { authHeaders, endpointOf, resolveProvider, withQueryKey, type ProviderSpec } from './providers.js'
 

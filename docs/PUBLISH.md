@@ -62,7 +62,7 @@ v0.3.0 正是漏了这一步：10 个包升到 0.3.0，8 个 package.json 的兄
 
 ## 4. 发布到 npm
 
-包名是 `@rain13sad/dsh-mnemo-*`（npm 账号 rain13sad 自带这个 scope，不用建组织）。
+包名是 `@rain13sad/llm-mnemo-*`（npm 账号 rain13sad 自带这个 scope，不用建组织）。
 `@bcf` 这个 scope 已经被另一个同名用户占用，所以没有用它。
 
 发布前有几个坑，都已经在仓库里处理掉了，记下来免得下次踩：
@@ -83,7 +83,7 @@ cd "DSH project"
 
 node scripts/ci-check-publish.mjs     # 门禁：版本 / 兄弟依赖 / lockfile / 平台中立
 npm run build                          # 必须：lib/ 是 gitignore 的产物
-node scripts/publish-all.mjs --dry-run # 预演 10 个包（不需要登录）
+node scripts/publish-all.mjs --dry-run # 预演 11 个包（不需要登录）
 
 npm whoami                             # 应输出 rain13sad；E401 就先 npm login
 node scripts/publish-all.mjs           # 按依赖顺序发，逐包提示 2FA 验证码
@@ -121,8 +121,8 @@ node scripts/publish-all.mjs --otp=123456 # 非交互：一次码发完全部（
 ### 发完核对
 
 ```bash
-npm view @rain13sad/dsh-mnemo-core version        # 应为当前版本
-npm view @rain13sad/dsh-mnemo-core dist-tags      # latest 指向它
+npm view @rain13sad/llm-mnemo-core version        # 应为当前版本
+npm view @rain13sad/llm-mnemo-core dist-tags      # latest 指向它
 npm access list packages                          # 应能看到 10 个包
 ```
 

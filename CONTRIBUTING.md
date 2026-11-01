@@ -19,7 +19,7 @@
 
 ```bash
 npm ci
-npm run build      # 按依赖顺序编译 10 个包（没有 bundler，逐包 tsc）
+npm run build      # 按依赖顺序编译 11 个包（没有 bundler，逐包 tsc）
 npm test           # 93 条
 npm run check      # SDR 性质校验：错了就全盘失效的那一层
 npm run bench:eval # Recall@8 / MRR / 去重 / 时间推理 / token 成本

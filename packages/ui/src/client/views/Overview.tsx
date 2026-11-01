@@ -10,7 +10,7 @@
  * 而不是让人去翻 README 猜。
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/llm-mnemo-core'
 import { KIND_LABEL, Stat, Status, SubHead, fmt2, fmtTime, mmdd, relTime } from '../ui.js'
 
 export interface OverviewProps {

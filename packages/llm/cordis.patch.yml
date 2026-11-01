@@ -7,7 +7,7 @@
 # 这个交换必须由使用者显式做出，不由升级替他决定。
 - insert:
     - id: mnemo-llm
-      name: '@rain13sad/dsh-mnemo-llm'
+      name: '@rain13sad/llm-mnemo'
       config:
         provider: deepseek
         model: deepseek-chat

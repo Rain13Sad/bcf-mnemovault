@@ -15,7 +15,7 @@
  * 指向你自己的推理服务。这条写进了面板的"限制"清单，不做静默降级。
  */
 
-import type { ModelProvider, TokenizerKind } from '@rain13sad/dsh-mnemo-core'
+import type { ModelProvider, TokenizerKind } from '@rain13sad/llm-mnemo-core'
 
 export type AuthStyle = 'bearer' | 'x-api-key' | 'query-key' | 'none'
 

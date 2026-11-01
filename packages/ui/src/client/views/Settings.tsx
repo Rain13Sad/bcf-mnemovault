@@ -7,7 +7,7 @@
  *   2. 危险操作要二次确认，并且写清楚"会发生什么"。重建不是"刷新"。
  */
 import { createElement as h, useState, type ReactNode } from 'react'
-import type { PanelAction, PanelSnapshot, Preset, SurfaceMode } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelSnapshot, Preset, SurfaceMode } from '@rain13sad/llm-mnemo-core'
 import { SubHead, Status, fmt2 } from '../ui.js'
 
 export interface SettingsProps {

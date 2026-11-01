@@ -26,7 +26,7 @@ import {
   type Pad,
   type RelationalSnapshot,
   type Slot,
-} from '@rain13sad/dsh-mnemo-core'
+} from '@rain13sad/llm-mnemo-core'
 
 const REL_KIND = KIND.relational
 const PERSONA_KIND = KIND.persona

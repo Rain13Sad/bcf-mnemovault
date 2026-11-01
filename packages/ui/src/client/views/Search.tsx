@@ -6,7 +6,7 @@
  * 只给一个列表而不给理由，用户没法判断是"没记住"还是"没找到"。
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/llm-mnemo-core'
 import { CHANNEL_LABEL, KIND_LABEL, TIER_LABEL, fmt2, relTime, signed, valenceColor } from '../ui.js'
 
 export interface SearchProps {

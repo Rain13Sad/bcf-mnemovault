@@ -21,7 +21,7 @@
  * 把"没找到"和"有歧义"分开，是这里唯一重要的语义区分。
  */
 
-import { toHex, type MemoryService } from '@rain13sad/dsh-mnemo-core'
+import { toHex, type MemoryService } from '@rain13sad/llm-mnemo-core'
 
 /** 短 id 有歧义。消息里直接给出候选，用户复制一个更长的前缀即可。 */
 export class AmbiguousCellIdError extends Error {

@@ -21,7 +21,7 @@
  *
  * 输出既打印也写进 `artifacts/bench-scale.json`，供 README 与 CI 引用。
  */
-import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
+import { createHarness } from '@rain13sad/llm-mnemo-devkit'
 import { generateCorpus } from './gen-corpus.mjs'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'

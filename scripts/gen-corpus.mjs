@@ -18,7 +18,7 @@
  *
  *   node scripts/gen-corpus.mjs 10000 --db /tmp/corpus.db
  */
-import { SdrSpace, hashEmbedding, deriveCellId, createStore, KIND, REL } from '@rain13sad/dsh-mnemo-core'
+import { SdrSpace, hashEmbedding, deriveCellId, createStore, KIND, REL } from '@rain13sad/llm-mnemo-core'
 import { rmSync, mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 

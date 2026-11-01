@@ -17,7 +17,7 @@
  * 与项目"写入可复现"同一条理由。LLM 只负责上游的 appraisal 提取（可选增强路径）。
  */
 
-import type { Appraisal } from '@rain13sad/dsh-mnemo-core'
+import type { Appraisal } from '@rain13sad/llm-mnemo-core'
 
 const HOUR = 3_600_000
 

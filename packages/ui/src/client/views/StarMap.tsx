@@ -19,7 +19,7 @@
  */
 
 import { createElement as h, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { PanelSnapshot, PanelStarNode } from '@rain13sad/dsh-mnemo-core'
+import type { PanelSnapshot, PanelStarNode } from '@rain13sad/llm-mnemo-core'
 import { KIND_LABEL, fmt2, signed } from '../ui.js'
 
 export interface StarMapProps {

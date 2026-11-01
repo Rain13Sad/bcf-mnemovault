@@ -49,7 +49,7 @@ ctx.on('agent/pre-step', async (payload, next) => {
 
 1. `messages` 是 `UserMessage[]`，**不是** `Record<string, unknown>[]`。注入对象要构造出
    `{ id, role:'user', content:[{type:'text',text}], source }`。
-2. `source` 用 `{ kind: 'plugin', plugin: '@rain13sad/dsh-mnemo-recall', form: 'recall' }`。
+2. `source` 用 `{ kind: 'plugin', plugin: '@rain13sad/llm-mnemo-recall', form: 'recall' }`。
    `form: 'recall'` 是官方语义（"Material lifted out of another session's log"），
    比自定义一个 kind 更贴合，也让 UI 能把注入内容与用户真实发言区分开。
 3. `next()` 返回 `PreStepDecision`（`{kind:'enter',messages}` | `{kind:'reject'}`）。
@@ -144,7 +144,7 @@ export function apply(ctx) { /* ... */ }
 
 ```ts
 ctx.slots.register(
-  { name: 'main', key: 'mnemo', registrant: '@rain13sad/dsh-mnemo-ui' },
+  { name: 'main', key: 'mnemo', registrant: '@rain13sad/llm-mnemo-ui' },
   (props) => h(MnemoPanel, { ... }),
 )
 ```
@@ -230,7 +230,7 @@ remote?.define?.('mnemo', face)            // C
 remote?.contributions?.set?.('mnemo', face) // D
 ```
 
-`PanelSnapshot` / `PanelAction` 的形状在 `@rain13sad/dsh-mnemo-core` 的 `types.ts` 里，
+`PanelSnapshot` / `PanelAction` 的形状在 `@rain13sad/llm-mnemo-core` 的 `types.ts` 里，
 是 host 与 client 唯一共享的契约——两边都只依赖它，不互相 import 实现。
 
 ### 3.1 v0.4 新增的可选字段
@@ -388,7 +388,7 @@ presentResult(args, value)   // → { card:'generic', title, content:[ContentBlo
 这一节与前八节性质不同：前面是"宿主实际提供了什么"，这里是"**我们对上层承诺了什么**"。
 承诺的对象不是 DSH，而是任何想接记忆的 LLM / Agent / 服务。
 
-### 9.1 `EmotionMemoryEngine`（`@rain13sad/dsh-mnemo-core`）
+### 9.1 `EmotionMemoryEngine`（`@rain13sad/llm-mnemo-core`）
 
 | 方法 | 同步? | 契约 |
 | :--- | :--- | :--- |

@@ -7,8 +7,8 @@
  * 守卫必须 fail-closed（不确定就拒绝），不是 fail-open。
  */
 
-import type { MemoryService } from '@rain13sad/dsh-mnemo-core'
-import { FLAG } from '@rain13sad/dsh-mnemo-core'
+import type { MemoryService } from '@rain13sad/llm-mnemo-core'
+import { FLAG } from '@rain13sad/llm-mnemo-core'
 
 /**
  * 允许携带记忆内容的工具（白名单）。

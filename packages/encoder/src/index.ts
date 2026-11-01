@@ -1,5 +1,5 @@
 /**
- * @rain13sad/dsh-mnemo-encoder —— 写侧（§7 / §14.2）
+ * @rain13sad/llm-mnemo-encoder —— 写侧（§7 / §14.2）
  *
  * 编码器是唯一能写晶格的入口（对应内嗅皮层的串行瓶颈）。
  * 五阶段：① 切分 ② 槽位填充 ③ 表征生成 ④ 情感评价 ⑤ 冲突消解与落库。
@@ -43,10 +43,10 @@ import {
   type Slot,
   type Sdr,
   type SdrSpace,
-} from '@rain13sad/dsh-mnemo-core'
+} from '@rain13sad/llm-mnemo-core'
 
 import { fromHostLlm, parseLlmPropositions, probeLlmPort, segmentLite, segmentWithPort, type HostLlmPort, type LlmPort, type Proposition } from './l1.js'
-import type { L1Status, RuntimeStatus } from '@rain13sad/dsh-mnemo-core'
+import type { L1Status, RuntimeStatus } from '@rain13sad/llm-mnemo-core'
 
 export const name = 'mnemo-encoder'
 export const inject = ['memory', 'sessions']
@@ -605,7 +605,7 @@ function textOf(content: unknown): string {
 
 export function apply(ctx: Context, config: Config) {
   const memory = ctx.get('memory') as MemoryService
-  if (!memory) throw new Error('[mnemo-encoder] 需要 ctx.memory（先装 @rain13sad/dsh-mnemo-core）')
+  if (!memory) throw new Error('[mnemo-encoder] 需要 ctx.memory（先装 @rain13sad/llm-mnemo-core）')
   const hostLlm = config.l1.enabled ? fromHostLlm(ctx.get('llm')) : null
   const port = hostLlm
   const encoder = new Encoder(memory, memory.space, config, port)

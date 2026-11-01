@@ -166,7 +166,7 @@ export interface SafetyConfig {
 export interface LlmConfig {
   /** 主对话模型 id（决定 tokenizer / 预算 / 价格闸） */
   model: string
-  /** provider 预设名，见 @rain13sad/dsh-mnemo-llm 的 PROVIDERS */
+  /** provider 预设名，见 @rain13sad/llm-mnemo 的 PROVIDERS */
   provider: string
   /** 自定义端点（兼容端点、代理、本地 ollama） */
   baseUrl: string

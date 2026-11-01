@@ -8,13 +8,13 @@
 
 <div align="center">
 
-**Memoria a largo plazo y afecto para DeepSeek Harness.**
+**Un motor de memoria con emoción para LLMs.** Funciona solo o como plugin de DeepSeek Harness.
 Las memorias no se guardan como texto sino como **celdas de tamaño fijo** (código disperso + vector int8 +
 hiperaristas tipadas + residuo comprimido). La inyección ronda los **116 tokens por turno** en lugar de
 repetir la transcripción.
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
+[![npm](https://img.shields.io/npm/v/@rain13sad/llm-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#inicio-rápido)
 [![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
@@ -85,9 +85,9 @@ npm run panel        # vista previa del panel → http://127.0.0.1:5178/
 Para instalarlo en DSH:
 
 ```bash
-npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings
+npm i @rain13sad/llm-mnemo-core @rain13sad/llm-mnemo-encoder @rain13sad/llm-mnemo-recall @rain13sad/llm-mnemo-tools
+npm i @rain13sad/llm-mnemo-affect @rain13sad/llm-mnemo-consolidator @rain13sad/llm-mnemo-proactive
+npm i @rain13sad/llm-mnemo-ui @rain13sad/llm-mnemo-settings
 ```
 
 Añade el `cordis.patch.yml` de cada paquete a tu perfil. La forma real de las costuras del host está

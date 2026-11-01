@@ -8,7 +8,8 @@
 
 <div align="center">
 
-**给 DeepSeek Harness 用的长期记忆与情感插件包族。**
+**LLM 层面的情感记忆引擎。** 稀疏码记忆晶格、四路召回、情感内核、3D 星图；
+可以独立跑，也可以作为 [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh) 的插件跑。
 记忆不以文本存储：2048 位稀疏码 + int8 向量 + 有类型超边 + 压缩残差；
 注入上下文时只渲染约 116 token，而不是把历史对话整段塞回去。
 
@@ -150,16 +151,32 @@ Jaccard 命中 0.081 / containment 1.000 （文档：0.087 / 1.000）
 popcount 183 ns   jaccard 193 ns   containment 297 ns
 ```
 
-### 装到 DSH 里
+### 两种用法
 
-已发布到 npm（`@rain13sad/*`，public）。按需装切片——包之间是独立的，只要记忆不要情感就是
+**① 独立跑——任何大模型，不需要宿主。** 引擎 + 一个模型适配层就够：
+
+```bash
+npm i @rain13sad/llm-mnemo @rain13sad/llm-mnemo-core
+```
+
+```ts
+import { createEnginePorts } from '@rain13sad/llm-mnemo'
+import { EmotionMemoryEngine } from '@rain13sad/llm-mnemo-core'
+```
+
+**② 装到 DSH 里——作为插件。** 按需装切片，包之间是独立的，只要记忆不要情感就是
 `core + encoder + recall + tools`：
 
 ```bash
-npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive   # 可选层
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings                                          # 面板与设置
+npm i @rain13sad/llm-mnemo-core @rain13sad/llm-mnemo-encoder @rain13sad/llm-mnemo-recall @rain13sad/llm-mnemo-tools
+npm i @rain13sad/llm-mnemo-affect @rain13sad/llm-mnemo-consolidator @rain13sad/llm-mnemo-proactive   # 可选层
+npm i @rain13sad/llm-mnemo-ui @rain13sad/llm-mnemo-settings                                          # 面板与设置
+npm i @rain13sad/llm-mnemo                                                                           # 模型适配（可选）
 ```
+
+> **0.6.0 改名了。** 包族从 `@rain13sad/dsh-mnemo-*` 改为 `@rain13sad/llm-mnemo-*`，
+> 模型适配层就叫 `@rain13sad/llm-mnemo`。旧名在 npm 上保留到 0.5.3——
+> 已装的人不会断，新装请用新名。
 
 想从源码跑（改代码 / 跑 demo）：
 
@@ -174,7 +191,7 @@ npm ci && npm run build
 ```yaml
 - insert:
     - id: mnemo-core
-      name: '@rain13sad/dsh-mnemo-core'
+      name: '@rain13sad/llm-mnemo-core'
       config:
         dbPath: !!js `${ctx.baseDir}/mnemo/vault.db`
         sdrDim: 2048
@@ -189,7 +206,7 @@ npm ci && npm run build
 **不需要 DSH 宿主**。`createHarness` 用桩会话/桩工具把真实插件跑起来，看到的就是宿主里那条代码路径。
 
 ```ts
-import { createHarness } from '@rain13sad/dsh-mnemo-devkit'
+import { createHarness } from '@rain13sad/llm-mnemo-devkit'
 
 const h = await createHarness({ sessionId: 'hello' })
 await h.turn('我叫阿哲，负责前端。我们用 pnpm 构建。')
@@ -217,7 +234,7 @@ await h.dispose()
 
 ```ts
 import { Context } from '@deepseek-ai/cordis'
-import { MemoryService, defaultConfig } from '@rain13sad/dsh-mnemo-core'
+import { MemoryService, defaultConfig } from '@rain13sad/llm-mnemo-core'
 
 const ctx = new Context()
 const mnemo = new MemoryService(ctx, { config: defaultConfig({ dbPath: 'vault.db' }) })
@@ -576,16 +593,16 @@ v0.2 的 README 末尾列了六个"接口就绪、实机未验证/未实现"的�
 
 | 包 | 角色 | 关键导出 |
 | :--- | :--- | :--- |
-| `@rain13sad/dsh-mnemo-core` | 晶格 + 存储 + 召回 + 渲染 | `ctx.memory`、`SdrSpace`、`encodeCell`、`SensoryRing`、`WorkingSet` |
-| `@rain13sad/dsh-mnemo-affect` | 情感内核 | `ctx.affect`、`appraise`、`derivePolicy`、`deriveUserSchema` |
-| `@rain13sad/dsh-mnemo-encoder` | 写侧 | `Encoder`（订阅 `session/event`，turn/end 编码） |
-| `@rain13sad/dsh-mnemo-recall` | 读侧 | `agent/pre-step` 门控与注入 |
-| `@rain13sad/dsh-mnemo-consolidator` | 离线巩固 | `Consolidator`（NREM / REM / 遗忘） |
-| `@rain13sad/dsh-mnemo-tools` | 工具面 + 命令面 | 6 个工具、26 条子命令（`/mnemo`）、egress 守卫 |
-| `@rain13sad/dsh-mnemo-proactive` | **主动开口** | `ctx.mnemoProactive`、`candidate()`、`tick()`、静音 |
-| `@rain13sad/dsh-mnemo-settings` | 设置面板 | `ctx.mnemoSettings`、生效矩阵、配置快照 |
-| `@rain13sad/dsh-mnemo-ui` | **侧栏面板（client）** | `main` + `sidebar.panellist` 槽注册 |
-| `@rain13sad/dsh-mnemo-devkit` | 无宿主运行器 | `createHarness()`（真实 Cordis fiber） |
+| `@rain13sad/llm-mnemo-core` | 晶格 + 存储 + 召回 + 渲染 | `ctx.memory`、`SdrSpace`、`encodeCell`、`SensoryRing`、`WorkingSet` |
+| `@rain13sad/llm-mnemo-affect` | 情感内核 | `ctx.affect`、`appraise`、`derivePolicy`、`deriveUserSchema` |
+| `@rain13sad/llm-mnemo-encoder` | 写侧 | `Encoder`（订阅 `session/event`，turn/end 编码） |
+| `@rain13sad/llm-mnemo-recall` | 读侧 | `agent/pre-step` 门控与注入 |
+| `@rain13sad/llm-mnemo-consolidator` | 离线巩固 | `Consolidator`（NREM / REM / 遗忘） |
+| `@rain13sad/llm-mnemo-tools` | 工具面 + 命令面 | 6 个工具、26 条子命令（`/mnemo`）、egress 守卫 |
+| `@rain13sad/llm-mnemo-proactive` | **主动开口** | `ctx.mnemoProactive`、`candidate()`、`tick()`、静音 |
+| `@rain13sad/llm-mnemo-settings` | 设置面板 | `ctx.mnemoSettings`、生效矩阵、配置快照 |
+| `@rain13sad/llm-mnemo-ui` | **侧栏面板（client）** | `main` + `sidebar.panellist` 槽注册 |
+| `@rain13sad/llm-mnemo-devkit` | 无宿主运行器 | `createHarness()`（真实 Cordis fiber） |
 
 拆包的理由不是洁癖：Cordis 的 `inject` 是依赖驱动的，只要记忆不要情感的用户可以只装
 `core + encoder + recall + tools`，`affect` 缺席时 recall 自动走无情感门控的降级路径。

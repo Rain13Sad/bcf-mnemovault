@@ -1,5 +1,5 @@
 /**
- * @rain13sad/dsh-mnemo-llm —— LLM 适配层（v0.6）
+ * @rain13sad/llm-mnemo —— LLM 适配层（v0.6）
  *
  * ── 它在架构里的位置 ────────────────────────────────────────────
  *   core（同步内核，零依赖）
@@ -28,7 +28,7 @@ import {
   systemClock,
   type EnginePorts,
   type MemoryService,
-} from '@rain13sad/dsh-mnemo-core'
+} from '@rain13sad/llm-mnemo-core'
 import { HttpEmbeddingProvider } from './embedding.js'
 import { LlmExtractor } from './extract.js'
 import { PROVIDER_IDS, resolveProvider, PROVIDERS } from './providers.js'

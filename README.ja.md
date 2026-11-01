@@ -8,12 +8,12 @@
 
 <div align="center">
 
-**DeepSeek Harness のための長期記憶 + 感情プラグイン群。**
+**LLM のための感情つき記憶エンジン。** 単体でも、DeepSeek Harness のプラグインとしても動きます。
 記憶はテキストではなく**固定長セル**（スパースコード + int8 ベクトル + 型付きハイパーエッジ + 圧縮残差）として保存され、
 注入は会話履歴の再生ではなく **1 ターン約 116 token** で済みます。
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/@rain13sad/dsh-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/dsh-mnemo-core)
+[![npm](https://img.shields.io/npm/v/@rain13sad/llm-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#クイックスタート)
 [![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
@@ -78,9 +78,9 @@ npm run panel        # パネルのプレビュー → http://127.0.0.1:5178/
 DSH へ導入する場合：
 
 ```bash
-npm i @rain13sad/dsh-mnemo-core @rain13sad/dsh-mnemo-encoder @rain13sad/dsh-mnemo-recall @rain13sad/dsh-mnemo-tools
-npm i @rain13sad/dsh-mnemo-affect @rain13sad/dsh-mnemo-consolidator @rain13sad/dsh-mnemo-proactive
-npm i @rain13sad/dsh-mnemo-ui @rain13sad/dsh-mnemo-settings
+npm i @rain13sad/llm-mnemo-core @rain13sad/llm-mnemo-encoder @rain13sad/llm-mnemo-recall @rain13sad/llm-mnemo-tools
+npm i @rain13sad/llm-mnemo-affect @rain13sad/llm-mnemo-consolidator @rain13sad/llm-mnemo-proactive
+npm i @rain13sad/llm-mnemo-ui @rain13sad/llm-mnemo-settings
 ```
 
 各パッケージの `cordis.patch.yml` をプロファイルに追加してください。

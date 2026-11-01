@@ -18,7 +18,7 @@
  * （同一段文本，claude > gpt > deepseek），而不是断言绝对值——绝对值会随厂商更新漂移。
  */
 
-import type { TokenizerKind, TokenizerPort } from '@rain13sad/dsh-mnemo-core'
+import type { TokenizerKind, TokenizerPort } from '@rain13sad/llm-mnemo-core'
 
 interface Calibration {
   /** 每个 CJK 字符折算多少 token（上界） */

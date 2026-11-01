@@ -13,7 +13,7 @@
  *   ⑤ 再巩固日志（最近哪条记忆被改写过）
  */
 import { createElement as h, useState, type ReactNode } from 'react'
-import type { PanelAction, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelSnapshot } from '@rain13sad/llm-mnemo-core'
 import { SubHead, fmt2, relTime } from '../ui.js'
 
 export interface RetentionProps {

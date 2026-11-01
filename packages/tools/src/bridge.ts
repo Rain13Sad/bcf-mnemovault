@@ -20,7 +20,7 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import type { MemoryService, PanelAction, PanelCellView, PanelSnapshot, RuntimeStatus } from '@rain13sad/dsh-mnemo-core'
+import type { MemoryService, PanelAction, PanelCellView, PanelSnapshot, RuntimeStatus } from '@rain13sad/llm-mnemo-core'
 
 /** host 与 client 共享的 remote 面形状（docs/API-CONTRACT.md §3）。 */
 export interface MnemoRemoteFace {

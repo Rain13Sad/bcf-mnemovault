@@ -1,18 +1,19 @@
-# @rain13sad/dsh-mnemo-settings
+# @rain13sad/llm-mnemo-settings
 
 Settings schema, presets and the effect matrix.
 
-Part of **MnemoVault** — long-term memory and affect for
-[DeepSeek Harness](https://github.com/Rain13Sad/bcf-mnemovault). Sparse-code memory lattice, four-channel recall,
-biphasic consolidation, ~116 tokens injected per turn, zero runtime dependencies.
+Part of **MnemoVault** — an emotion-aware memory engine for LLMs
+([repo](https://github.com/Rain13Sad/bcf-mnemovault)). Sparse-code memory lattice, four-channel recall, biphasic consolidation,
+~117 tokens injected per turn, zero runtime dependencies. Runs standalone through
+`EmotionMemoryEngine`, or as a plugin inside DeepSeek Harness.
 
 ## Install
 
 ```bash
-npm i @rain13sad/dsh-mnemo-settings
+npm i @rain13sad/llm-mnemo-settings
 ```
 
-Loaded by the harness as a Cordis plugin — declare it in your plugin list and it applies itself.
+Inside DeepSeek Harness it loads as a Cordis plugin — declare it in your plugin list and it applies itself. Standalone, import it directly.
 
 ## What it does
 
@@ -30,17 +31,17 @@ Describes every knob with type, default, range and cost, exposes presets, and an
 
 | Package | Role |
 | :--- | :--- |
-| `@rain13sad/dsh-mnemo-core` | Lattice, store, index and renderer — the `ctx.memory` service. |
-| `@rain13sad/dsh-mnemo-llm` | LLM adapters — embedding / extraction / tokenizer ports for common models. |
-| `@rain13sad/dsh-mnemo-affect` | Affect kernel — appraisal, mood, persona and the user schema. |
-| `@rain13sad/dsh-mnemo-encoder` | Write path — turns a finished turn into sparse-code cells. |
-| `@rain13sad/dsh-mnemo-recall` | Read path — four-channel recall and prompt injection. |
-| `@rain13sad/dsh-mnemo-consolidator` | Offline consolidation — NREM, REM and forgetting. |
-| `@rain13sad/dsh-mnemo-proactive` | Companion layer — when the agent may speak first. |
-| `@rain13sad/dsh-mnemo-tools` | Tool surface and `/mnemo` commands. |
-| `@rain13sad/dsh-mnemo-settings` | Settings schema, presets and the effect matrix. |
-| `@rain13sad/dsh-mnemo-devkit` | Host-free runner — mock Cordis context and session replay. |
-| `@rain13sad/dsh-mnemo-ui` | Sidebar panel — memory browser, graph, affect and diagnostics. |
+| `@rain13sad/llm-mnemo-core` | Lattice, store, index and renderer — the `ctx.memory` service. |
+| `@rain13sad/llm-mnemo-llm` | LLM adapters — embedding / extraction / tokenizer ports for common models. |
+| `@rain13sad/llm-mnemo-affect` | Affect kernel — appraisal, mood, persona and the user schema. |
+| `@rain13sad/llm-mnemo-encoder` | Write path — turns a finished turn into sparse-code cells. |
+| `@rain13sad/llm-mnemo-recall` | Read path — four-channel recall and prompt injection. |
+| `@rain13sad/llm-mnemo-consolidator` | Offline consolidation — NREM, REM and forgetting. |
+| `@rain13sad/llm-mnemo-proactive` | Companion layer — when the agent may speak first. |
+| `@rain13sad/llm-mnemo-tools` | Tool surface and `/mnemo` commands. |
+| `@rain13sad/llm-mnemo-settings` | Settings schema, presets and the effect matrix. |
+| `@rain13sad/llm-mnemo-devkit` | Host-free runner — mock Cordis context and session replay. |
+| `@rain13sad/llm-mnemo-ui` | Sidebar panel — memory browser, graph, affect and diagnostics. |
 
 ## Links
 

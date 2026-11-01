@@ -10,7 +10,7 @@
  * 在偏好层面经常错（"我上次说喜欢，但那是客套"）。所以这里只提供按钮。
  */
 import { createElement as h, type ReactNode } from 'react'
-import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/dsh-mnemo-core'
+import type { PanelAction, PanelCellView, PanelSnapshot } from '@rain13sad/llm-mnemo-core'
 import { KIND_LABEL, SubHead, fmt2, relTime, signed } from '../ui.js'
 
 export interface InboxProps {
