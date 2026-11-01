@@ -74,14 +74,14 @@ test('resolveVaultPath：非路径标记原样、绝对原样、相对按 profil
     assert.ok(rel.startsWith(profileDir), `相对路径应落在 profile 目录，实际 ${rel}`)
     assert.ok(rel.endsWith(join('mnemo', 'vault.db')))
   } finally {
-    rmSync(profileDir, { recursive: true, force: true })
+    rmSync(profileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
   }
   const home = resolveVaultPath('~/mnemo/v.db', undefined, '/home/u')
   assert.ok(home.endsWith(join('mnemo', 'v.db')), `~ 必须展开到主目录，实际 ${home}`)
   assert.ok(!home.includes('~'), '不能留下未展开的 ~')
 })
 
-test('D1：SqliteStore.open() 自己建父目录（全新机器上 core 不会起不来）', () => {
+test('D1：SqliteStore.open() 自己建父目录（全新机器上 core 不会起不来）', async () => {
   const root = mkdtempSync(join(tmpdir(), 'mnemo-d1-'))
   const nested = join(root, 'a', 'b', 'c', 'vault.db')
   const space = new SdrSpace({ dim: 2048, k: 8 })
@@ -94,7 +94,10 @@ test('D1：SqliteStore.open() 自己建父目录（全新机器上 core 不会�
     assert.equal(store.meta('probe'), '1')
   } finally {
     store.close()
-    rmSync(root, { recursive: true, force: true })
+    // Windows 上 close() 之后 WAL 的收尾可能还差一拍：直接 rmdir 会 ENOTEMPTY。
+    // 重试几次而不是断言失败——这条测的是"目录被建出来"，不是"删除的原子性"。
+    await new Promise((r) => setTimeout(r, 30))
+    rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
   }
 })
 
