@@ -22,7 +22,7 @@ import {
   SLOT_ROLE,
   TRUST_BY_PROVENANCE,
   cellIdFor,
-  hashEmbedding,
+  queryEmbedding,
   isNegated,
   parseTimeExpr,
   redact,
@@ -374,7 +374,16 @@ export class Encoder {
     if (slots.length === 0) return null
 
     const sdr = this.buildSdr(slots)
-    const emb = hashEmbedding(safe, this.memory.config.embDim)
+    /**
+     * 写入向量（v0.6）：库与端口同空间时用预热好的 provider 向量，否则哈希。
+     *
+     * 这里必须与 `runRecall` 的查询向量走**同一条变换链**（`queryEmbedding`），
+     * 否则"写的时候 64 维折叠、查的时候 256 维截断"会让余弦相似度失去意义——
+     * 而这种错误不报错，只会让召回悄悄变差。
+     */
+    const port = this.memory.ports.embedding
+    const pre = port && this.memory.embSpace === port.space ? (port.peek?.(safe) ?? null) : null
+    const emb = queryEmbedding(safe, this.memory.config, pre)
     const kind = pickKind(safe, pred)
     const trust = TRUST_BY_PROVENANCE[provenance]
     const pad = input.pad ?? { v: 0, a: 0.2, d: 0.5, s: 0.3 }

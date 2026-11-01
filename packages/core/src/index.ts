@@ -9,6 +9,8 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { applyPreset, PRESETS, EFFECT_MATRIX, estimateTokensPerTurn } from './preset.js'
 import { MemoryService } from './service.js'
+import { baseUrlOf, resolveVaultPath } from './paths.js'
+import type { EnginePorts } from './ports.js'
 import { RuntimeStatus } from './runtime.js'
 import type { MnemoConfig } from './types.js'
 
@@ -64,7 +66,12 @@ export const Config = z.object({
     ignition: z.number().min(0).max(1).default(0.42).description('空槽阈值。↑ 省 token（降低阈值会更贵，§13.2）'),
     annTopK: z.number().min(16).max(256).default(64).description('语义路候选数'),
     annEnabled: z.boolean().default(true).description('启用 HNSW 索引（cell 数低于阈值时仍走精确扫描）'),
-    annThreshold: z.number().min(200).max(200_000).default(2000).description('触发 ANN 的最小 cell 数'),
+    annThreshold: z
+      .number()
+      .min(200)
+      .max(200_000)
+      .default(20_000)
+      .description('触发 ANN 的最小 cell 数。v0.6 从 2000 提到 2 万：实测 1 万条时精确扫描 4 ms、HNSW 37 ms'),
     annM: z.number().min(4).max(64).default(16).description('HNSW 每层最大邻居数'),
     annEf: z.number().min(8).max(400).default(64).description('HNSW 查询宽度。↑ 更准更慢'),
     graphHops: z.number().min(1).max(3).default(2).description('多跳深度'),
@@ -92,61 +99,76 @@ export const Config = z.object({
       retentionTtlMs: z.number().min(60_000).default(6 * 3600_000).description('保留度缓存有效期'),
     })
     .default({}),
+  /**
+   * v0.6：LLM 适配。
+   *
+   * 两个开关默认**关**：真 embedding 与 LLM 抽取都会打破"零依赖、离线可跑"的承诺。
+   * 打开之后能力变强、依赖变重，这个交换必须由用户显式做出，
+   * 而不是由我们在升级时替他决定。
+   */
+  llm: z
+    .object({
+      model: z.string().default('deepseek-chat').description('主对话模型 id（决定 tokenizer / 预算 / 价格闸）'),
+      provider: z.string().default('deepseek').description('provider 预设：deepseek / openai / anthropic / google / ollama / openai-compatible'),
+      baseUrl: z.string().default('').description('自定义端点（代理 / 兼容端点 / 本地 ollama）。空 = 用预设'),
+      apiKeyEnv: z.string().default('DEEPSEEK_API_KEY').description('密钥所在的环境变量名。密钥本身不写进配置'),
+      timeoutMs: z.number().min(1000).max(120_000).default(15_000).description('单次调用超时；超时即降级，不阻塞对话'),
+      retries: z.number().min(0).max(3).default(1).description('幂等请求的重试次数'),
+      embeddingEnabled: z.boolean().default(false).description('启用真 embedding。关着走本地哈希（零依赖）'),
+      embeddingModel: z.string().default('').description('embedding 模型 id；空 = 用 provider 默认'),
+      extractEnabled: z.boolean().default(false).description('启用 LLM 抽取。关着走规则抽取（零依赖）'),
+      maxPricePerTurn: z.number().min(0).default(0).description('单轮记忆注入价格上限（元）；0 = 不限'),
+    })
+    .default({}),
 })
+
+/**
+ * 默认值只有一个来源：schema（v0.6 · 修 D5）。
+ *
+ * v0.5.3 之前这里是一张手写的第二份表，而 `embStoreDim` 在两张表里分别是 128 与 64，
+ * 且**它参与布局键**。后果不是"数字不一致"这么轻：照着 README 写
+ * `new MemoryService({ config: defaultConfig({ dbPath }) })` 的人，打开宿主建的库会被
+ * 布局键挡住，错误信息还让他去 rebuild——一次本不该发生的数据迁移。
+ *
+ * 现在 `defaultConfig()` 以 `Config.parse({})` 为底，只覆盖"测试专用"的两个差异
+ * （内存库、无残差目录）。`test/v06-config-defaults.test.mjs` 守着这条不变量：
+ * 四个参与布局键的字段，`defaultConfig()` 与 `Config.parse({})` 必须逐字段相等。
+ */
+function schemaDefaults(): MnemoConfig {
+  // schemastery 的 schema 实例本身可调用：Config({}) 走一遍校验并补全所有 default
+  const parsed = Config({}) as MnemoConfig
+  return parsed
+}
 
 /** 测试与 demo 用的完整默认值（schemastery 的 default 只在宿主校验时生效）。 */
 export function defaultConfig(overrides: Partial<MnemoConfig> = {}): MnemoConfig {
   return applyPreset({
+    ...schemaDefaults(),
     dbPath: ':memory:',
-    scopeKey: 'user:local',
     residualDir: '',
-    sdrDim: 2048,
-    sdrK: 8,
-    embDim: 256,
-    embStoreDim: 128,
-    preset: 'balanced',
-    maxSlots: 4,
-    maxEntriesPerTurn: 8,
-    surfaceMode: 'rows',
-    maxSurfaceTokens: 320,
-    forgettingProfile: 'semantic',
-    affectEnabled: true,
-    recall: {
-      wSim: 1.0,
-      wRecency: 0.35,
-      wFreq: 0.2,
-      wAffect: 0.25,
-      wGoal: 0.4,
-      wCue: 0.3,
-      wInterf: 0.5,
-      ignition: 0.42,
-      annTopK: 64,
-      annEnabled: true,
-      annThreshold: 2000,
-      annM: 16,
-      annEf: 64,
-      graphHops: 2,
-      graphDecay: 0.6,
-    },
-    consolidation: {
-      everyTurns: 20,
-      everyCells: 200,
-      idleMs: 90000,
-      schemaMinSupport: 3,
-      remValenceDecay: 0.92,
-      remArousalDecay: 0.94,
-      remLinkBudget: 200,
-    },
-    safety: { piiRedaction: true, blockMemoryInEgress: true, requireApprovalFor: ['memory_forget', 'memory_assert'] },
-    index: { sdrEnabled: true, sdrMaxCells: 200_000, demoteBatch: 2000, retentionTtlMs: 6 * 3600_000 },
     ...overrides,
   })
+}
+
+/** 真实部署的默认值（宿主未提供配置时用）。与 schema 同源，只换库路径。 */
+export function productionConfig(overrides: Partial<MnemoConfig> = {}): MnemoConfig {
+  return applyPreset({ ...schemaDefaults(), ...overrides })
 }
 
 export type ConfigShape = MnemoConfig
 
 export function apply(ctx: Context, raw: MnemoConfig) {
-  const config = applyPreset(raw)
+  /**
+   * 路径在**这里**解析，不在 patch 里（v0.6 保留 v0.5.3 的修复）。
+   *
+   * 两个各自致命的问题：`!!js` 标签在安装期解析不了（整个安装被回滚），
+   * `ctx.baseDir` 根本不存在（Loader 上叫 `baseUrl`）。所以 patch 只写字面量，
+   * 需要宿主上下文的默认值一律在这里解析。详见 `paths.ts` 顶部注释。
+   */
+  const baseUrl = baseUrlOf(ctx)
+  const config = applyPreset({ ...productionConfig(), ...raw })
+  config.dbPath = resolveVaultPath(config.dbPath, baseUrl)
+  config.residualDir = resolveVaultPath(config.residualDir, baseUrl)
   const runtime = new RuntimeStatus()
   // 登记处本身也是一个服务：encoder（L1 状态）与 tools（命令面/remote/工具清单）
   // 都往这里写，面板与 doctor 从 memory.panelSnapshot() 读同一份。
@@ -155,11 +177,18 @@ export function apply(ctx: Context, raw: MnemoConfig) {
   } catch {
     /* 已存在（热重载）就复用旧的 */
   }
+  /**
+   * 端口（v0.6）：由 llm 包 `ctx.provide('mnemoPorts', …)` 提供。
+   * 它可能比 core 晚激活——所以这里只取一次引用，之后的替换走 `memory.usePorts()`。
+   * 取不到就是空端口集合：哈希 + 规则 + 启发式计数，一切照常工作。
+   */
+  const ports = ctx.get('mnemoPorts') as EnginePorts | undefined
   const memory = new MemoryService(ctx, {
     config,
     scopeKey: config.scopeKey,
     panelPath: config.residualDir ? `${config.residualDir}/panel-snapshot.json` : undefined,
     runtime,
+    ports,
   })
 
   ctx.effect(() => {
@@ -200,8 +229,9 @@ export function apply(ctx: Context, raw: MnemoConfig) {
   )
 }
 
-export { MemoryService, cellIdFor, slotValue, pq32, deriveLens, buildTags, buildCategories } from './service.js'
+export { MemoryService, cellIdFor, slotValue, pq32, deriveLens, buildTags, buildCategories, tuningValues, expandDotted } from './service.js'
 export { RuntimeStatus, type L1Status, type CommandFace, type L1Mode } from './runtime.js'
+export { expandHome, resolveVaultPath, baseUrlOf } from './paths.js'
 export { applyPreset, PRESETS, EFFECT_MATRIX, REBUILD_KEYS, estimateTokensPerTurn, timingOf, type EffectRow, type EffectTiming, type PresetName } from './preset.js'
 export * from './types.js'
 export * from './cell.js'
@@ -209,12 +239,17 @@ export * from './sdr.js'
 export * from './forgetting.js'
 export * from './retention.js'
 export * from './inverted.js'
+export * from './ports.js'
+export * from './emotion.js'
+export * from './compiler.js'
+export * from './starmap.js'
+export * from './engine.js'
 export * from './emb.js'
 export * from './reconsolidation.js'
 export * from './neuromod.js'
 export * from './lifecycle.js'
 export * from './render.js'
-export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr, canonicalToken, quantize } from './recall.js'
+export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr, canonicalToken, quantize, TopK } from './recall.js'
 export { HnswIndex, BruteIndex, type VectorIndex, type VectorHit } from './ann.js'
 export { createStore, MemoryStore, SqliteStore, type Store } from './store.js'
 export * from './text.js'

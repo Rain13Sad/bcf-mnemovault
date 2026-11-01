@@ -1092,6 +1092,61 @@ README 里"1 万 cell p95 ≤ 40 ms"**在 CI 里没有任何断言**。
 
 ---
 
+
+---
+
+## 13.5 v0.6.0 的结构性变化（读代码前先看这一节）
+
+v0.6 没有改算法主线，改的是**代码的归属**。三件事：
+
+### 13.5.1 内核与外部世界之间多了一层端口
+
+`core/src/ports.ts` 定义 5 个窄接口：`EmbeddingPort` / `ExtractorPort` / `TokenizerPort` /
+`ClockPort` / `AuditPort`。内核只认接口，实现由 `packages/llm` 提供。
+**缺哪个端口就走哪条降级**——所以"没装 llm 包"不是错误状态，是零依赖基线。
+
+### 13.5.2 内核仍然是同步的（这条不能破）
+
+`recall()` / `ingest()` 同步，是确定性重放与内容寻址的前提。HTTP 是异步的，
+所以向量走**预热缓存**：异步侧 `prime(text)` 写缓存，同步侧 `peek(text)` 读。
+未命中就退回哈希，并记 `counters.embedMiss`。
+
+这条约束的代价是"首轮可能拿不到真向量"。它写在面板的限制清单里，不藏着。
+
+### 13.5.3 向量空间是硬闸，不是建议
+
+`memory.embSpace`（存在 meta 里）必须等于 `port.space`，否则拒绝用 provider 向量。
+原因：混用两个空间时，余弦相似度仍然返回 0~1 的数，**但那个数没有意义**，
+召回会悄悄变差而不报错。唯一的切换路径是 `engine.reembed()`：
+分批、游标存 meta、**全部完成才切空间**。
+
+> 开发中这里一度放行"库还是哈希空间"的情况（想省一次重算），
+> 被 `test/v06-engine.test.mjs` 抓住。这条判据现在有专门的回归。
+
+### 13.5.4 新增文件地图
+
+| 文件 | 职责 |
+| :--- | :--- |
+| `core/src/ports.ts` | 5 个端口 + 模型画像 + 降级计数器 |
+| `core/src/emotion.ts` | 四条情感机制（评价→PAD / 心境一致 / 唤醒倒 U / 摘要） |
+| `core/src/compiler.ts` | 跨模型编译：能力 → token → 价格三闸 |
+| `core/src/engine.ts` | `EmotionMemoryEngine`（宿主无关的门面） |
+| `core/src/starmap.ts` | 固定种子随机投影到 3D |
+| `core/src/paths.ts` | `~` 展开与 profile 目录解析（承接 v0.5.3 的 D1/D2 修法） |
+| `packages/llm/*` | 6 家 provider + embedding/extractor/tokenizer 端口实现 |
+| `ui/src/client/views/StarMap.tsx` | canvas 3D 星图 |
+| `ui/src/client/views/Console.tsx` | 调控台（16 旋钮 + 影响预估） |
+
+### 13.5.5 本版新增的缺点（诚实清单继续加长）
+
+| # | 缺点 | 影响 |
+| :-- | :--- | :--- |
+| **D29** | 真 embedding / 真抽取**没有对真实厂商端点跑过** | 协议形状全覆盖（假 fetch），但限额、跨境网络、模型名变更都未验证 |
+| **D30** | `reembed()` 用 `digest + 槽位` 而非原文重算 | 语义质量弱于理想值（原文在残差里，取出来慢 10 倍） |
+| **D31** | 首轮预热可能未命中 | 首轮走哈希，`usedProvider=false`；面板可见 |
+| **D32** | 星图只在 ≤1200 采样下调过 | 更大规模未实测 |
+| **D33** | MRR 0.681 → 0.650 | 见 CHANGELOG 首段：这是把"量错的维度"换成"盘上真实的维度"的代价 |
+
 ## 14. 附录
 
 ### A. 术语

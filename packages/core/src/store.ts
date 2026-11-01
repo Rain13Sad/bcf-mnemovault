@@ -15,6 +15,8 @@
  * 用 hex 文本做 PK 既精确又免去精度事故，排序改按 t_from。
  */
 
+import { mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { decodeCell, encodeCell, type CellRow, type MemCell, type Edge } from './cell.js'
 import { compress, decompress } from './codec.js'
 import { bytesToHex, hexToBytes, toHex } from './hash.js'
@@ -666,6 +668,18 @@ export class SqliteStore implements Store {
 
   open(): void {
     if (this.db) return // 幂等启动（§14.7）
+    /**
+     * 父目录归插件管（v0.6 · 修 D1）。
+     *
+     * `node:sqlite` 对不存在的目录只抛一句 `unable to open database file`，
+     * 而默认库路径是 `~/.dsh/mnemo/vault.db`——全新机器上这个目录不存在。
+     * 少了这一行，core 必然激活失败，而症状会甩给下游 6 层（全部 pending），
+     * 用户看到的是"面板在、一条记忆都没有"。现场报告见
+     * `docs/releases/v0.5.3-desktop-install-report.md` 的 D1。
+     */
+    if (this.path !== ':memory:' && !this.path.startsWith('file::memory:')) {
+      mkdirSync(dirname(this.path), { recursive: true })
+    }
     const mod = builtin<{ DatabaseSync: new (p: string) => SqliteDb }>('node:sqlite')
     const db = new mod.DatabaseSync(this.path)
     db.exec('PRAGMA journal_mode = WAL')

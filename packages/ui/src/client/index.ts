@@ -57,7 +57,7 @@ export interface Config {
   pageSize: number
   graphMaxNodes: number
   /** 打开面板时默认停在哪个视图 */
-  defaultTab: 'overview' | 'search' | 'organize' | 'inbox' | 'affect' | 'settings'
+  defaultTab: 'overview' | 'starmap' | 'search' | 'organize' | 'retention' | 'inbox' | 'affect' | 'console' | 'settings'
   /** 无 remote 时是否允许降级为只读事件源 */
   allowReadOnlyFallback: boolean
 }

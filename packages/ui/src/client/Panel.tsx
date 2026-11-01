@@ -22,10 +22,12 @@ import { Inbox } from './views/Inbox.js'
 import { Retention } from './views/Retention.js'
 import { Affect } from './views/Affect.js'
 import { Settings } from './views/Settings.js'
+import { StarMap } from './views/StarMap.js'
+import { Console } from './views/Console.js'
 import { Timeline } from './views/Timeline.js'
 import { Status } from './ui.js'
 
-export type TabKey = 'overview' | 'search' | 'organize' | 'retention' | 'inbox' | 'affect' | 'settings'
+export type TabKey = 'overview' | 'starmap' | 'search' | 'organize' | 'retention' | 'inbox' | 'affect' | 'console' | 'settings'
 
 export interface PanelProps {
   source: MnemoDataSource
@@ -44,13 +46,21 @@ export interface PanelProps {
   onSurfaceModeChange?: (m: SurfaceMode) => void
 }
 
+/**
+ * 页签顺序即"使用动线"（v0.6 重排）：
+ *   先看整体（总览 / 星图）→ 再找（检索）→ 再管（整理 / 保留度 / 收件箱）
+ *   → 再看自己（情感）→ 最后调（调控台 / 设置）。
+ * 星图与调控台放在两端，是因为它们一个是"读的入口"、一个是"写的入口"。
+ */
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'overview', label: '记忆总览' },
+  { key: 'starmap', label: '记忆星图' },
   { key: 'search', label: '记忆检索' },
   { key: 'organize', label: '记忆整理' },
   { key: 'retention', label: '保留度' },
   { key: 'inbox', label: '收件箱' },
   { key: 'affect', label: '情感状态' },
+  { key: 'console', label: '调控台' },
   { key: 'settings', label: '设置' },
 ]
 
@@ -341,6 +351,21 @@ export function MnemoPanel(props: PanelProps): ReactNode {
                 onAct: (a) => void act(a),
                 onCommand: (line) => void command(line),
                 onOpen: (id, target) => openCell(id, target === 'inbox' ? 'inbox' : 'search'),
+                busy,
+              })
+            : null,
+          tab === 'starmap'
+            ? h(StarMap, {
+                snapshot,
+                onOpen: (id) => openCell(id, 'search'),
+                height: 380,
+              })
+            : null,
+          tab === 'console'
+            ? h(Console, {
+                snapshot,
+                onAct: (a) => void act(a),
+                onCommand: (line) => void command(line),
                 busy,
               })
             : null,

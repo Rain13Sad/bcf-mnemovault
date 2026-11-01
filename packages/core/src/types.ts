@@ -119,7 +119,15 @@ export interface RecallWeights {
    * 小库上全扫更快、且没有近似误差，"有索引"不等于"必须用索引"。
    */
   annEnabled: boolean
-  /** 触发 ANN 的最小 cell 数（默认 2000） */
+  /**
+   * 触发 ANN 的最小 cell 数（默认 2 万）。
+   *
+   * v0.6 从 2000 提到 20000，理由是实测：1 万条 cell 时，
+   * **精确扫描 int8 矩阵 p50 4 ms，HNSW p50 37 ms**。
+   * 矩阵扫描是 64 万次连续内存乘加，而图搜索要做上千次指针跳转与距离计算——
+   * 在这个规模上，图省下的候选数抵不过它自己的开销。
+   * 这不是"关掉索引"，是把阈值放在它真正开始赢的地方。
+   */
   annThreshold: number
   /** HNSW 每层最大邻居数 */
   annM: number
@@ -143,6 +151,39 @@ export interface SafetyConfig {
   piiRedaction: boolean
   blockMemoryInEgress: boolean
   requireApprovalFor: string[]
+}
+
+/**
+ * LLM 适配配置（v0.6）。
+ *
+ * 这一段的每一个字段都对应一个**可观测的降级**：
+ * 没有 apiKey → `embedding.mode='hash'`；抽取失败率 > 5% → 面板告警；
+ * 模型不在画像表里 → 走保守档（prose + 小预算）。
+ *
+ * 密钥**不写在这里**：配置只存环境变量名（`apiKeyEnv`），
+ * 这样导出的配置、面板快照、日志里都不会出现凭据。
+ */
+export interface LlmConfig {
+  /** 主对话模型 id（决定 tokenizer / 预算 / 价格闸） */
+  model: string
+  /** provider 预设名，见 @rain13sad/dsh-mnemo-llm 的 PROVIDERS */
+  provider: string
+  /** 自定义端点（兼容端点、代理、本地 ollama） */
+  baseUrl: string
+  /** 读哪个环境变量拿密钥。空字符串 = 无密钥（本地模型） */
+  apiKeyEnv: string
+  /** 单次调用超时（ms）。超时即降级，不重试到底 */
+  timeoutMs: number
+  /** 失败重试次数（只对幂等请求：embedding / 抽取） */
+  retries: number
+  /** 是否启用真 embedding（默认关：零依赖承诺优先） */
+  embeddingEnabled: boolean
+  /** embedding 模型 id；空则用 provider 默认 */
+  embeddingModel: string
+  /** 是否启用 LLM 抽取（默认关：规则路线是零依赖基线） */
+  extractEnabled: boolean
+  /** 单轮记忆注入价格上限（¥）；0 = 不限 */
+  maxPricePerTurn: number
 }
 
 export interface MnemoConfig {
@@ -172,6 +213,8 @@ export interface MnemoConfig {
   safety: SafetyConfig
   /** v0.5.2：SDR 倒排索引与保留度缓存（规模化相关的两个可调项） */
   index: IndexConfig
+  /** v0.6：LLM 适配（模型画像 / 端口 / 预算闸） */
+  llm: LlmConfig
 }
 
 /**
@@ -243,6 +286,14 @@ export interface RecallQuery {
   scopeKey?: string
   /** 内部：上一次查询，用于 why/explain */
   queryId?: string
+  /**
+   * v0.6：预计算的查询向量（真 embedding）。
+   *
+   * 内核是同步的，模型是异步的——所以向量由异步侧算好、经预热缓存传进来。
+   * 缺省时退回本地哈希。**两者不可混用**：一旦传了 provider 向量，
+   * 库里必须也是同一个向量空间，否则余弦相似度没有意义（`engine.status()` 会拦）。
+   */
+  emb?: Float32Array | number[] | null
 }
 
 export interface ScoreParts {
@@ -476,6 +527,58 @@ export interface PanelRetentionView {
   reconsolidation: Array<{ at: number; cellId: string; dStability: number; dConfidence: number; dValence: number; plastic: boolean }>
 }
 
+/** 星图节点：只带渲染需要的最小集合（坐标 + 星等 + 颜色轴）。 */
+export interface PanelStarNode {
+  id: string
+  shortId: string
+  x: number
+  y: number
+  z: number
+  kind: number
+  tier: number
+  valence: number
+  arousal: number
+  salience: number
+  importance: number
+  digest: string
+  pinned: boolean
+  invalidated: boolean
+}
+
+export interface PanelStarMap {
+  nodes: PanelStarNode[]
+  /** [src, dst, weight] */
+  edges: Array<[string, string, number]>
+  /** 投影方式。目前只有固定种子的随机投影（可复现、新数据不移动旧点） */
+  projected: 'random3'
+  /** 实际采样数 / 全库数——星图是"星等采样"，不是目录 */
+  sampled: number
+  total: number
+}
+
+export interface PanelEngineInfo {
+  model: { id: string; provider: string; label: string; contextWindow: number; inputPricePerMTok: number } | null
+  embedding: {
+    mode: 'hash' | 'provider'
+    name: string
+    space: string
+    /** 库里的向量空间；与 embedding.space 不一致时召回会拒用 provider 向量 */
+    vaultSpace: string
+    primed: number
+    misses: number
+    error: string | null
+  }
+  extractor: { mode: 'rule' | 'provider'; name: string; ok: number; failed: number; failRate: number }
+  tokenizer: string
+  lastCompile: { at: number; tokens: number; cost: number; mode: string; model: string; dropped: number; reasons: string[] } | null
+  /** 跨模型成本预览（同一批记忆在不同模型下的 token/价格） */
+  across: Array<{ id: string; label: string; tokens: number; cost: number; mode: string; fits: boolean }>
+  mood: { v: number; a: number; d: number; s: number } | null
+  brief: string | null
+  capabilities: string[]
+  limits: string[]
+}
+
 export interface PanelSnapshot {
   version: 2
   generatedAt: number
@@ -556,6 +659,24 @@ export interface PanelSnapshot {
   consolidation?: { at: number; merged: number; abstracted: number; pruned: number; decayed: number; elapsedMs: number } | null
   /** 保留度视图（v0.4）。旧快照没有这个字段，视图必须能降级渲染。 */
   retention?: PanelRetentionView
+  /**
+   * v0.6：3D 记忆星图（投影后的坐标）。
+   * 可选——旧快照没有它，视图必须退回"图谱"页的二维布局。
+   */
+  starmap?: PanelStarMap
+  /**
+   * v0.6 调控台：当前可调项的扁平快照（点号路径 → 值）。
+   *
+   * 为什么给扁平键而不是整个 config：面板只调十几个旋钮，
+   * 把整个配置对象塞进每 3 秒一次的快照里既浪费又容易泄露（apiKeyEnv 之类）。
+   */
+  tuning?: { values: Record<string, number | string | boolean>; preset: string }
+  /**
+   * v0.6：引擎状态（模型 / 端口 / 最近一次编译 / 跨模型成本预览）。
+   * 这一块是"适配常用大模型"的**可观测面**：没有它，用户无法知道
+   * 当前跑的是真 embedding 还是哈希、预算按哪个 tokenizer 算的。
+   */
+  engine?: PanelEngineInfo | null
   /** 主动开口的状态（未装 proactive 包时为 null） */
   proactive: {
     enabled: boolean
@@ -586,6 +707,14 @@ export type PanelAction =
   | { kind: 'surfaceMode'; mode: SurfaceMode }
   /** 通用参数热更新（调参向导用）。改细项即视为 preset=custom。 */
   | { kind: 'config'; patch: Record<string, number | string | boolean> }
+  /**
+   * v0.6 调控台：一次提交多个旋钮，并回一份"影响预估"。
+   * 与 `config` 分开是因为语义不同——调控台要的是"先看再改"，
+   * 而 `config` 是"改了就说"。
+   */
+  | { kind: 'tune'; patch: Record<string, number | string | boolean>; dryRun?: boolean }
+  /** v0.6 引擎动作：连通性探测 / 重算向量空间 / 用当前记忆重编一次上下文 */
+  | { kind: 'engine'; action: 'probe' | 'reembed' | 'compile' }
   | { kind: 'search'; q: string }
   /** 主动开口：立即试一次 / 静音 N 分钟 / 解除静音 / 改频率 */
   | { kind: 'proactive'; action: 'now' | 'mute' | 'unmute' | 'config'; minutes?: number; patch?: Record<string, number | boolean> }

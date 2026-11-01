@@ -39,6 +39,23 @@ export interface CommandDeps {
     unmute(): void
   }
   openPanel?: () => void
+  /**
+   * 引擎（v0.6）。未装 mnemo-llm 时为 undefined——
+   * 这时 `models` / `mood` / `star` 三条命令仍然可用，只是数据来自内核而不是引擎。
+   */
+  engine?: {
+    status(): {
+      model: { id: string; label: string; contextWindow: number; inputPricePerMTok: number } | null
+      embedding: { mode: string; name: string; space: string; vaultSpace: string }
+      extractor: { mode: string; name: string; failRate: number }
+      tokenizer: string
+      lastCompile: { tokens: number; cost: number; mode: string } | null
+      across: Array<{ id: string; label: string; tokens: number; cost: number; mode: string; fits: boolean }>
+      limits: string[]
+    }
+    moodNow(): { pad: { v: number; a: number; d: number; s: number }; labels: Array<{ label: string; intensity: number }>; brief: string }
+    compileNow(): { tokens: number; cost: number; mode: string; reasons: string[] } | null
+  }
 }
 
 const HELP = `MnemoVault 命令
@@ -64,7 +81,11 @@ const HELP = `MnemoVault 命令
   /mnemo stats                 命中率、token 曲线、存储比
   /mnemo doctor [--fix] [--unlock]
   /mnemo rebuild --from-log [--yes]
-  /mnemo export [--user <id>]`
+  /mnemo export [--user <id>]
+  /mnemo models                当前模型 / 端口 / 跨模型成本表
+  /mnemo mood                  心境与情感摘要（给模型的那一行）
+  /mnemo star                  星图摘要（星等最高的几条 + 坐标）
+  /mnemo tune <k=v> [--dry]    调参：recall.ignition=0.5 maxSlots=3 …`
 
 /**
  * 命令入口。
@@ -311,6 +332,76 @@ async function runCommandInner(argv: string[], deps: CommandDeps): Promise<strin
         st.lastCandidate ? `候选：${JSON.stringify(st.lastCandidate).slice(0, 160)}` : '候选：无',
         ...st.skipped.slice(-3).map((x) => `  跳过：${x.reason}`),
       ].join('\n')
+    }
+
+    /**
+     * v0.6 命令面：把"引擎现在是什么状态"变成一句话能问出来的东西。
+     *
+     * 为什么命令面也要有这三条：面板可能没装（ui 是可选包），
+     * 而"我到底在跑真模型还是哈希"这个问题不能只在面板里回答。
+     */
+    case 'models': {
+      const eng = deps.engine
+      if (!eng) return '未安装 mnemo-llm：当前走哈希 embedding + 规则抽取 + 启发式计数（零依赖）'
+      const st = eng.status()
+      const lines = [
+        `当前 ${st.model?.label ?? '未知'}（${st.model?.id ?? '—'}）· 窗口 ${st.model?.contextWindow ?? 0} · ¥${st.model?.inputPricePerMTok ?? 0}/M tok`,
+        `语义路 ${st.embedding.mode === 'provider' ? st.embedding.name : '本地哈希'} · 空间 ${st.embedding.space}（库 ${st.embedding.vaultSpace}）`,
+        `抽取 ${st.extractor.mode === 'provider' ? st.extractor.name : '规则'} · 计数 ${st.tokenizer}`,
+        st.lastCompile ? `最近编译 ${st.lastCompile.tokens} tok · ¥${st.lastCompile.cost.toFixed(6)} · ${st.lastCompile.mode}` : '尚无编译记录',
+        st.across.length ? '跨模型（同一批记忆）：' : '',
+        ...st.across.map((m) => `  ${m.label.padEnd(18)} ${String(m.tokens).padStart(4)} tok  ${m.mode.padEnd(7)} ¥${m.cost.toFixed(6)}${m.fits ? '' : '  ⚠ 超预算'}`),
+        ...st.limits.map((l) => `  · ${l}`),
+      ]
+      return lines.filter(Boolean).join('\n')
+    }
+
+    case 'mood': {
+      const eng = deps.engine
+      if (eng) {
+        const m = eng.moodNow()
+        const lab = m.labels.map((x) => `${x.label}${x.intensity.toFixed(2)}`).join(' / ') || '中性'
+        return [
+          `PAD  v ${m.pad.v.toFixed(2)}  a ${m.pad.a.toFixed(2)}  d ${m.pad.d.toFixed(2)}  s ${m.pad.s.toFixed(2)}`,
+          `标签 ${lab}`,
+          `注入行 ${m.brief}`,
+        ].join('\n')
+      }
+      const a = deps.affect
+      if (!a) return '情感内核未安装'
+      const pad = a.current()
+      return `PAD  v ${pad.v.toFixed(2)}  a ${pad.a.toFixed(2)}  d ${pad.d.toFixed(2)}  s ${pad.s.toFixed(2)}`
+    }
+
+    case 'star': {
+      const snap = mem.panelSnapshot()
+      const map = snap.starmap
+      if (!map || map.nodes.length === 0) return '星图还是空的：先聊几句，记忆写入后才有星星'
+      const top = [...map.nodes].sort((x, y) => y.importance - x.importance).slice(0, 8)
+      return [
+        `星图 ${map.nodes.length} 颗 / 全库 ${map.total}（按星等采样）· ${map.edges.length} 条连线`,
+        ...top.map(
+          (n) =>
+            `  ${n.shortId}  (${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${n.z.toFixed(2)})  V ${n.valence.toFixed(2)} 重要 ${n.importance.toFixed(2)}  ${n.digest.slice(0, 28)}`,
+        ),
+        '打开面板 → 记忆星图，可以拖拽旋转、按情绪/固定筛选。',
+      ].join('\n')
+    }
+
+    case 'tune': {
+      const dry = rest.includes('--dry')
+      const pairs = rest.filter((x) => x.includes('='))
+      if (pairs.length === 0) return '用法：/mnemo tune recall.ignition=0.5 maxSlots=3 [--dry]'
+      const patch: Record<string, number | string | boolean> = {}
+      for (const p of pairs) {
+        const i = p.indexOf('=')
+        const k = p.slice(0, i)
+        const raw = p.slice(i + 1)
+        const num = Number(raw)
+        patch[k] = Number.isFinite(num) && raw.trim() !== '' ? num : raw === 'true' ? true : raw === 'false' ? false : raw
+      }
+      const r = mem.applyAction({ kind: 'tune', patch, dryRun: dry })
+      return `${r.ok ? '✓' : '✗'} ${r.message}`
     }
 
     case 'stats': {

@@ -418,4 +418,91 @@ export const CSS = `
   .mnv-wide-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
   .mnv-cols { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+/* ── 3D 记忆星图（v0.6） ─────────────────────────────────────── */
+.mnv-star { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.mnv-star-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.mnv-star-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.mnv-star-meta { display: flex; gap: 10px; font-size: 11px; color: var(--mnv-fg-faint); font-variant-numeric: tabular-nums; }
+.mnv-star-stage {
+  position: relative;
+  border: 1px solid var(--mnv-border);
+  border-radius: var(--mnv-radius);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(90, 130, 220, .10), transparent 62%),
+    var(--mnv-bg-sunken);
+  overflow: hidden;
+  min-width: 0;
+}
+.mnv-star-canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.mnv-star-canvas:active { cursor: grabbing; }
+.mnv-star-tip {
+  position: absolute;
+  max-width: 220px;
+  padding: 7px 9px;
+  border-radius: var(--mnv-radius-sm);
+  background: var(--mnv-bg);
+  border: 1px solid var(--mnv-border-strong);
+  box-shadow: 0 4px 14px rgba(16, 24, 40, .12);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.mnv-star-tip b { font-size: 11px; font-weight: 600; }
+.mnv-star-tip-nums { color: var(--mnv-fg-faint); font-variant-numeric: tabular-nums; }
+.mnv-star-hint {
+  position: absolute;
+  left: 10px;
+  bottom: 8px;
+  font-size: 10.5px;
+  color: var(--mnv-fg-faint);
+  pointer-events: none;
+}
+.mnv-star-foot { font-size: 11px; color: var(--mnv-fg-faint); line-height: 1.7; }
+
+/* ── 调控台（v0.6） ──────────────────────────────────────────── */
+.mnv-console { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.mnv-console-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.mnv-card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.mnv-card-head b { font-size: 13px; font-weight: 600; }
+.mnv-engine { display: flex; flex-direction: column; gap: 4px; }
+.mnv-engine .mnv-kv { font-size: 11.5px; gap: 8px; }
+.mnv-engine .mnv-kv > span:first-child { color: var(--mnv-fg-faint); flex: 0 0 64px; }
+.mnv-engine .mnv-kv > span:last-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.mnv-engine-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.mnv-engine-limits { margin: 8px 0 0; padding-left: 16px; color: var(--mnv-warn); font-size: 11px; line-height: 1.7; }
+.mnv-knob-group { border-top: 1px solid var(--mnv-border); padding-top: 10px; margin-top: 10px; }
+.mnv-knob-group:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+.mnv-knob-group-title { font-size: 11px; color: var(--mnv-fg-faint); letter-spacing: .3px; margin-bottom: 8px; }
+.mnv-knob { display: block; margin-bottom: 10px; }
+.mnv-knob-label { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 12px; }
+.mnv-knob-val { font-variant-numeric: tabular-nums; color: var(--mnv-accent); font-size: 12px; }
+.mnv-knob input[type="range"] { width: 100%; margin: 4px 0 0; accent-color: var(--mnv-accent); }
+.mnv-knob-note { font-size: 10.5px; color: var(--mnv-fg-faint); line-height: 1.6; }
+.mnv-impact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.mnv-impact-num {
+  border: 1px solid var(--mnv-border);
+  border-radius: var(--mnv-radius-sm);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.mnv-impact-num b { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.2px; }
+.mnv-impact-num span { font-size: 10.5px; color: var(--mnv-fg-faint); }
+.mnv-table { width: 100%; border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; }
+.mnv-table th { text-align: left; font-weight: 500; color: var(--mnv-fg-faint); padding: 4px 6px; border-bottom: 1px solid var(--mnv-border); }
+.mnv-table td { padding: 4px 6px; border-bottom: 1px solid var(--mnv-border); color: var(--mnv-fg-soft); }
+.mnv-table tr[data-active="true"] td { color: var(--mnv-fg); font-weight: 600; }
+.mnv-across { margin-bottom: 10px; }
+.mnv-console-actions { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 8px; }
+
+@media (min-width: 900px) {
+  .mnv-console-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
+  .mnv-console-grid > section:last-child { grid-column: 1 / -1; }
+}
 `

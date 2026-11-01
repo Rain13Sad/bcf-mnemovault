@@ -1,0 +1,58 @@
+{
+  "name": "@rain13sad/dsh-mnemo-llm",
+  "version": "0.6.0",
+  "description": "LLM 适配层：常用大模型的 embedding / 抽取 / tokenizer 端口 + 情感记忆引擎",
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "agent-memory",
+    "llm",
+    "embedding",
+    "openai",
+    "anthropic",
+    "gemini",
+    "ollama",
+    "typescript"
+  ],
+  "homepage": "https://github.com/Rain13Sad/bcf-mnemovault#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rain13Sad/bcf-mnemovault.git",
+    "directory": "packages/llm"
+  },
+  "bugs": {
+    "url": "https://github.com/Rain13Sad/bcf-mnemovault/issues"
+  },
+  "author": "Rain13Sad",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "engines": {
+    "dsh": ">=0.2.1-rc.3 <0.3.0",
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "^3.18.5",
+    "@rain13sad/dsh-mnemo-core": "^0.6.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

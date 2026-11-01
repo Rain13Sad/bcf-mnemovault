@@ -380,3 +380,83 @@ presentResult(args, value)   // → { card:'generic', title, content:[ContentBlo
 - `card` 是标签联合（`generic` / `terminal` / `diff` / `search` / `read` / `web`），UI 按 `card` 分派。
 - 纯函数：同 `args`/`value` 必须得到同结果（会话回放时会再调一次）。
 - 只影响 UI，**不进模型上下文**；模型看到的仍然是 `output.render()` 的文本。
+
+---
+
+## 9. v0.6：引擎契约（对外，非宿主）
+
+这一节与前八节性质不同：前面是"宿主实际提供了什么"，这里是"**我们对上层承诺了什么**"。
+承诺的对象不是 DSH，而是任何想接记忆的 LLM / Agent / 服务。
+
+### 9.1 `EmotionMemoryEngine`（`@rain13sad/dsh-mnemo-core`）
+
+| 方法 | 同步? | 契约 |
+| :--- | :--- | :--- |
+| `observe(text)` | 同步 | 估计情感、积分心境、返回一行摘要。**不写库** |
+| `remember(text, meta)` | 同步 | 委托 `encode` 回调产出 cell。没有回调时**抛错并给指引**，不静默 |
+| `recall(text, opts)` | **异步** | 预热向量 → `memory.recall()` → `compile()`。返回 `{ context, tokens, cost, mode, reasons, usedProvider }` |
+| `forget(cellId, mode)` | 同步 | 返回删除回执 `{ digest, mode, at, tombstoneId, danglingEdges, proof }` |
+| `status()` | 同步 | 返回 `PanelEngineInfo`（模型 / 端口 / 最近编译 / 跨模型表 / 限制清单） |
+| `probe()` | 异步 | 真发一次最小请求，返回 `{ ok, message }` |
+| `reembed({limit})` | 异步 | 分批重算向量空间，**全部完成才切空间** |
+
+不变量（可测试）：
+
+1. `recall()` 在没有端口时**必须**可用（哈希路径），且 `usedProvider === false`。
+2. `memory.embSpace !== port.space` 时**必须**拒用 provider 向量。
+3. `forget()` 的回执必须包含 `digest` 与 8 位 `proof`；`danglingEdges` 是删除前的引用数。
+4. `status().limits` 必须列出当前所有降级（哈希 / 规则 / 未设价格上限 / 探测失败）。
+
+### 9.2 端口（`core/src/ports.ts`）
+
+```ts
+interface EmbeddingPort {
+  name: string
+  space: string                       // 'provider:<id>:<model>'，换模型 = 换空间
+  dim?: number
+  embed(text): Promise<Float32Array>  // 异步
+  peek?(text): Float32Array | null    // 同步，读预热缓存
+  prime?(texts): Promise<number>
+}
+interface ExtractorPort { name: string; extract(input): Promise<ExtractedFact[] | null> }
+interface TokenizerPort { name: string; count(text): number; truncate(text, max): string }
+interface ClockPort { now(): number }
+interface AuditPort { record(e): void; list(limit?): AuditEvent[] }
+```
+
+**`null` 是合法返回值**：抽取失败、未预热、没有端点——全部走降级，不抛错。
+
+### 9.3 面板新增字段与动作（向后兼容）
+
+`PanelSnapshot` 新增三个**可选**字段：`starmap`（3D 坐标）/ `engine`（引擎状态）/ `tuning`（调控台扁平键）。
+旧快照没有它们，视图必须降级（`test/panel-ssr` 有断言）。
+
+`PanelAction` 新增两个：
+
+```ts
+{ kind: 'tune'; patch: Record<string, number|string|boolean>; dryRun?: boolean }
+{ kind: 'engine'; action: 'probe' | 'reembed' | 'compile' }
+```
+
+`tune` 支持点号路径（`'recall.ignition'`），服务层做一层深合并——只提交一个键时
+不会把整个 `recall` 段写空。
+
+### 9.4 配置新增 `llm` 段
+
+| 键 | 默认 | 说明 |
+| :--- | :--- | :--- |
+| `model` | `deepseek-chat` | 决定 tokenizer / 预算 / 价格闸 |
+| `provider` | `deepseek` | 6 家预设之一 |
+| `baseUrl` | `''` | 自定义端点；`openai-compatible` 必填 |
+| `apiKeyEnv` | `DEEPSEEK_API_KEY` | **只存环境变量名**，密钥不进配置、不进快照、不进日志 |
+| `embeddingEnabled` | `false` | 打开会打破零依赖承诺 |
+| `extractEnabled` | `false` | 同上 |
+| `maxPricePerTurn` | `0` | 0 = 不限 |
+
+### 9.5 仍然没有实机验证的部分（v0.6 更新）
+
+- **真 embedding / 真抽取**：只跑过假 `fetch`（协议形状全覆盖），**没有对真实厂商端点跑过**。
+  第一次真机会遇到的事：限额、跨境网络、模型名变更。
+- **`reembed` 的语义质量**：用 `digest + 槽位` 而不是原文重算（原文在残差里，慢 10 倍）。
+  这个选择会让语义路弱于理想值，写在面板的限制清单里。
+- **星图在 1200 节点以上的表现**：只在 ≤1200 采样下调过，没有实测更大规模。

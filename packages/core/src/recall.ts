@@ -246,6 +246,30 @@ export interface EmbeddingPort {
 
 export type EmbedSource = 'host' | 'hash'
 
+/**
+ * 查询向量（v0.6）。
+ *
+ * 一条硬约束：**查询向量与落盘向量必须同空间**。
+ *   · 没预热到 provider 向量 → 哈希空间（默认，零依赖）
+ *   · 预热到了 → provider 空间，且库里必须也已经是 provider 空间
+ * 混用会让余弦相似度失去意义（不同模型的 64 维折叠结果不可比），
+ * 而这种错误**不会报错**，只会让召回悄悄变差——所以由 `engine.status()`
+ * 在调用前拦截，而不是在这里猜。
+ */
+export function queryEmbedding(
+  text: string,
+  cfg: { embDim: number; embStoreDim?: number },
+  precomputed?: Float32Array | number[] | null,
+): Int8Array {
+  const dim = cfg.embStoreDim ?? cfg.embDim
+  if (precomputed && precomputed.length > 0) {
+    // 先按自身最大绝对值量化到 int8，再折叠到落盘维度——
+    // 顺序不能反：先折叠会把不同量级的维度平均掉，归一化就失真了。
+    return foldEmb(quantize(precomputed, precomputed.length), dim)
+  }
+  return foldEmb(hashEmbedding(text, cfg.embDim), dim)
+}
+
 export function embeddingFor(
   text: string,
   cfg: { embDim: number; embStoreDim?: number },
@@ -292,7 +316,7 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   // 查询向量与落盘向量必须走**同一条变换链**：先在 embDim 的哈希空间里算，
   // 再折叠到 embStoreDim。直接在 embStoreDim 上哈希会得到另一个向量空间
   // （折叠是"分组求和"，不是"换桶数"），两者不可比——实测会把 Recall@8 打到 0.23。
-  const qEmb = foldEmb(hashEmbedding(q.text, config.embDim), config.embStoreDim ?? config.embDim)
+  const qEmb = queryEmbedding(q.text, config, q.emb)
   const timeRange = q.timeRange ?? parseTimeExpr(q.text, now)
   const goalSdr = q.goal ? buildQuerySdr(space, q.goal.sdrText) : undefined
   const mood: Pad = q.pad ?? { v: 0, a: 0, d: 0, s: 0 }
@@ -393,15 +417,28 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
      * 现在先按列过滤 + 算分，只对 top-K 回表解 blob。语义完全等价：
      * 过滤条件与 `visible()` 共用 `visibleFields`，分数与打分阶段共用 `cosine`。
      */
-    const scored: Array<{ id: bigint; s: number }> = []
+    /**
+     * 矩阵路径：先粗筛（分数 > 0.12），再过可见性——可见性要解 blob，
+     * 所以顺序很重要：把便宜的算术放在前面，贵的过滤放在后面。
+     *
+     * v0.6：候选收集从"全收 + 排序"改成 **有界 Top-K 堆**。
+     *
+     * 为什么要改：哈希向量的余弦普遍偏高（它们大多是同号分量），
+     * 1 万条里能过 0.12 门限的有**几乎全部**。于是每次召回都分配 1 万个对象再
+     * `sort` 一遍——10k 次分配 + O(n log n) 比较，实测把 recall p50 从 12 ms 拖到 38 ms，
+     * 而且全落在 GC 上（同一个库、同一段代码，在刚写完 1 万条 cell 的进程里更慢）。
+     *
+     * 现在只维护 `wantK * 2` 个名额：堆顶是"当前最差的入选者"，
+     * 新候选先跟堆顶比一次就能被拒掉。**结果与全量排序逐条一致**——
+     * 比较器完全一样（分数降序，同分按 id 升序），所以这不改变召回质量，
+     * `test/v052-index` 的"索引结果 == 全扫结果"对拍仍然守着这一点。
+     */
+    const topK = new TopK(wantK * 2)
     if (deps.embScan) {
-      // 矩阵路径：先粗筛（分数 > 0.12），再过可见性——可见性要解 blob，
-      // 所以顺序很重要：把便宜的算术放在前面，贵的过滤放在后面。
       deps.embScan(qEmb, (id, s) => {
-        if (s > 0.12) scored.push({ id, s })
+        if (s > 0.12) topK.push(id, s)
       })
-      scored.sort((a, b) => b.s - a.s || Number(a.id - b.id))
-      for (const hit of scored.slice(0, wantK * 2)) {
+      for (const hit of topK.sorted()) {
         const cell = store.getCell(hit.id)
         if (!cell) continue
         if (q.kinds && !q.kinds.includes(cell.kind)) continue
@@ -840,6 +877,98 @@ export function formatBreakdown(b: ScoreBreakdown, threshold: number): string {
     `  raw ${b.rawSum.toFixed(2)} / Σw ${b.activeW.toFixed(2)} = ${b.score.toFixed(2)}`,
     ...b.notes.map((n) => `  · ${n}`),
   ].join('\n')
+}
+
+/**
+ * 有界 Top-K（v0.6）。
+ *
+ * 一个大小为 K 的二叉堆，堆顶是**当前入选者里最差的那个**：
+ * 分数最低；分数相同则 id 最大（因为最终排序是同分按 id 升序）。
+ * 于是"新候选能不能进"只需一次比较，绝大多数候选在第一关就被拒掉。
+ *
+ * 为什么不直接用 `Array.prototype.sort`：1 万条全量排序要分配 1 万个对象，
+ * 而那些对象 99% 会在下一步被丢掉。堆把分配量压到 K 个。
+ */
+export class TopK {
+  private readonly ids: bigint[] = []
+  private readonly scores: number[] = []
+  private readonly k: number
+
+  constructor(k: number) {
+    this.k = Math.max(1, k)
+  }
+
+  get size(): number {
+    return this.ids.length
+  }
+
+  /** 更差者优先成为堆顶：分数低，或同分时 id 大。 */
+  private worse(a: number, b: number): boolean {
+    if (this.scores[a] !== this.scores[b]) return this.scores[a] < this.scores[b]
+    return this.ids[a] > this.ids[b]
+  }
+
+  push(id: bigint, score: number): void {
+    if (this.ids.length < this.k) {
+      this.ids.push(id)
+      this.scores.push(score)
+      this.up(this.ids.length - 1)
+      return
+    }
+    // 与堆顶比一次：不比它好就直接丢
+    if (!this.betterThanRoot(id, score)) return
+    this.ids[0] = id
+    this.scores[0] = score
+    this.down(0)
+  }
+
+  private betterThanRoot(id: bigint, score: number): boolean {
+    const rs = this.scores[0]
+    if (score !== rs) return score > rs
+    return id < this.ids[0]
+  }
+
+  /** 堆顶是"最差"，所以上浮条件是"比父更差"。 */
+  private up(i: number): void {
+    let idx = i
+    while (idx > 0) {
+      const parent = (idx - 1) >> 1
+      if (!this.worse(idx, parent)) break
+      this.swap(idx, parent)
+      idx = parent
+    }
+  }
+
+  private down(i: number): void {
+    let idx = i
+    const n = this.ids.length
+    for (;;) {
+      const l = idx * 2 + 1
+      const r = l + 1
+      let worst = idx
+      if (l < n && this.worse(l, worst)) worst = l
+      if (r < n && this.worse(r, worst)) worst = r
+      if (worst === idx) break
+      this.swap(idx, worst)
+      idx = worst
+    }
+  }
+
+  private swap(a: number, b: number): void {
+    const ti = this.ids[a]
+    this.ids[a] = this.ids[b]
+    this.ids[b] = ti
+    const ts = this.scores[a]
+    this.scores[a] = this.scores[b]
+    this.scores[b] = ts
+  }
+
+  /** 按"分数降序、同分 id 升序"返回——与全量 sort 的比较器逐字一致。 */
+  sorted(): Array<{ id: bigint; s: number }> {
+    const out = this.ids.map((id, i) => ({ id, s: this.scores[i] }))
+    out.sort((a, b) => b.s - a.s || Number(a.id - b.id))
+    return out
+  }
 }
 
 export { estimateTokens }

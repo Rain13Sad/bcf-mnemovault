@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import { rmSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-const order = ['core', 'affect', 'encoder', 'recall', 'consolidator', 'proactive', 'tools', 'settings', 'devkit', 'ui']
+const order = ['core', 'llm', 'affect', 'encoder', 'recall', 'consolidator', 'proactive', 'tools', 'settings', 'devkit', 'ui']
 const clean = process.argv.includes('--clean')
 const root = process.cwd()
 const tsc = join(root, 'node_modules', 'typescript', 'bin', 'tsc')

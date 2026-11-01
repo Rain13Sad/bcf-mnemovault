@@ -34,7 +34,7 @@ const otp = args.find((a) => a.startsWith('--otp='))?.slice(6)
 const only = args.find((a) => a.startsWith('--only='))?.slice(7)
 
 /** 拓扑序：core 最先，ui / devkit 最后 */
-const ORDER = ['core', 'affect', 'encoder', 'recall', 'consolidator', 'proactive', 'tools', 'settings', 'devkit', 'ui']
+const ORDER = ['core', 'llm', 'affect', 'encoder', 'recall', 'consolidator', 'proactive', 'tools', 'settings', 'devkit', 'ui']
 
 const root = process.cwd()
 const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version

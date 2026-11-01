@@ -1,0 +1,15 @@
+# LLM 适配层（v0.6）
+#
+# 这一行是**可选**的。不装它，core 走哈希 embedding + 规则抽取 + 启发式计数，
+# 一切照常工作（零依赖承诺）。装了它，才有真 embedding / LLM 抽取 / 按模型编译。
+#
+# 两个开关默认 false：打开要联网、要密钥、要花钱。
+# 这个交换必须由使用者显式做出，不由升级替他决定。
+- insert:
+    - id: mnemo-llm
+      name: '@rain13sad/dsh-mnemo-llm'
+      config:
+        provider: deepseek
+        model: deepseek-chat
+        embeddingEnabled: false
+        extractEnabled: false

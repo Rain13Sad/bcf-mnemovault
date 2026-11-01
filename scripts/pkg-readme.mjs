@@ -27,6 +27,18 @@ const PACKAGES = [
     exports: ['MemoryService', 'encodeCell / decodeCell', 'SdrSpace', 'SensoryRing', 'WorkingSet', 'defaultConfig', 'PRESETS'],
   },
   {
+    dir: 'llm',
+    tagline: 'LLM adapters — embedding / extraction / tokenizer ports for common models.',
+    body: [
+      'Turns any OpenAI-compatible, Gemini or Ollama endpoint into the kernel\'s ports, and',
+      'ships the host-agnostic `EmotionMemoryEngine`. Two switches stay off by default',
+      '(`embeddingEnabled`, `extractEnabled`) because turning them on breaks the',
+      'zero-dependency promise — the trade is yours to make, not ours to assume.',
+      'Providers: deepseek, openai, anthropic, google, ollama, openai-compatible.',
+    ],
+    exports: ['createEnginePorts', 'HttpEmbeddingProvider', 'LlmExtractor', 'createTokenizer', 'PROVIDERS'],
+  },
+  {
     dir: 'affect',
     tagline: 'Affect kernel — appraisal, mood, persona and the user schema.',
     body: [

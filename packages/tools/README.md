@@ -30,6 +30,7 @@ Six model-callable tools (search, remember, forget, stats, timeline, affect) plu
 | Package | Role |
 | :--- | :--- |
 | `@rain13sad/dsh-mnemo-core` | Lattice, store, index and renderer — the `ctx.memory` service. |
+| `@rain13sad/dsh-mnemo-llm` | LLM adapters — embedding / extraction / tokenizer ports for common models. |
 | `@rain13sad/dsh-mnemo-affect` | Affect kernel — appraisal, mood, persona and the user schema. |
 | `@rain13sad/dsh-mnemo-encoder` | Write path — turns a finished turn into sparse-code cells. |
 | `@rain13sad/dsh-mnemo-recall` | Read path — four-channel recall and prompt injection. |

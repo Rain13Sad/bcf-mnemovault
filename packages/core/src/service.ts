@@ -42,8 +42,10 @@ import { estimateTokens, fmt2, mmdd, assignShortIds, kvPairs } from './render.js
 import { formatBreakdown, runRecall, SIM_FLOOR } from './recall.js'
 import { SdrSpace } from './sdr.js'
 import { createStore, type EvictRecord, type Store } from './store.js'
+import { PortCounters, type EnginePorts } from './ports.js'
+import { buildStarMap } from './starmap.js'
 import { SensoryRing, WorkingSet } from './working.js'
-import { applyPreset } from './preset.js'
+import { applyPreset, estimateTokensPerTurn } from './preset.js'
 import { hash64, toHex } from './hash.js'
 import { redact, isRedactionPlaceholder } from './text.js'
 import type {
@@ -54,6 +56,7 @@ import type {
   PanelCellView,
   PanelEdgeView,
   PanelRetentionEntry,
+  PanelEngineInfo,
   PanelSnapshot,
   RecallQuery,
   RecallResult,
@@ -77,6 +80,11 @@ export interface MemoryServiceOptions {
   panelPath?: string
   /** 运行时状态登记处（L1 / 命令面 / remote 面），由 core 注入 */
   runtime?: RuntimeStatus
+  /**
+   * 端口集合（v0.6）。全部可选：缺 embedding 就走哈希，缺 tokenizer 就用启发式，
+   * 缺 extractor 就用规则。**缺省不是错误**，是零依赖承诺的实现方式。
+   */
+  ports?: EnginePorts
 }
 
 export class MemoryService extends Service {
@@ -170,6 +178,52 @@ export class MemoryService extends Service {
     this.store = opts.store ?? createStore({ path: opts.config.dbPath, space: this.space })
     this.panelPath = opts.panelPath
     this.runtime = opts.runtime ?? new RuntimeStatus()
+    this.ports = opts.ports ?? {}
+    this.counters = new PortCounters()
+  }
+
+  /** 端口集合（v0.6）。可热替换：`usePorts()` 之后下一轮即生效。 */
+  ports: EnginePorts
+  /** 端口降级计数。面板的"引擎"卡片读它，不做静默退化。 */
+  readonly counters: PortCounters
+  private engineInfo: PanelEngineInfo | null = null
+
+  /**
+   * 当前库的向量空间（v0.6）。
+   *
+   * 存在 meta 里而不是配置里：它是**数据的属性**，不是部署的属性。
+   * 换 embedding 模型 = 换空间 = 必须重算全库，而这个事实不能只写在文档里——
+   * 把它落到 meta，`engine.status()` 才能拦住"用 provider 查询向量去打哈希库"这种静默错误。
+   */
+  get embSpace(): string {
+    try {
+      return this.store.meta('emb.space') ?? 'hash'
+    } catch {
+      return 'hash'
+    }
+  }
+
+  setEmbSpace(space: string): void {
+    this.store.setMeta('emb.space', space)
+    this.embIndex = null
+    this.embIndexedCount = -1
+  }
+
+  /** 端口热替换：换 provider / 换模型不需要重启宿主。 */
+  usePorts(ports: EnginePorts): void {
+    this.ports = { ...this.ports, ...ports }
+    this.embIndex = null
+    this.embIndexedCount = -1
+  }
+
+  /** 引擎状态回填（由 engine 包在每次编译/探测后调用）。 */
+  noteEngine(info: PanelEngineInfo | null): void {
+    this.engineInfo = info
+    this.publishPanel()
+  }
+
+  engineState(): PanelEngineInfo | null {
+    return this.engineInfo
   }
 
   /**
@@ -715,6 +769,16 @@ export class MemoryService extends Service {
   // ── 读路径 ──────────────────────────────────────────────────────
 
   recall(q: RecallQuery): RecallResult {
+    /**
+     * 查询向量（v0.6）：显式传入 > 预热缓存（且库已在同一空间）> 哈希。
+     *
+     * 中间那条有个硬前提：**库必须是 provider 空间**。否则用 provider 查询向量
+     * 去打哈希库，余弦相似度会给出"看似合理但完全无关"的分数——这种错误不报错，
+     * 只会让召回悄悄变差，所以宁可退回哈希。
+     */
+    const portVec = q.emb ?? (this.embSpace !== 'hash' ? this.ports.embedding?.peek?.(q.text) ?? null : null)
+    if (portVec) this.counters.noteEmbed(true)
+    else if (this.ports.embedding) this.counters.noteEmbed(false)
     const r = runRecall(
       {
         space: this.space,
@@ -727,7 +791,7 @@ export class MemoryService extends Service {
         sdrCandidates: (sdr, minOverlap) => this.sdrCandidates(sdr, minOverlap)?.map((c) => c.id) ?? null,
         embScan: (q, visit) => this.embScan(q, visit),
       },
-      q,
+      portVec ? { ...q, emb: portVec } : q,
     )
     if (q.readOnly) {
       // 只读：不写快照、不计命中率、不更新 tAccess、不建共激活边、不推面板。
@@ -1534,6 +1598,16 @@ export class MemoryService extends Service {
       pending,
       consolidation: this.lastConsolidation,
       retention: this.retentionView(),
+      // v0.6：星图在 host 侧投影（客户端拿不到 64 维向量，也不该拿）。
+      // 采样 1200 条：再多画布只剩噪声，且这份快照每 3 秒重建一次。
+      starmap: buildStarMap(
+        cells,
+        edges.map((e) => ({ src: e.src, dst: e.dst, weight: e.weight })),
+        (id) => this.store.getCell(BigInt('0x' + id)),
+        1200,
+      ),
+      engine: this.engineInfo,
+      tuning: { values: tuningValues(this.config), preset: this.config.preset },
     }
   }
 
@@ -1634,6 +1708,47 @@ export class MemoryService extends Service {
       case 'config': {
         const next = this.setConfig(a.patch as Partial<MnemoConfig>)
         return { ok: true, message: `已更新 ${Object.keys(a.patch).join(', ')}（preset=${next.preset}，下一轮生效）` }
+      }
+      case 'tune': {
+        // 调控台：先给预估，再决定是否落。dryRun 不写库也不发事件。
+        const merged = applyPreset({ ...this.config, ...(a.patch as Partial<MnemoConfig>) })
+        if (a.dryRun) {
+          return { ok: true, message: `预估 ${estimateTokensPerTurn(merged)} token/轮 · ${merged.surfaceMode} · 未应用` }
+        }
+        const next = this.setConfig(a.patch as Partial<MnemoConfig>)
+        return {
+          ok: true,
+          message: `已应用 ${Object.keys(a.patch).length} 项 · ${estimateTokensPerTurn(next)} token/轮 · preset=${next.preset}`,
+        }
+      }
+      case 'engine': {
+        const eng = this.ctx.get('mnemoEngine') as
+          | {
+              probe?(): Promise<{ ok: boolean; message: string }>
+              reembed?(opts?: { limit?: number }): Promise<{ done: number; total: number; skipped: number; space: string }>
+              compileNow?(): { tokens: number; cost: number; mode: string; reasons: string[] }
+            }
+          | undefined
+        if (!eng) return { ok: false, message: '未安装 mnemo-llm（引擎端口不可用，当前走哈希 + 规则）' }
+        if (a.action === 'probe') {
+          // 探测是异步的，但 applyAction 是同步契约：先返回"已开始"，结果走面板刷新
+          void eng.probe?.().then((r) => {
+            this.emit('mnemo/engine', { action: 'probe', ok: r.ok, message: r.message })
+            this.publishPanel()
+          })
+          return { ok: true, message: '已发起连通性探测（结果会显示在"引擎"卡片）' }
+        }
+        if (a.action === 'reembed') {
+          void eng.reembed?.({ limit: 500 }).then((r) => {
+            this.emit('mnemo/engine', { action: 'reembed', ...r })
+            this.publishPanel()
+          })
+          return { ok: true, message: '已排队重算向量空间（每批 500 条，可重复执行直到 done=total）' }
+        }
+        const c = eng.compileNow?.()
+        return c
+          ? { ok: true, message: `重编完成：${c.tokens} token · ¥${c.cost.toFixed(6)} · ${c.mode}${c.reasons.length ? ' · ' + c.reasons[0] : ''}` }
+          : { ok: false, message: '当前没有可编译的记忆' }
       }
       case 'refresh':
         this.publishPanel(true)
@@ -1855,12 +1970,23 @@ export class MemoryService extends Service {
   }
 
   /** 参数热更新（§12.8）。写 mnemo/settings 事件，便于审计谁在什么时候改了什么。 */
-  setConfig(patch: Partial<MnemoConfig>): MnemoConfig {
+  setConfig(patch: Partial<MnemoConfig> | Record<string, number | string | boolean>): MnemoConfig {
     // 改细项即视为 custom：否则 applyPreset 会把刚改的值覆盖回预设值，
     // 这正是文档 §12.2 要避免的"我改了但被预设覆盖"。
-    const touchesFine = Object.keys(patch).some((k) => k !== 'preset')
-    const effective = touchesFine && patch.preset === undefined ? { ...patch, preset: 'custom' as const } : patch
-    const next = applyPreset({ ...this.config, ...effective })
+    const flat = expandDotted(patch as Record<string, number | string | boolean>)
+    const touchesFine = Object.keys(flat).some((k) => k !== 'preset')
+    const effective = (touchesFine && flat.preset === undefined ? { ...flat, preset: 'custom' } : flat) as Partial<MnemoConfig>
+    // 深合并一层：调控台只提交 `recall.ignition` 一个键时，
+    // 不能把整个 recall 段替换掉（否则其余六个权重会被写成 undefined）。
+    const merged = { ...this.config } as Record<string, unknown>
+    for (const [k, v] of Object.entries(effective)) {
+      if (v && typeof v === 'object' && !Array.isArray(v) && merged[k] && typeof merged[k] === 'object') {
+        merged[k] = { ...(merged[k] as object), ...(v as object) }
+      } else {
+        merged[k] = v
+      }
+    }
+    const next = applyPreset(merged as unknown as MnemoConfig)
     const changed = Object.keys(effective)
     // 索引参数变了就丢弃索引（下次召回懒建）：否则"改了 annM 但图还是旧的那张"
     if (changed.some((k) => k.startsWith('recall.ann') || k === 'embStoreDim' || k === 'sdrDim' || k === 'sdrK')) {
@@ -2090,3 +2216,48 @@ export function buildCategories(cells: PanelCellView[]): Array<{ key: string; la
 }
 
 export { SIM_FLOOR, encodeCell, topicOf, hash64 }
+
+/**
+ * 调控台可调项 → 扁平键值（v0.6）。
+ *
+ * 只暴露"改了立刻能看出差别"的那些。`dbPath` / `embDim` 这类需要重启或重建的
+ * 不在这里——把它们做成滑杆，就是在骗用户"拖一下就好了"。
+ */
+export function tuningValues(cfg: MnemoConfig): Record<string, number | string | boolean> {
+  return {
+    maxSlots: cfg.maxSlots,
+    maxEntriesPerTurn: cfg.maxEntriesPerTurn,
+    maxSurfaceTokens: cfg.maxSurfaceTokens,
+    surfaceMode: cfg.surfaceMode,
+    affectEnabled: cfg.affectEnabled,
+    'recall.ignition': cfg.recall.ignition,
+    'recall.wSim': cfg.recall.wSim,
+    'recall.wRecency': cfg.recall.wRecency,
+    'recall.wFreq': cfg.recall.wFreq,
+    'recall.wAffect': cfg.recall.wAffect,
+    'recall.wGoal': cfg.recall.wGoal,
+    'recall.wCue': cfg.recall.wCue,
+    'recall.wInterf': cfg.recall.wInterf,
+    'recall.graphHops': cfg.recall.graphHops,
+    'consolidation.everyTurns': cfg.consolidation.everyTurns,
+    'llm.maxPricePerTurn': cfg.llm.maxPricePerTurn,
+  }
+}
+
+/** `{'recall.ignition': 0.3}` → `{recall:{ignition:0.3}}`。一层足够，不做通用 set。 */
+export function expandDotted(patch: Record<string, number | string | boolean>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(patch)) {
+    const dot = k.indexOf('.')
+    if (dot < 0) {
+      out[k] = v
+      continue
+    }
+    const head = k.slice(0, dot)
+    const tail = k.slice(dot + 1)
+    const cur = (out[head] as Record<string, unknown>) ?? {}
+    cur[tail] = v
+    out[head] = cur
+  }
+  return out
+}

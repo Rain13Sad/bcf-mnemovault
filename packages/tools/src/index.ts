@@ -526,6 +526,7 @@ export function apply(ctx: Context, config: Config) {
     setPreset: (p) => memory.setConfig({ preset: p }),
     setSurfaceMode: (m) => memory.setConfig({ surfaceMode: m }),
     proactive: ctx.get('mnemoProactive') as never,
+    engine: ctx.get('mnemoEngine') as never,
     rebuild: async () => {
       const r = await memory.rebuildFromLog()
       return `重建完成：重放 ${r.turns} 轮，生成 ${r.cells} 条 cell（当前库 ${memory.store.countCells()} 条）`

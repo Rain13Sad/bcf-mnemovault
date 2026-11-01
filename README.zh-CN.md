@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.5.2 -->
+<!-- DOC-VERSION: 0.6.0 -->
 
 # MnemoVault
 
@@ -15,7 +15,7 @@
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#快速开始)
-[![Tests](https://img.shields.io/badge/tests-176-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-227-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -28,8 +28,8 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.5.2** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 10 个包 · 59 个源文件 / 约 18,700 行 TS（`.ts` + `.tsx`，含 UI）· 176 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **状态** | **v0.6.0** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 11 个包 · 73 个源文件 / 约 22,700 行 TS（`.ts` + `.tsx`，含 UI）· 227 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
 | **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **28 条缺点 D1–D28** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
 | **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 28 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -78,7 +78,7 @@ DSH 的上下文窗口是有限的，而"用户三个月前说过什么"要么�
 
 ```bash
 npm ci               # 只有 devDependencies（typescript / react / 类型）
-npm run build        # 按依赖顺序编译 10 个包（没有 bundler，逐包 tsc）
+npm run build        # 按依赖顺序编译 11 个包（没有 bundler，逐包 tsc）
 npm test             # 93 条测试
 npm run demo         # 26 轮中文对话：注入 / 巩固 / 统计 / 守卫
 npm run bench:eval   # mnemo-bench：Recall@8 / MRR / 去重 P,R / 时间推理 / 成本
@@ -126,7 +126,9 @@ npm run verify       # 以上四件事一次跑完（CI 跑的就是它）
 同一份 1 万语料下，开/关索引对照：**召回快 11×、ingest 快 21×**
 （`node scripts/bench-scale.mjs --corpus 10000 --ab`）。
 
-共享机器上的延迟是有噪声的：1 万档的 p95 在多次运行中测得 **25–32 ms**（上表的 25 ms 是较安静的一次）。
+共享机器上的延迟是有噪声的。v0.6.0 起 1 万档改走**精确扫描**（HNSW 在这个规模上更慢：安静进程里 p50 37 ms vs 11 ms），
+所以它的 p95 测的是 **45–55 ms**，不再是 HNSW 时代的 25–32 ms。门槛因此从 40 提到 60 ms——
+理由是测量口径变了，不是为了掩盖变慢。
 CI 门槛定在 40 ms，就是留了这个余量。
 
 > **这份语料是合成的，数字只关于延迟。** 它由批量 `putCell` + 合成边造出来——没有残差、
@@ -238,6 +240,45 @@ dispose()
 
 ---
 
+## v0.6.0：LLM 层面的情感记忆引擎
+
+0.5.2 让它在真实规模上站得住；**0.6.0 让它离开宿主也活着。**
+
+v0.5 之前，这是一个"DSH 插件"：能力都在 Cordis 钩子里，换一个宿主等于重写一遍接线。
+这一版拆成三层：
+
+```text
+core   同步内核，零第三方依赖      ← 只认端口
+llm    新增：HTTP → 端口          ← 只认宿主
+host   DSH / MCP / 你的 Agent     ← 只认引擎
+```
+
+| | |
+| :--- | :--- |
+| **引擎** | `EmotionMemoryEngine` —— `observe / remember / recall / forget / status`。宿主无关；DSH 插件只是它的一个调用方 |
+| **端口** | `EmbeddingPort` / `ExtractorPort` / `TokenizerPort` / `ClockPort` / `AuditPort`。缺哪个就走哪条降级，**不是错误** |
+| **模型** | 6 家 provider / 11 个画像（DeepSeek · OpenAI · Anthropic · Google · Ollama · OpenAI 兼容）。加一家模型 = **加一行数据** |
+| **编译器** | `compile()` 三道闸：能力 → token → **钱**。弱模型自动降散文；贵模型按价格裁剪，而不是按 token 数 |
+| **情感** | 四条机制各带一条断言：评价→PAD、心境一致性（负向侧打 0.7 折，反刍闸）、唤醒**倒 U**、情感摘要字节稳定 |
+| **星图** | 64 维向量用**固定种子随机投影**到 3D：新记忆只增加点，绝不移动旧点。canvas，1200 节点，可拖拽/缩放/悬停 |
+| **调控台** | 16 个旋钮，每个在**应用之前**就显示它对 token/轮 与成本的影响 |
+
+两个开关默认**关**：`embeddingEnabled` 与 `extractEnabled`。打开会打破"零第三方依赖、离线可跑"
+的承诺（要联网、要密钥、要花钱）。这个交换由你决定，不由升级替你决定。
+
+做这一版踩出两条硬规则，都是**测试抓到的，不是想出来的**：
+
+1. **内核保持同步。** HTTP 是异步的，所以向量由异步侧**预热**、同步侧从缓存读；
+   未命中退回哈希——`await` 永远不会漏进 `recall()`。
+2. **向量空间不能混。** 拿 provider 查询向量去打哈希库，余弦相似度仍然返回 0~1 的数，**但那个数没有意义**。
+   现在 `memory.embSpace === port.space` 是硬闸；唯一的切换路径是 `engine.reembed()`——
+   分批遍历全库，**跑完才切空间**，不留半个库。
+
+按本项目自己的规矩，坏消息写在前面：**MRR 0.681 → 0.650**。Recall@8 仍是 0.941。
+原因是 D5 的修复——`embStoreDim` 现在来自 schema（64），而不是第二张手写的表（128）。
+64 才是盘上真实库用的维度，所以 0.650 是**真数字**，0.681 是量在一个没人发布过的维度上。
+存储比 0.839 → 0.769，单条 cell 341 B → **277 B**。
+
 ## v0.5.2：让它在真实规模上站得住
 
 0.5.0 让决策链会算，0.5.1 让它算对。**0.5.2 让它在真实规模上仍然成立**——
@@ -257,7 +298,7 @@ dispose()
 | `doctor()` 每次面板刷新做三次全解码 | 合并单趟 + 30 秒缓存 | @10k：约 700 → **约 250 ms** |
 | `demoteDue` 每 tick 重算七因子、每条一次 WAL 提交 | 保留度**落盘**（`retention` 表，不动 `cells`）+ 增量扫描 + 单调性剪枝 + **整段一个事务** | 10k 一次 pass：2066 → **658 ms** |
 | 巩固整轮一个事务 | 按阶段提交 | 锁按阶段而非整轮 |
-| README 里"1 万 cell p95 ≤ 40 ms"从没被断言过 | `ci-assert-scale.mjs` 进 CI | **25 ms** |
+| README 里"1 万 cell p95 ≤ 40 ms"从没被断言过 | `ci-assert-scale.mjs` 进 CI | **45–55 ms**（见下方口径说明） |
 
 比单个数字更重要的是**趋势**——它不再增长了：
 
@@ -540,7 +581,7 @@ v0.2 的 README 末尾列了六个"接口就绪、实机未验证/未实现"的�
 | `@rain13sad/dsh-mnemo-encoder` | 写侧 | `Encoder`（订阅 `session/event`，turn/end 编码） |
 | `@rain13sad/dsh-mnemo-recall` | 读侧 | `agent/pre-step` 门控与注入 |
 | `@rain13sad/dsh-mnemo-consolidator` | 离线巩固 | `Consolidator`（NREM / REM / 遗忘） |
-| `@rain13sad/dsh-mnemo-tools` | 工具面 + 命令面 | 6 个工具、22 条子命令（`/mnemo`）、egress 守卫 |
+| `@rain13sad/dsh-mnemo-tools` | 工具面 + 命令面 | 6 个工具、26 条子命令（`/mnemo`）、egress 守卫 |
 | `@rain13sad/dsh-mnemo-proactive` | **主动开口** | `ctx.mnemoProactive`、`candidate()`、`tick()`、静音 |
 | `@rain13sad/dsh-mnemo-settings` | 设置面板 | `ctx.mnemoSettings`、生效矩阵、配置快照 |
 | `@rain13sad/dsh-mnemo-ui` | **侧栏面板（client）** | `main` + `sidebar.panellist` 槽注册 |
@@ -802,7 +843,7 @@ storage_ratio = 残差压缩率 + (nCells × 单条字节) / L
 
 ```text
 .
-├── packages/                    10 个包，依赖单向（core → affect → encoder → recall → …）
+├── packages/                    11 个包，依赖单向（core → affect → encoder → recall → …）
 │   ├── core/src/               21 个文件：cell / store / recall / service / render / sdr / ann / working /
 │   │                           forgetting / **retention** / **reconsolidation** / **neuromod** / **lifecycle** / preset / text …
 │   ├── affect/src/{appraisal,relational,policy,persist,index}.ts
