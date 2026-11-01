@@ -1,5 +1,5 @@
 /**
- * 按依赖顺序发布 10 个包。
+ * 按依赖顺序发布 11 个包。
  *
  *   node scripts/publish-all.mjs                 # 真发：npm 会逐个包提示输入验证码
  *   node scripts/publish-all.mjs --dry-run       # 只打包预演（不需要登录）
@@ -33,7 +33,7 @@ const republish = args.includes('--republish')
 const otp = args.find((a) => a.startsWith('--otp='))?.slice(6)
 const only = args.find((a) => a.startsWith('--only='))?.slice(7)
 
-/** 拓扑序：core 最先，ui / devkit 最后 */
+/** 拓扑序：core 最先（llm 紧跟其后，因为它只依赖 core），ui / devkit 最后 */
 const ORDER = ['core', 'llm', 'affect', 'encoder', 'recall', 'consolidator', 'proactive', 'tools', 'settings', 'devkit', 'ui']
 
 const root = process.cwd()
