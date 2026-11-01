@@ -82,9 +82,16 @@ test('compileContext：价格闸用钱而不是 token 表达', () => {
   const b = compileContext({ cells: CELLS, model: pricey, maxTokens: 320 })
   assert.ok(b.cost > a.cost, '同一批记忆在贵模型上成本必须更高')
   assert.equal(estimateCost(1_000_000, pricey), pricey.inputPricePerMTok)
+  // v0.6.1：价格闸现在**真的裁剪**。旧断言只看 fits=false（字段），
+  // 看不到"一条没少"这个事实——审计稿 F1 就是这么漏过去的。
   const gated = compileContext({ cells: CELLS, model: pricey, maxTokens: 320, maxPrice: 0.0000001 })
-  assert.equal(gated.fits, false, '超价格上限必须 fits=false')
-  assert.ok(gated.reasons.some((r) => r.includes('价格')), `原因里应提到价格：${gated.reasons.join(' / ')}`)
+  assert.equal(gated.rows, 0, '价格上限低到承担不起图例时，必须一条都不发')
+  assert.equal(gated.cost, 0, '不发就不该计费')
+  assert.equal(gated.suppressed, true, '必须显式标记"因闸门被压制"')
+  assert.ok(
+    gated.reasons.some((r) => r.includes('价格') || r.includes('图例')),
+    `原因里应说明是价格/图例：${gated.reasons.join(' / ')}`,
+  )
 })
 
 test('previewAcrossModels：同一批记忆给出多模型成本表，且不越预算', () => {

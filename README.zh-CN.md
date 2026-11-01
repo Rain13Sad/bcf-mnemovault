@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.6.0 -->
+<!-- DOC-VERSION: 0.6.1 -->
 
 # MnemoVault
 
@@ -16,7 +16,7 @@
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#快速开始)
-[![Tests](https://img.shields.io/badge/tests-227-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-265-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -29,8 +29,8 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.6.0** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 11 个包 · 73 个源文件 / 约 22,700 行 TS（`.ts` + `.tsx`，含 UI）· 227 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **状态** | **v0.6.1** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 11 个包 · 73 个源文件 / 约 23,300 行 TS（`.ts` + `.tsx`，含 UI）· 265 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
 | **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **28 条缺点 D1–D28** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
 | **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 28 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -56,7 +56,7 @@ DSH 的上下文窗口是有限的，而"用户三个月前说过什么"要么�
 1. **写侧**把话语拆成命题，编码成定长晶胞：稀疏码（身份）+ int8 向量（语义）+ 有类型超边（关系）
    + 事件时间与失效时间（双时态）+ 情感读数 + 版本链。原文以 brotli 残差单独存，随时可取回。
 2. **读侧**四路召回（语义 / 身份 / 图 / 时间）合并打分，用 4±1 槽位竞争决定注入哪几条，
-   渲染成表格行——稳态约 116 token/轮，对"整段摘要"类做法省约 90%。
+   渲染成表格行——稳态约 117 token/轮（启发式上界；按校准口径约 105），对"整段摘要"类做法省约 90%。
 3. **离线**做双相巩固：NREM 抽象出图式、REM 发散出联想、按幂律遗忘曲线降层。
 4. **情感**不是台词，是参数：评价 → PAD → 心境 → 关系 → 人格锚，全部落盘为普通 cell，可演化可回滚。
 
@@ -256,6 +256,40 @@ dispose()
 </details>
 
 ---
+
+## v0.6.1：把「说了在做、其实没做」清零
+
+补丁版只做一件事：**把宣称与实现之间的缺口补上**。不引入新能力，不改存储布局
+（MC03 不变，旧库不需要 rebuild）。
+
+0.6.0 有两条宣称不成立，而它们都是被"断言错东西"的测试放过去的：
+
+| 宣称 | 0.6.0 的实际情况 | 现在 |
+| :--- | :--- | :--- |
+| "每轮注入的价格上限" | 闸门只 push 了一条原因字符串；`maxPrice=0` 仍发 10 条 / ¥0.0057 | 闸门**真的裁剪**；连图例都承担不起时一条不发（`suppressed=true`） |
+| "适配常用大模型" | `deepseek-v3` / `gpt-5` / `claude-sonnet-4-5` 全落保守档 → 强制 prose → token 2.5× | 32 个真实模型名全部命中；厂商家族有显式默认档；未知模型不再按免费计价 |
+
+另外三条是"悄悄做错"型——它们从不报错：
+
+- **删除回执的 `danglingEdges` 说谎**：hard 删除会级联删边，回执却报删除前的数量。
+  现在 hard 报 0（真相），soft 报删除前（归档层保留关系）。
+- **`reembed()` 绕过向量索引**：它直接写 cell，于是索引里留着旧空间的向量，
+  而自愈判据（计数不一致）永远不成立。现在走 `memory.reindexCell()`；中途失败可检测——
+  inflight 标记里带目标空间，`status().limits` 与 `doctor()` 都会报；换 provider 时游标归零，
+  不把两个空间缝在一起。
+- **英文情感识别是死的**：`I am happy` 得 0 分，相对 v0.2 是退化。词表 +45 条，
+  否定改成词边界 + `n't` 后缀规则（旧实现的 3 字符窗口永远匹配不到 `not`），
+  强度词也不再误伤 `太阳` / `超市` / `太空`。
+
+有一处**审计稿判断错了，实测赢了**：星图冷层漂移。它建议的 `expandEmb` 会让漂移**更大**
+（0.467 vs 0.031），因为 `pq32` 是"前 32 维的 4 bit 量化"，零填充才是它的忠实逆变换。
+代码注释现在写的是事实，并且加了一条反向断言——谁改回 `expandEmb` 就会红。
+
+token 口径现在同时报两个数：`116.9`（启发式上界，CI 门槛用它）与 `105.4`（DeepSeek 校准口径）。
+纯中文散文可被高估约 45%，所以对外该引用的是后者。
+
+测试 **227 → 265**。新增的断言盯的是**行为**（`rows`、`cost`、`space`、`cursor`），不是报告字段——
+0.6.0 的价格闸 bug 正是从那个缺口漏过去的。
 
 ## v0.6.0：LLM 层面的情感记忆引擎
 

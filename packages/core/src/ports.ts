@@ -137,6 +137,16 @@ export interface ModelProfile {
   /** 该模型家族可用的 embedding 模型（没有则只能用别的 provider 或哈希） */
   embeddingModel?: string
   embeddingDim?: number
+  /**
+   * 别名（v0.6.1）。
+   *
+   * 厂商的模型名比版本号变得快：`deepseek-chat` / `deepseek-v3` / `DeepSeek-V3`
+   * 指的是同一个东西。没有别名表时，最常见的那个写法会落到保守档 →
+   * 被强制降级成 prose → token 涨 2.5×，而**不会报错**。
+   */
+  aliases?: string[]
+  /** 是否是"什么都不认识"时的兜底档（v0.6.1）。面板与端口装配据此告警。 */
+  fallback?: boolean
 }
 
 export type ModelProvider = 'deepseek' | 'openai' | 'anthropic' | 'google' | 'ollama' | 'openai-compatible' | 'local'

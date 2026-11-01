@@ -17,6 +17,7 @@
  */
 import { createHarness } from '@rain13sad/llm-mnemo-devkit'
 import { writeFileSync, mkdirSync } from 'node:fs'
+import { calibrationOf, countWith } from '@rain13sad/llm-mnemo'
 
 const args = process.argv.slice(2)
 const FACT_COUNT = Number(args[args.indexOf('--facts') + 1]) || 36
@@ -69,6 +70,17 @@ const K = 8
 let hit8 = 0
 let mrr = 0
 let tokenSum = 0
+/**
+ * 校准口径的 token 数（v0.6.1）。
+ *
+ * `r.tokens` 是 core 的**启发式上界**：CJK 每字按 1 token 估，
+ * 而真实 tokenizer 是 0.65–0.88 token/字。实测中文样本高估约 45%，
+ * 于是"预算利用率"只有 79%——白扔约 2 条记忆的容量。
+ *
+ * 这一版**不改运行时行为**（改它会让召回条数变化，属于独立议题），
+ * 但把真实口径也报出来：README 不该拿上界当卖点。
+ */
+let tokenSumCalibrated = 0
 let tokenN = 0
 const lat = []
 for (const f of facts) {
@@ -77,6 +89,7 @@ for (const f of facts) {
   const r = h.memory.recall({ text: q, budget: 320, manual: true })
   lat.push(Date.now() - t0)
   tokenSum += r.tokens
+  tokenSumCalibrated += countWith(r.rendered, calibrationOf('cjk-ratio'))
   tokenN++
   const ids = r.hits.map((x) => x.cellId)
   const rank = ids.indexOf(f.cellId)
@@ -197,6 +210,7 @@ const stats = h.memory.stats()
 lat.sort((a, b) => a - b)
 const p95 = lat[Math.min(lat.length - 1, Math.floor(lat.length * 0.95))] ?? 0
 const tokensPerTurn = tokenN ? tokenSum / tokenN : 0
+const tokensPerTurnCalibrated = tokenN ? tokenSumCalibrated / tokenN : 0
 
 const report = {
   generatedAt: new Date().toISOString(),
@@ -209,6 +223,7 @@ const report = {
     dedupeRecall: round(dedupeRecall),
     timeReasoningAccuracy: round(timeAccuracy),
     tokensPerTurn: round(tokensPerTurn),
+    tokensPerTurnCalibrated: round(tokensPerTurnCalibrated),
     recallP95Ms: p95,
     storageRatio: round(stats.storageRatio),
     storageRatioRealistic: round(ratioLong),

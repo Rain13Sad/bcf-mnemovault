@@ -56,6 +56,7 @@ import type {
   PanelCellView,
   PanelEdgeView,
   PanelRetentionEntry,
+  Pad,
   PanelEngineInfo,
   PanelSnapshot,
   RecallQuery,
@@ -207,6 +208,38 @@ export class MemoryService extends Service {
     this.store.setMeta('emb.space', space)
     this.embIndex = null
     this.embIndexedCount = -1
+  }
+
+  /**
+   * 外部写入后的索引维护（v0.6.1 · 修 F5）。
+   *
+   * `reembed()` 之类的批量重写必须走这里，而不是直接 `store.putCell()`：
+   * 后者会绕过 `indexCell()`，于是向量矩阵里留着的仍是**旧空间**的向量，
+   * 而 `embIndexedCount !== countCells()` 这个自愈判据**永远不成立**
+   * （重写不增删 cell，计数不变）——索引再也不会重建，且不报错。
+   */
+  reindexCell(cell: MemCell): void {
+    this.store.putCell(cell)
+    this.indexCell(cell)
+    this.store.invalidateRetention(cell.cellId)
+  }
+
+  /** 丢掉向量矩阵 / 近似索引，下次召回懒建。批量重写完成后调一次即可。 */
+  invalidateIndexes(): void {
+    this.embIndex = null
+    this.embIndexedCount = -1
+    this.ann = null
+  }
+
+  /**
+   * 当前持久化的心境（v0.6.1 · 缓解 F11）。
+   *
+   * affect 包每轮把 PAD 写成普通 cell 落盘；引擎自己也有一份内存心境。
+   * 让引擎构造时从这里取初值，重启后才不会"引擎从 0 开始、面板显示 0.6"。
+   */
+  padSnapshot(): Pad | null {
+    const p = this.affectState?.pad
+    return p ? { ...p } : null
   }
 
   /** 端口热替换：换 provider / 换模型不需要重启宿主。 */
@@ -1224,6 +1257,23 @@ export class MemoryService extends Service {
     if (invalidNotDemoted) {
       if (opts.fix) fixed.push(`失效记忆降档 ${invalidNotDemoted} 条 → 归档层`)
       else issues.push(`已失效但仍在上层 ${invalidNotDemoted} 条（/mnemo doctor --fix 可批量归档）`)
+    }
+
+    /**
+     * 未完成的向量重算（v0.6.1 · F5）。
+     *
+     * 它不会让任何东西报错：查询退回哈希、库里有半份 provider 向量。
+     * 正因为不报错，才必须由 doctor 主动说出来——否则用户永远不知道
+     * "我的语义路为什么变差了"。
+     */
+    const reembedRaw = this.store.meta('emb.reembed.inflight')
+    if (reembedRaw) {
+      try {
+        const f = JSON.parse(reembedRaw) as { cursor?: number; total?: number; space?: string }
+        issues.push(`未完成的向量重算：${f.cursor ?? 0}/${f.total ?? 0}（目标空间 ${f.space ?? '?'}）——继续调用 reembed() 可续跑`)
+      } catch {
+        issues.push('未完成的向量重算标记不可解析')
+      }
     }
 
     return {

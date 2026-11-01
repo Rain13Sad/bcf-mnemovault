@@ -62,7 +62,7 @@ export function clamp01(x: number): number {
  * 通用词典在长文本上会把"不是不开心"判成负面，而这里要的是
  * "这句话值不值得被记成带情绪的事"。
  */
-const LEXICON: Array<[string, number, number, number]> = [
+export const LEXICON: Array<[string, number, number, number]> = [
   // 正向 · 高唤醒
   ['太棒了', 0.8, 0.7, 0.4],
   ['兴奋', 0.7, 0.8, 0.3],
@@ -118,27 +118,124 @@ const LEXICON: Array<[string, number, number, number]> = [
   ['没事', 0.2, 0.15, 0.2],
   ['算了', -0.25, 0.2, -0.1],
   ['随便', -0.2, 0.2, -0.1],
+
+  // ── v0.6.1 补齐（F4）────────────────────────────────────────
+  // v0.6.0 的英文只有 15 条，且**没有 happy / good / bad / great** 这些最高频词，
+  // 于是 "I am happy" 的置信度是 0 —— 相对 v0.2 的 affect/appraisal.ts 是**退化**。
+  // 中文补的是"好/差/棒/累"这类单字与口语词（它们是最高频的情绪载体）。
+  ['高兴', 0.6, 0.4, 0.4],
+  ['幸福', 0.7, 0.35, 0.4],
+  ['不错', 0.45, 0.25, 0.4],
+  ['挺好', 0.5, 0.25, 0.4],
+  ['很好', 0.55, 0.3, 0.4],
+  ['好', 0.4, 0.2, 0.3],
+  ['棒', 0.6, 0.5, 0.4],
+  ['赞', 0.55, 0.4, 0.4],
+  ['顺利', 0.5, 0.3, 0.5],
+  ['轻松', 0.45, 0.2, 0.4],
+  ['期待', 0.5, 0.55, 0.3],
+  ['差', -0.45, 0.35, -0.2],
+  ['麻烦', -0.4, 0.4, -0.2],
+  ['烦', -0.55, 0.6, 0.2],
+  ['怕', -0.5, 0.6, -0.4],
+  ['后悔', -0.6, 0.4, -0.3],
+  ['无聊', -0.35, 0.15, -0.2],
+  ['尴尬', -0.35, 0.45, -0.3],
+  ['烦人', -0.55, 0.55, 0.2],
+  ['happy', 0.7, 0.5, 0.4],
+  ['glad', 0.6, 0.4, 0.4],
+  ['good', 0.5, 0.3, 0.4],
+  ['great', 0.65, 0.5, 0.5],
+  ['awesome', 0.75, 0.65, 0.4],
+  ['excellent', 0.75, 0.55, 0.5],
+  ['wonderful', 0.75, 0.55, 0.4],
+  ['relieved', 0.5, 0.25, 0.4],
+  ['grateful', 0.6, 0.3, 0.2],
+  ['calm', 0.4, 0.1, 0.4],
+  ['peaceful', 0.45, 0.1, 0.4],
+  ['okay', 0.25, 0.15, 0.3],
+  ['fine', 0.25, 0.15, 0.3],
+  ['confident', 0.55, 0.4, 0.6],
+  ['proud', 0.6, 0.4, 0.6],
+  ['hopeful', 0.5, 0.4, 0.4],
+  ['curious', 0.3, 0.5, 0.3],
+  ['enjoy', 0.6, 0.45, 0.4],
+  ['like', 0.45, 0.3, 0.3],
+  ['bad', -0.55, 0.45, -0.2],
+  ['awful', -0.75, 0.65, -0.3],
+  ['terrible', -0.75, 0.65, -0.3],
+  ['horrible', -0.8, 0.7, -0.3],
+  ['hate', -0.75, 0.7, 0.3],
+  ['dislike', -0.5, 0.45, 0.2],
+  ['upset', -0.6, 0.6, -0.2],
+  ['frustrated', -0.65, 0.65, -0.1],
+  ['annoyed', -0.55, 0.6, 0.2],
+  ['exhausted', -0.55, 0.25, -0.3],
+  ['worried', -0.5, 0.55, -0.3],
+  ['nervous', -0.5, 0.6, -0.3],
+  ['afraid', -0.6, 0.65, -0.4],
+  ['scared', -0.65, 0.7, -0.4],
+  ['lonely', -0.6, 0.25, -0.4],
+  ['bored', -0.35, 0.15, -0.2],
+  ['disappointed', -0.6, 0.35, -0.2],
+  ['guilty', -0.55, 0.45, -0.3],
+  ['ashamed', -0.6, 0.45, -0.3],
+  ['jealous', -0.5, 0.55, -0.2],
+  ['confused', -0.3, 0.5, -0.4],
+  ['hurt', -0.6, 0.5, -0.3],
 ]
+
+/**
+ * 词表去重（v0.6.1）。
+ *
+ * 扩容时最容易犯的错是**同一个词加了两遍**（"开心""糟糕"原本就在表里），
+ * 而匹配循环会对每个条目累加一次——重复条目让效价凭空翻倍。
+ * 这里在加载期按词去重（先出现的胜出），`test/v061-emotion` 断言无重复。
+ */
+export const LEXICON_DEDUP: Array<[string, number, number, number]> = (() => {
+  const seen = new Map<string, [string, number, number, number]>()
+  for (const e of LEXICON) if (!seen.has(e[0])) seen.set(e[0], e)
+  return [...seen.values()]
+})()
 
 /** 程度修饰：把"有点"和"非常"区分开。乘在效价与唤醒上。 */
 const INTENSIFIERS: Array<[string, number]> = [
   ['非常', 1.5],
   ['特别', 1.4],
   ['真的', 1.25],
-  ['太', 1.35],
   ['超级', 1.6],
   ['极其', 1.7],
+  ['极度', 1.7],
+  ['太', 1.35],
+  ['十分', 1.35],
+  ['很', 1.2],
+  ['挺', 1.1],
+  ['超', 1.4],
+  ['贼', 1.4],
   ['有点', 0.6],
+  ['有些', 0.65],
   ['稍微', 0.55],
+  ['略', 0.6],
   ['还行', 0.5],
   ['very', 1.4],
   ['really', 1.25],
+  ['extremely', 1.7],
   ['so', 1.3],
+  ['quite', 1.15],
   ['a bit', 0.6],
+  ['a little', 0.6],
+  ['slightly', 0.55],
 ]
 
-/** 否定前缀：命中后把效价翻转并降唤醒（"不难过"不是"开心"）。 */
-const NEGATORS = ['不', '没', '别', '无', 'not', "n't", 'never', 'no ']
+/**
+ * 否定：命中后把效价翻转并降唤醒（"不难过"不是"开心"）。
+ *
+ * v0.6.0 的实现是 `before = s.slice(idx-3, idx)` 然后 `endsWith(n)`——
+ * 窗口只有 3 个字符，而英文的 `not ` 是 4 个字符，于是 **`not` 永远匹配不上**：
+ * "I am not happy" 里 before = "t h"，`endsWith('not')` 与 `endsWith('no ')` 都是 false。
+ * 中文的远距离否定（"我不是很开心"）同样漏判。
+ */
+// 中文：不 / 没 / 别 / 无 / 非 / 未　英文：not / never / no / n't / without / hardly / barely
 
 /**
  * 从文本估计核心情感。规则路线，**不是**语义模型——
@@ -153,24 +250,26 @@ export function estimateAffect(text: string): AffectEstimate {
   let hits = 0
   let negated = 0
 
-  for (const [word, lv, la, ld] of LEXICON) {
-    const idx = s.indexOf(word.toLowerCase())
-    if (idx < 0) continue
-    // 否定只看词前 3 个字符：中文否定紧贴，"我并不觉得开心"这种远距离否定交给 LLM
-    const before = s.slice(Math.max(0, idx - 3), idx)
-    const neg = NEGATORS.some((n) => before.endsWith(n))
-    let mult = 1
-    for (const [m, k] of INTENSIFIERS) {
-      if (before.includes(m.toLowerCase()) || s.slice(Math.max(0, idx - 5), idx).includes(m.toLowerCase())) {
-        mult = k
-        break
-      }
+  for (const [word, lv, la, ld] of LEXICON_DEDUP) {
+    const w = word.toLowerCase()
+    // 同一句里同一个词可能出现多次（"很开心，真的很开心"）：全部计入，但最多 3 次
+    let from = 0
+    let occ = 0
+    while (occ < 3) {
+      const idx = s.indexOf(w, from)
+      if (idx < 0) break
+      from = idx + w.length
+      occ++
+      // 前 14 个字符足够覆盖 "I am really not very ..." 这类叠加修饰
+      const before = s.slice(Math.max(0, idx - 14), idx)
+      const neg = isNegated(before)
+      const mult = intensifierOf(before)
+      v += (neg ? -lv * 0.7 : lv) * mult
+      a += la * mult * (neg ? 0.7 : 1)
+      d += ld * mult
+      hits++
+      if (neg) negated++
     }
-    v += (neg ? -lv * 0.7 : lv) * mult
-    a += la * mult * (neg ? 0.7 : 1)
-    d += ld * mult
-    hits++
-    if (neg) negated++
   }
 
   // 标点与语气：感叹号提高唤醒，问号提高不确定（降低支配），省略号降低唤醒
@@ -198,6 +297,60 @@ export function estimateAffect(text: string): AffectEstimate {
     labels: labelFromPad(pad),
     confidence: clamp01(hits * 0.18 + (bangs + ques > 0 ? 0.1 : 0)),
   }
+}
+
+/**
+ * 否定判定（v0.6.1 · 修 F4）。
+ *
+ * 英文用词边界，中文按"紧邻"判：`before` 是词前最多 14 个字符。
+ * 中文否定词后面允许夹 1–2 个修饰字（"不是很开心"里的"是很"）。
+ */
+function isNegated(before: string): boolean {
+  if (!before) return false
+  const tail = before.toLowerCase()
+  // 英文：not / never / no / hardly … 按词边界；n't 是**后缀**（don't / isn't），
+  // 前面紧贴字母，所以单独一条规则——v0.6.0 的 `endsWith('not')` 在这里全军覆没。
+  if (/(?:^|[^a-z])(not|never|no|without|hardly|barely)(?:[\s\w,'-]{0,8})$/.test(tail)) return true
+  if (/n't(?:[\s\w,'-]{0,8})$/.test(tail)) return true
+  // 中文：否定词 + 最多 2 个非标点字符 + 词
+  return /(不|没|别|无|非|未)[^，。！？,.!?；;\s]{0,2}$/.test(before)
+}
+
+/**
+ * 程度修饰（v0.6.1 · 修 F4）。
+ *
+ * 英文走词边界（避免 `so` 命中 `also` / `sofa`），中文走子串但排除高频误伤：
+ * `太` 不能命中 `太阳` / `太空` / `太太`；`超` 不能命中 `超市`。
+ */
+function intensifierOf(before: string): number {
+  if (!before) return 1
+  const tail = before.toLowerCase()
+  let best = 1
+  for (const [m, k] of INTENSIFIERS) {
+    const hit = /^[a-z]/.test(m) ? new RegExp(`(?:^|[^a-z])${m.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`).test(tail) : cjkHit(before, m)
+    if (!hit) continue
+    // 取最强的那一个（"非常非常"不该叠乘）
+    if (Math.abs(k - 1) > Math.abs(best - 1)) best = k
+  }
+  return best
+}
+
+const CJK_EXCLUDE: Record<string, RegExp> = {
+  太: /^[阳空太]$/,
+  超: /^[市级过]$/,
+  贼: /^[人喊]$/,
+}
+
+function cjkHit(before: string, word: string): boolean {
+  const idx = before.lastIndexOf(word)
+  if (idx < 0) return false
+  const after = before.slice(idx + word.length)
+  // 修饰词必须贴着情绪词（中间只允许"地/得/是/了"这类虚词）
+  if (!/^[地得是了\s]{0,2}$/.test(after)) return false
+  const next = before.slice(idx + word.length, idx + word.length + 1)
+  const ex = CJK_EXCLUDE[word]
+  if (ex && ex.test(next)) return false
+  return true
 }
 
 /**

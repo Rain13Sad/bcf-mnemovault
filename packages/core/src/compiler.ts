@@ -37,6 +37,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'deepseek-chat',
     provider: 'deepseek',
+    aliases: ['deepseek-v3', 'deepseek-v3.1', 'deepseek-chat-v3', 'DeepSeek-V3', 'deepseek'],
     label: 'DeepSeek V3',
     contextWindow: 128_000,
     maxOutput: 8_192,
@@ -50,6 +51,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'deepseek-reasoner',
     provider: 'deepseek',
+    aliases: ['deepseek-r1', 'deepseek-reasoner-v3', 'DeepSeek-R1', 'r1'],
     label: 'DeepSeek R1',
     contextWindow: 128_000,
     maxOutput: 32_768,
@@ -62,6 +64,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'gpt-4o',
     provider: 'openai',
+    aliases: ['gpt4o', 'gpt-4o-latest', 'gpt-4o-2024-11-20'],
     label: 'GPT-4o',
     contextWindow: 128_000,
     maxOutput: 16_384,
@@ -76,6 +79,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'gpt-4o-mini',
     provider: 'openai',
+    aliases: ['gpt4o-mini', 'gpt-4o-mini-2024-07-18'],
     label: 'GPT-4o mini',
     contextWindow: 128_000,
     maxOutput: 16_384,
@@ -88,8 +92,37 @@ export const MODEL_PROFILES: ModelProfile[] = [
     embeddingDim: 1536,
   },
   {
+    id: 'gpt-5',
+    provider: 'openai',
+    label: 'GPT-5',
+    contextWindow: 400_000,
+    maxOutput: 32_768,
+    inputPricePerMTok: 9,
+    outputPricePerMTok: 36,
+    tokenizer: 'cl100k',
+    strongSchema: true,
+    jsonMode: true,
+    embeddingModel: 'text-embedding-3-small',
+    embeddingDim: 1536,
+    aliases: ['gpt5', 'gpt-5-mini', 'gpt-5-2025', 'o5'],
+  },
+  {
+    id: 'claude-sonnet-4-5',
+    provider: 'anthropic',
+    label: 'Claude Sonnet 4.5',
+    contextWindow: 200_000,
+    maxOutput: 16_384,
+    inputPricePerMTok: 22,
+    outputPricePerMTok: 108,
+    tokenizer: 'claude',
+    strongSchema: true,
+    jsonMode: false,
+    aliases: ['claude-sonnet-4-5-20250929', 'claude-4-5-sonnet'],
+  },
+  {
     id: 'claude-3-5-sonnet',
     provider: 'anthropic',
+    aliases: ['claude-3.5-sonnet', 'claude-3-5-sonnet-20241022', 'claude-sonnet'],
     label: 'Claude 3.5 Sonnet',
     contextWindow: 200_000,
     maxOutput: 8_192,
@@ -102,6 +135,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'claude-3-5-haiku',
     provider: 'anthropic',
+    aliases: ['claude-3.5-haiku', 'claude-haiku', 'claude-haiku-4', 'claude-3-haiku'],
     label: 'Claude 3.5 Haiku',
     contextWindow: 200_000,
     maxOutput: 8_192,
@@ -114,6 +148,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'gemini-1.5-pro',
     provider: 'google',
+    aliases: ['gemini-pro', 'gemini-1.5-pro-latest', 'gemini-2.5-pro', 'gemini-2.0-pro', 'gemini'],
     label: 'Gemini 1.5 Pro',
     contextWindow: 1_000_000,
     maxOutput: 8_192,
@@ -128,6 +163,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'gemini-1.5-flash',
     provider: 'google',
+    aliases: ['gemini-flash', 'gemini-1.5-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash'],
     label: 'Gemini 1.5 Flash',
     contextWindow: 1_000_000,
     maxOutput: 8_192,
@@ -142,6 +178,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'qwen2.5-72b',
     provider: 'openai-compatible',
+    aliases: ['qwen', 'qwen2.5', 'qwen-max', 'qwen-plus', 'qwen2.5-72b-instruct', 'glm-4', 'glm4', 'yi-large'],
     label: 'Qwen2.5 72B（兼容端点）',
     contextWindow: 128_000,
     maxOutput: 8_192,
@@ -154,6 +191,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'llama3.1-8b',
     provider: 'ollama',
+    aliases: ['llama3.1:8b', 'llama3.1', 'llama3', 'llama', 'mistral', 'phi3', 'phi-3'],
     label: 'Llama 3.1 8B（本地）',
     contextWindow: 128_000,
     maxOutput: 4_096,
@@ -168,6 +206,7 @@ export const MODEL_PROFILES: ModelProfile[] = [
   {
     id: 'local-weak',
     provider: 'local',
+    aliases: ['local', 'tiny', 'smollm'],
     label: '本地小模型（≤7B）',
     contextWindow: 32_000,
     maxOutput: 2_048,
@@ -186,27 +225,80 @@ export const FALLBACK_PROFILE: ModelProfile = {
   label: '未知模型（保守档）',
   contextWindow: 32_000,
   maxOutput: 2_048,
-  inputPricePerMTok: 0,
-  outputPricePerMTok: 0,
+  /**
+   * 未知模型按**最贵档**估：宁可高估成本触发价格闸，也不要把它当成免费。
+   * v0.6.0 这里是 0，于是任何未知模型的价格闸永远不触发。
+   */
+  inputPricePerMTok: 30,
+  outputPricePerMTok: 120,
   tokenizer: 'cjk-ratio',
   strongSchema: false,
   jsonMode: false,
+  fallback: true,
 }
 
 /**
  * 按 id 找画像。支持前缀匹配（`gpt-4o-2024-11-20` → `gpt-4o`），
  * 因为厂商的版本后缀天天变，而能力与价格几乎不变。
  */
+/**
+ * 厂商家族 → 默认画像（v0.6.1）。
+ *
+ * 只写厂商名（`deepseek` / `gpt` / `claude`）时，v0.6.0 的双向前缀匹配会给出
+ * 不可预测的结果：`gemini` 命中 flash（最弱），`claude` 命中 sonnet（最贵）。
+ * 现在改成**显式家族表**：同一个厂商只落一个默认档，行为可解释。
+ *
+ * `deepseek` 家族特意保留 `strongSchema: true` —— 它家模型都吃得下行式，
+ * 落到保守档会让最常见的 `deepseek-v3` 用户被强制 prose，token 涨 2.5×。
+ */
+const FAMILIES: Array<{ test: RegExp; profile: () => ModelProfile }> = [
+  { test: /^deepseek/, profile: () => byId('deepseek-chat') },
+  { test: /^(gpt|o1|o3|o4|chatgpt|davinci)/, profile: () => byId('gpt-4o') },
+  { test: /^claude/, profile: () => byId('claude-3-5-sonnet') },
+  { test: /^gemini/, profile: () => byId('gemini-1.5-pro') },
+  { test: /^(qwen|glm|yi|baichuan|internlm|ernie)/, profile: () => byId('qwen2.5-72b') },
+  { test: /^(llama|mistral|mixtral|phi|gemma|deepseek-coder)/, profile: () => byId('llama3.1-8b') },
+]
+
+function byId(id: string): ModelProfile {
+  return MODEL_PROFILES.find((m) => m.id === id) ?? FALLBACK_PROFILE
+}
+
+/**
+ * 解析模型画像（v0.6.1 重写）。
+ *
+ * 匹配顺序，每一级都比上一级更宽松，且**每一级都是可解释的**：
+ *   1. id 精确相等
+ *   2. 别名精确相等（大小写不敏感）—— 厂商改名的真正解法
+ *   3. 输入以某个画像 id 开头（最长优先）—— 处理 `gpt-4o-2024-11-20` 这类日期后缀
+ *   4. 厂商家族表 —— 只写厂商名时给一个**固定的**默认档
+ *   5. 保守档（价格按最贵估）
+ *
+ * v0.6.0 的第 3 步是**双向**前缀（`m.id.startsWith(key)` 也算命中），
+ * 于是 `gemini` → flash、`claude` → sonnet：同样是"只写厂商名"，一个给弱的、一个给贵的。
+ * 这条现在被第 4 步的显式表取代。
+ */
 export function resolveModel(id?: string | null): ModelProfile {
   if (!id) return FALLBACK_PROFILE
-  const key = id.toLowerCase()
+  const key = id.trim().toLowerCase()
+  if (!key) return FALLBACK_PROFILE
+
   const exact = MODEL_PROFILES.find((m) => m.id === key)
   if (exact) return exact
-  // 最长前缀优先，避免 'gpt-4o-mini' 被 'gpt-4o' 抢走
-  const prefix = MODEL_PROFILES.filter((m) => key.startsWith(m.id) || m.id.startsWith(key)).sort(
-    (a, b) => b.id.length - a.id.length,
-  )[0]
-  return prefix ?? { ...FALLBACK_PROFILE, id }
+
+  const byAlias = MODEL_PROFILES.find((m) => m.aliases?.some((a) => a.toLowerCase() === key))
+  if (byAlias) return byAlias
+
+  const prefix = MODEL_PROFILES.filter((m) => key.startsWith(m.id)).sort((a, b) => b.id.length - a.id.length)[0]
+  if (prefix) return prefix
+
+  const fam = FAMILIES.find((f) => f.test.test(key))
+  if (fam) {
+    // 保留用户写的 id，能力与价格按家族默认档——面板上能看出"你写的是哪个、按谁算的"
+    return { ...fam.profile(), id: id.trim() }
+  }
+
+  return { ...FALLBACK_PROFILE, id: id.trim(), fallback: true }
 }
 
 export interface CompileInput {
@@ -235,6 +327,15 @@ export interface CompileOutput extends RenderOutput {
   fits: boolean
   /** 因预算被丢掉的条数 */
   droppedByBudget: number
+  /**
+   * 是否因为闸门而**一条都没发**（v0.6.1）。
+   *
+   * `fits` 只回答"输出在不在限制内"——空输出当然在限制内，所以它是 true。
+   * 但调用方真正想知道的是"我这次是不是什么都没拿到、以及是不是预算害的"，
+   * 那是 `suppressed`。v0.6.0 没有这个字段，测试只好用 `fits=false` 代替，
+   * 于是断言的是报告字段而不是行为——正是审计稿点名的那种"测试绕过"。
+   */
+  suppressed: boolean
 }
 
 /** 成本估算：只算输入侧（记忆注入是纯输入）。 */
@@ -259,10 +360,14 @@ export function compileContext(input: CompileInput): CompileOutput {
     mode = 'prose'
   }
 
-  // ② token 闸：先换更省的格式，再丢条目
-  let out = renderWith(mode, input)
+  const priceCap = input.maxPrice
+  const over = (o: RenderOutput) =>
+    o.tokens > input.maxTokens || (priceCap !== undefined && estimateCost(o.tokens, model) > priceCap)
+
+  // ② 格式闸：token 超预算时先换更省的格式（价格超了换格式没用，直接进裁剪）
+  let out = renderWith(mode, input, priceCap, model)
   if (out.tokens > input.maxTokens && mode === 'rows') {
-    const compact = renderWith('compact', input)
+    const compact = renderWith('compact', input, priceCap, model)
     if (compact.tokens < out.tokens) {
       reasons.push(`行式 ${out.tokens} > 预算 ${input.maxTokens}，切列式 ${compact.tokens}`)
       mode = 'compact'
@@ -270,9 +375,20 @@ export function compileContext(input: CompileInput): CompileOutput {
     }
   }
 
-  // ③ 价格闸：预算之内仍可能太贵（贵模型的 320 token ≈ ¥0.006）
-  if (input.maxPrice !== undefined && estimateCost(out.tokens, model) > input.maxPrice) {
-    reasons.push(`成本 ${fmtCost(estimateCost(out.tokens, model))} > 上限 ${fmtCost(input.maxPrice)}，按价格裁剪`)
+  const legendDropped = (out as RenderOutput & { legendDropped?: boolean }).legendDropped === true
+  if (legendDropped) {
+    reasons.push('预算不足以承担图例，本轮不注入记忆（rows=0）')
+  }
+
+  // ③ token 闸：报告实际裁剪量（不只是"超了"）
+  if (out.tokens > input.maxTokens) {
+    reasons.push(`token ${out.tokens} > 预算 ${input.maxTokens}，裁剪到 ${out.rows} 条`)
+  }
+
+  // ④ 价格闸：**真的裁剪**（v0.6.0 这里只 push 了一条 reason，没有改 out）
+  const cost = estimateCost(out.tokens, model)
+  if (priceCap !== undefined && cost > priceCap) {
+    reasons.push(`成本 ${fmtCost(cost)} > 上限 ${fmtCost(priceCap)}，裁剪到 ${out.rows} 条`)
   }
 
   return {
@@ -280,43 +396,59 @@ export function compileContext(input: CompileInput): CompileOutput {
     model: model.id,
     cost: estimateCost(out.tokens, model),
     reasons,
-    fits: out.tokens <= input.maxTokens && (input.maxPrice === undefined || estimateCost(out.tokens, model) <= input.maxPrice),
+    fits: !over(out),
     droppedByBudget: input.cells.length - out.rows,
+    suppressed: out.rows === 0 && input.cells.length > 0,
   }
 }
 
-function renderWith(mode: SurfaceMode, input: CompileInput): RenderOutput {
+/**
+ * 渲染 + 双闸裁剪（v0.6.1）。
+ *
+ * 这里同时受 **token 上限** 与 **价格上限** 约束，两者共用同一条裁剪路径：
+ * 从尾部一条一条丢，直到两个闸都满足，或者只剩图例（rows = 0）。
+ *
+ * v0.6.0 的写法是"先按 token 裁完，再判断价格并 push 一条 reason"——
+ * 于是 `maxPrice=0` 时仍然发 10 条 / 319 token / ¥0.0057，而 reasons 里写着"按价格裁剪"。
+ * 承诺与实现背离，且测试只断言了 `fits=false`（字段），没断言 `rows` 变小（行为）。
+ */
+function renderWith(mode: SurfaceMode, input: CompileInput, priceCap: number | undefined, model: ModelProfile): RenderOutput {
   const maxTokens = input.maxTokens
-  if (!input.tokenizer) {
-    return renderSurface({
-      cells: input.cells,
+  const count = (o: RenderOutput) => (input.tokenizer ? input.tokenizer.count(o.text) : o.tokens)
+  const over = (o: RenderOutput) =>
+    count(o) > maxTokens || (priceCap !== undefined && estimateCost(count(o), model) > priceCap)
+
+  const build = (n: number): RenderOutput => {
+    const raw = renderSurface({
+      cells: input.cells.slice(0, n),
       mode,
       includeLegend: input.includeLegend ?? true,
       maxTokens,
       affectLine: input.affectLine,
     })
+    // renderSurface 会按启发式再裁一次，用 rows 回读真实保留条数
+    return { ...raw, tokens: count(raw) }
   }
-  // 有精确 tokenizer 时：先按启发式裁剪，再用精确口径复核一次，
-  // 差多少补裁多少。这样既保持字节稳定，又不会因口径差异超预算。
-  let out = renderSurface({
-    cells: input.cells,
-    mode,
-    includeLegend: input.includeLegend ?? true,
-    maxTokens,
-    affectLine: input.affectLine,
-  })
+
+  let out = build(input.cells.length)
+  // 最多丢到 0 条；`cells.length + 2` 是宽松上界，避免死循环
   let guard = 0
-  while (input.tokenizer.count(out.text) > maxTokens && out.rows > 0 && guard++ < 64) {
-    const keep = out.rows - 1
-    out = renderSurface({
-      cells: input.cells.slice(0, keep),
-      mode,
-      includeLegend: input.includeLegend ?? true,
-      maxTokens,
-      affectLine: input.affectLine,
-    })
+  const limit = input.cells.length + 2
+  while (over(out) && out.rows > 0 && guard++ < limit) {
+    out = build(out.rows - 1)
   }
-  return { ...out, tokens: input.tokenizer.count(out.text) }
+  /**
+   * 连图例都承担不起时，**不发**（v0.6.1）。
+   *
+   * 图例本身约 140 token；gpt-4o 上那是 ¥0.0025。所以"每轮不超过 ¥0.0003"
+   * 这种预算在贵模型上永远满足不了——不处理的话 `fits` 恒 false、
+   * 而用户仍会收到一段只有图例的注入，白花钱。
+   * 现在的语义是：预算不够就一条都不发（rows=0，text=''），如实报告。
+   */
+  if (out.rows === 0 && over(out)) {
+    return { text: '', tokens: 0, rows: 0, dropped: input.cells.length, mode, legendDropped: true } as RenderOutput & { legendDropped: boolean }
+  }
+  return out
 }
 
 function fmtCost(x: number): string {

@@ -70,6 +70,23 @@ export interface EngineRecall {
   brief: string | null
 }
 
+export interface ReembedInflight {
+  /** 目标向量空间 */
+  space: string
+  startedAt: number
+  total: number
+  cursor: number
+}
+
+export interface ReembedResult {
+  done: number
+  total: number
+  skipped: number
+  space: string
+  /** 是否仍有未完成的部分（中途失败或未跑完） */
+  inflight: boolean
+}
+
 export interface DeletionReceipt {
   cellId: string
   /** 被删对象的摘要（删除后仍可核对，但不含原文） */
@@ -83,7 +100,11 @@ export interface DeletionReceipt {
    * `demoteDue` 产生，不经过这个入口。字段保留是为了将来把两条路并进来。
    */
   tombstoneId: string | null
-  /** 删除后仍引用这条记忆的边数（0 = 真的没有悬空引用） */
+  /**
+   * 悬空引用数，**语义按模式不同**：
+   *   · hard → 删除后仍指向它的边数，恒为 0（`deleteCell` 级联删边）
+   *   · soft → 删除前它连着的边数（归档层保留关系，这个数有意义）
+   */
   danglingEdges: number
   /** 可校验摘要：sha 风格的短指纹，用于"这条真的没了"的自证 */
   proof: string
@@ -136,6 +157,15 @@ export class EmotionMemoryEngine {
     this.model = typeof opts.model === 'string' ? resolveModel(opts.model) : opts.model ?? resolveModel(this.config.llm.model)
     this.maxTokens = opts.maxTokens ?? this.config.maxSurfaceTokens
     this.maxPrice = opts.maxPrice ?? this.config.llm.maxPricePerTurn
+    /**
+     * 心境初值（v0.6.1 · 缓解 F11）。
+     *
+     * affect 包每轮把 PAD 写成 cell 落盘；引擎自己只有内存副本。
+     * 不从盘上取的话，重启后引擎心境归零、面板"情感"页却还显示 0.6——
+     * 同一时刻两个心境，用户看到的是矛盾。取不到就是中性，不编。
+     */
+    const seeded = this.memory.padSnapshot()
+    if (seeded) this.mood = { ...seeded }
   }
 
   private get config(): MnemoConfig {
@@ -355,8 +385,16 @@ export class EmotionMemoryEngine {
     const id = BigInt('0x' + cellId.replace(/^0x/, '').padStart(16, '0'))
     const cell = this.memory.store.getCell(id)
     const digest = cell?.digest ?? ''
-    const dangling = this.memory.store.edgesFrom(id).length + this.memory.store.edgesTo(id).length
+    /**
+     * `danglingEdges` 的语义按模式分两种（v0.6.1 · 修 F6）：
+     *   · hard：`deleteCell()` 会级联删边，所以**删除后必然是 0**——
+     *     要报就报删除后的真实值，否则用户拿到 `5` 会以为数据不一致
+     *   · soft：cell 只是降到归档层，边保留，所以报**删除前**的引用数（这是"它还连着谁"）
+     * v0.6.0 两种模式都报删除前，于是 hard 模式永远在说谎。
+     */
+    const edgesBefore = this.memory.store.edgesFrom(id).length + this.memory.store.edgesTo(id).length
     this.memory.forget(cellId, mode, 'user', 'engine.forget')
+    const dangling = mode === 'hard' ? this.memory.store.edgesFrom(id).length + this.memory.store.edgesTo(id).length : edgesBefore
     const at = this.clock.now()
     const receipt: DeletionReceipt = {
       cellId: cellId,
@@ -396,6 +434,13 @@ export class EmotionMemoryEngine {
     if (!this.ports.extractor) limits.push('未启用 LLM 抽取：规则路线的谓词表是封闭的')
     if (this.config.llm.maxPricePerTurn === 0) limits.push('未设价格上限：贵模型下记忆注入的成本不受约束')
     if (this.lastProbe && !this.lastProbe.ok) limits.push(`最近一次连通性探测失败：${this.lastProbe.message}`)
+    const inflight = this.readInflight()
+    if (inflight) {
+      limits.push(
+        `未完成的向量重算：${inflight.cursor}/${inflight.total}（目标空间 ${inflight.space}）——` +
+          `在此期间语义路仍走哈希；重复调用 reembed() 可续跑`,
+      )
+    }
 
     const snap = this.memory.panelSnapshot()
     const sample = snap.cells.slice(0, 12).map((c) => {
@@ -510,45 +555,97 @@ export class EmotionMemoryEngine {
    *   · 用 digest + 槽位文本作为重算输入（原文在残差里，取出来慢 10 倍）
    *   · 全部完成后才把 `emb.space` 切到 provider —— 中途失败不会留下半个空间
    */
-  async reembed(opts: { limit?: number; batch?: number } = {}): Promise<{ done: number; total: number; skipped: number; space: string }> {
+  async reembed(opts: { limit?: number } = {}): Promise<ReembedResult> {
     const e = this.ports.embedding
-    if (!e) return { done: 0, total: 0, skipped: 0, space: this.memory.embSpace }
-    const limit = opts.limit ?? 500
+    if (!e) return { done: 0, total: 0, skipped: 0, space: this.memory.embSpace, inflight: false }
+    const limit = Math.max(1, opts.limit ?? 500)
     const ids: bigint[] = []
     this.memory.store.forEachCell((c) => ids.push(c.cellId))
-    const cursor = Number(this.memory.store.meta('emb.reembed.cursor') ?? 0)
+    const total = ids.length
+
+    /**
+     * 断点续跑的前提是**同一个目标空间**（v0.6.1 · 修 F5）。
+     *
+     * v0.6.0 的 cursor 是裸数字：换了 provider 之后续着跑，会把两个空间的向量
+     * 缝在同一个库里——而 `space` 仍是旧值，`embeddingUsable()` 于是返回 false，
+     * 查询走哈希、库里有半份 provider 向量，**不报错、不上报**。
+     * 现在 inflight 里记着目标空间；与当前端口不一致就从 0 重来。
+     */
+    const inflight = this.readInflight()
+    let cursor = 0
+    if (inflight && inflight.space === e.space) {
+      cursor = Math.min(inflight.cursor, total)
+    } else if (inflight) {
+      this.audit.record({
+        at: this.clock.now(),
+        action: 'reembed',
+        target: inflight.space,
+        actor: 'system',
+        detail: `目标空间从 ${inflight.space} 换成 ${e.space}：游标归零重算（不缝合两个空间）`,
+      })
+    }
+
     const slice = ids.slice(cursor, cursor + limit)
     let skipped = 0
+    let aborted: unknown = null
     for (const id of slice) {
       const cell = this.memory.store.getCell(id)
       if (!cell) {
         skipped++
         continue
       }
-      const text = embeddingTextOf(cell)
       try {
-        const vec = await e.embed(text)
+        const vec = await e.embed(embeddingTextOf(cell))
         cell.emb = foldEmb(quantize(vec, vec.length), this.config.embStoreDim ?? this.config.embDim)
-        this.memory.store.putCell(cell)
+        // 走服务的公共写路径：它会维护向量矩阵与保留度缓存（v0.6.1 · F5 的根因）
+        this.memory.reindexCell(cell)
       } catch (err) {
         this.memory.counters.noteEmbedError(err)
+        aborted = err
         skipped++
+        break
       }
     }
-    const done = Math.min(ids.length, cursor + slice.length)
+
+    const done = Math.min(total, cursor + slice.length - (aborted ? 1 : 0))
     this.memory.store.setMeta('emb.reembed.cursor', String(done))
-    if (done >= ids.length) {
+    const finished = done >= total && !aborted
+
+    if (finished) {
       this.memory.setEmbSpace(e.space)
+      // 索引整体作废一次：即使逐条 reindex 已经更新，重建一次也不贵（懒建，下一次召回才发生）
+      this.memory.invalidateIndexes()
       this.memory.store.setMeta('emb.reembed.cursor', '0')
+      this.writeInflight(null)
+    } else {
+      this.writeInflight({ space: e.space, startedAt: inflight?.startedAt ?? this.clock.now(), total, cursor: done })
     }
+
     this.audit.record({
       at: this.clock.now(),
       action: 'reembed',
-      target: `${cursor}..${done}/${ids.length}`,
+      target: `${cursor}..${done}/${total}`,
       actor: 'system',
-      detail: `skipped=${skipped} space=${this.memory.embSpace}`,
+      detail: `skipped=${skipped} space=${this.memory.embSpace}${aborted ? ` aborted=${String((aborted as Error)?.message ?? aborted)}` : ''}`,
     })
-    return { done, total: ids.length, skipped, space: this.memory.embSpace }
+    return { done, total, skipped, space: this.memory.embSpace, inflight: !finished }
+  }
+
+  /** 读未完成的重算标记（doctor / 面板 / status 共用）。 */
+  readInflight(): ReembedInflight | null {
+    const raw = this.memory.store.meta('emb.reembed.inflight')
+    if (!raw) return null
+    try {
+      const o = JSON.parse(raw) as Partial<ReembedInflight>
+      if (!o || typeof o.space !== 'string' || typeof o.cursor !== 'number' || typeof o.total !== 'number') return null
+      return { space: o.space, startedAt: Number(o.startedAt ?? 0), total: o.total, cursor: o.cursor }
+    } catch {
+      return null
+    }
+  }
+
+  private writeInflight(v: ReembedInflight | null): void {
+    this.memory.store.setMeta('emb.reembed.inflight', v ? JSON.stringify(v) : '')
   }
 }
 

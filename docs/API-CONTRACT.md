@@ -398,14 +398,17 @@ presentResult(args, value)   // → { card:'generic', title, content:[ContentBlo
 | `forget(cellId, mode)` | 同步 | 返回删除回执 `{ digest, mode, at, tombstoneId, danglingEdges, proof }` |
 | `status()` | 同步 | 返回 `PanelEngineInfo`（模型 / 端口 / 最近编译 / 跨模型表 / 限制清单） |
 | `probe()` | 异步 | 真发一次最小请求，返回 `{ ok, message }` |
-| `reembed({limit})` | 异步 | 分批重算向量空间，**全部完成才切空间** |
+| `reembed({limit})` | 异步 | 分批重算向量空间，**全部完成才切空间**。返回 `{done,total,skipped,space,inflight}`；中途失败会留下 `emb.reembed.inflight`（含目标空间），`status().limits` 与 `doctor()` 都会报告；换 provider 时游标归零，不缝合两个空间 |
 
 不变量（可测试）：
 
 1. `recall()` 在没有端口时**必须**可用（哈希路径），且 `usedProvider === false`。
 2. `memory.embSpace !== port.space` 时**必须**拒用 provider 向量。
 3. `forget()` 的回执必须包含 `digest` 与 8 位 `proof`；`danglingEdges` 是删除前的引用数。
-4. `status().limits` 必须列出当前所有降级（哈希 / 规则 / 未设价格上限 / 探测失败）。
+4. `status().limits` 必须列出当前所有降级（哈希 / 规则 / 未设价格上限 / 探测失败 / **未完成的重算**）。
+5. `compileContext()` 的价格上限必须**真的裁剪**：`rows` 随上限下降而下降；
+   连图例都承担不起时 `rows=0`、`cost=0`、`suppressed=true`。
+6. `resolveModel()` 的匹配顺序固定为：精确 id → 别名 → 单向前缀 → 厂商家族 → 兜底（价格按最贵估）。
 
 ### 9.2 端口（`core/src/ports.ts`）
 

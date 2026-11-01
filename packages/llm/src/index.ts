@@ -129,9 +129,27 @@ export function createEnginePorts(config: Partial<Config> = {}): {
     }
   }
 
-  const tokenizer = createTokenizer({ kind: spec.tokenizer, name: `${spec.id}/${spec.tokenizer}` })
   const model = resolveModel(config.model)
-  if (model.id === 'unknown') notes.push(`模型 ${config.model} 不在画像表里：按保守档编译（prose + 小预算）`)
+  /**
+   * tokenizer 口径必须跟**模型**走，不能跟 provider 走（v0.6.1 · 修 F7）。
+   *
+   * v0.6.0 是 `tokenizer = spec.tokenizer`（来自 provider 预设）+
+   * `model = resolveModel(config.model)`（来自配置），两者没有任何一致性校验。
+   * 于是 `provider: 'openai'` + `model: 'deepseek-chat'` 会拿 cl100k 的 token 数
+   * 去乘 DeepSeek 的价格——同一段中文两个口径差 18%，叠加模型别名问题可差 40%+。
+   *
+   * 现在以模型画像为准（它才是"这段文字怎么被切成 token"的真凭据），
+   * 不一致时纠正并留一条 note，让面板的限制清单能看见。
+   */
+  const kind = model.tokenizer ?? spec.tokenizer
+  if (model.provider !== spec.provider && model.id !== 'unknown') {
+    notes.push(
+      `provider=${spec.id} 与 model=${model.id}（${model.provider}）不是同一家：` +
+        `token 口径已按模型校正为 ${kind}，端点仍用 ${spec.id}`,
+    )
+  }
+  const tokenizer = createTokenizer({ kind, name: `${model.provider}/${kind}` })
+  if (model.fallback) notes.push(`模型 ${config.model} 不在画像表里：按保守档编译（prose + 小预算，价格按最贵估）`)
 
   return {
     ports: {

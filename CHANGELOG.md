@@ -6,6 +6,57 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [0.6.1] — 2026-11-01
+
+补丁版：**把「说了在做、其实没做」清零**。不改存储布局（MC03 不变，无需 rebuild），
+不引入新能力。完整方案见 [`docs/design/V0.6.1-PLAN.md`](docs/design/V0.6.1-PLAN.md)。
+
+### 修复：承诺与实现背离（P0）
+
+- **价格闸现在真的裁剪**。v0.6.0 在 `compileContext` 里只 `reasons.push('按价格裁剪')`，
+  没有改输出——`maxPrice=0` 时仍然发 10 条 / 319 token / ¥0.0057。现在它与 token 闸
+  共用一条裁剪路径；连图例都承担不起时**一条都不发**（`rows=0`、`cost=0`、`suppressed=true`）。
+- **模型画像表补别名 + 厂商家族表**。`deepseek-v3` / `gpt-5` / `claude-sonnet-4-5` /
+  `llama3.1:8b`（冒号写法）此前全部落到保守档 → 强制降级 prose → token 涨 2.5×，
+  而 README 首页写着"~116 tokens per turn"。现在 32 个真实模型名 100% 命中，
+  `llama3.1:8b` 的 tokenizer 是 `llama` 而不是 `cjk-ratio`。
+  兜底档的价格也不再是 0（未知模型不等于免费，否则价格闸对它永远不触发）。
+
+### 修复：悄悄做错（P1）
+
+- **删除回执的 `danglingEdges` 语义**：hard 删除会级联删边，回执却报删除前的数量——
+  用户拿到 `5` 会以为数据不一致。现在 hard 报删除后（恒 0），soft 报删除前（归档层保留关系）。
+- **`reembed()` 不再绕过索引**：v0.6.0 直接 `store.putCell()`，向量矩阵里留着旧空间的向量，
+  而 `embIndexedCount !== countCells()` 这个自愈判据永远不成立（重写不增删）。
+  现在走 `memory.reindexCell()`，并在完成后整体作废一次索引。
+- **`reembed()` 失败可检测、可续跑**：inflight 标记里带**目标空间**；换 provider 时游标归零
+  （不把两个空间的向量缝在一起）；`status().limits` 与 `doctor()` 都会主动报告未完成的重算。
+- **英文情感识别**：v0.6 新写的 `emotion.ts` 在英文上是相对 v0.2 的**退化**（`I am happy` 的
+  置信度是 0）。词表 +45 条，否定改词边界 + `n't` 后缀规则（`endsWith('not')` 在 3 字符窗口里
+  永远匹配不上），强度词加中英常用项并排除 `太阳/超市/太空` 误伤；词表加载期去重。
+- **tokenizer 与模型口径错位**：`provider: 'openai'` + `model: 'deepseek-chat'` 此前会用
+  cl100k 的 token 数乘 DeepSeek 的价格。现在口径跟模型走，不一致时纠正并留 note。
+
+### 修复：星图（P2）
+
+- 冷层坐标漂移：`project3` 对 32 维向量做**零填充**，平均漂移 **0.031**
+  （审计稿建议的 `expandEmb` 实测 **0.467**，更糟——原因见计划文档 §2）。
+  注释改成事实，并加了一条反例断言防止改回去。
+- 投影向量按 dim 缓存：1200 个节点不再重算 1200 次 mulberry32。
+- 删掉 `reembed({batch})` 这个从未被使用的参数。
+
+### 其它
+
+- `bench:eval` 同时报告 `tokensPerTurn`（启发式上界，CI 门槛不变）与
+  `tokensPerTurnCalibrated`（DeepSeek 口径，105.4 vs 116.9）。README 两个都写。
+- 引擎构造时从 `memory.padSnapshot()` 播种心境，重启后不再与 affect 包给出两个读数。
+- 修 `v06-config` 的 D1 用例在 Windows 上的 `ENOTEMPTY` 竞态（干净目录才会触发）。
+
+### 规模
+
+- 73 源文件 / 22.9k 行 / **265 测试**（+38）/ 11 个包 / 26 条命令。
+- Recall@8 0.941（持平）· MRR 0.650（持平）· 存储比 0.769（持平）。
+
 ## [0.6.0] — 2026-11-01
 
 **坏消息先说（本项目自己的规矩）**：MRR **0.681 → 0.650**，Recall@8 仍是 0.941；

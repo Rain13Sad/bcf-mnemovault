@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.6.0 -->
+<!-- DOC-VERSION: 0.6.1 -->
 
 # MnemoVault
 
@@ -11,13 +11,14 @@
 **An emotion-aware memory engine for LLMs.** Sparse-code memory lattice, four-channel recall,
 affect kernel, 3D star map. Runs standalone, or as a plugin inside [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh).
 Memories are stored as fixed-size cells — sparse codes, int8 vectors, typed hyperedges, compressed
-residuals — not as text. Injection renders **~116 tokens per turn** instead of replaying the transcript.
+residuals — not as text. Injection renders **~117 tokens per turn** (heuristic upper bound; ~105 with a calibrated tokenizer)
+instead of replaying the transcript.
 
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/@rain13sad/llm-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-227-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-265-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -33,8 +34,8 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.6.0** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 11 packages · 73 source files / ~22,700 lines of TS (`.ts` + `.tsx`, UI included) · 227 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
+| **Status** | **v0.6.1** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 11 packages · 73 source files / ~23,300 lines of TS (`.ts` + `.tsx`, UI included) · 265 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 | **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (28 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -50,6 +51,43 @@ residuals — not as text. Injection renders **~116 tokens per turn** instead of
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
 
 ---
+
+## What's new in 0.6.1
+
+A patch release with one job: **remove the gap between what this project claims and what it does.**
+No new capabilities, no storage-layout change (MC03 untouched — no rebuild needed).
+
+Two of the 0.6.0 claims did not hold, and both were "verified" by tests that asserted the wrong thing:
+
+| Claim | Reality in 0.6.0 | Now |
+| :--- | :--- | :--- |
+| "price cap per turn" | the gate only pushed a reason string; `maxPrice=0` still emitted 10 entries / ¥0.0057 | the gate **trims**; when even the legend is unaffordable it emits nothing (`suppressed=true`) |
+| "adapts to common models" | `deepseek-v3`, `gpt-5`, `claude-sonnet-4-5` fell through to the conservative profile → forced prose → 2.5× tokens | 32 real model names hit; provider families have explicit defaults; unknown models are no longer priced at zero |
+
+Three more defects were the quiet kind — they never raised an error:
+
+- **Deletion receipts lied about `danglingEdges`**: hard delete cascades edges, but the receipt
+  reported the count *before* deletion. Now hard reports 0 (the truth), soft reports the pre-delete count.
+- **`reembed()` bypassed the vector index**: it wrote cells directly, so the index kept old-space vectors
+  and the self-heal condition (`count` mismatch) could never fire. It now goes through
+  `memory.reindexCell()`, and an interrupted run is detectable: the inflight marker carries its target
+  space, `status().limits` and `doctor()` both report it, and switching providers resets the cursor
+  instead of stitching two spaces together.
+- **English emotion was dead**: `I am happy` scored 0 — a regression against v0.2. The lexicon grew by
+  45 entries, negation now uses word boundaries plus an `n't` suffix rule (the old 3-character window
+  could never match `not`), and intensifiers no longer fire on `太阳` / `超市` / `太空`.
+
+One place where the audit was wrong and measurement won: the star map's cold-layer drift.
+The proposed fix (`expandEmb`) made it **worse** (0.467 vs 0.031 average drift) because `pq32` is a
+4-bit quantization of the *first* 32 dimensions — zero-padding is its faithful inverse.
+The code comment now states that, and a regression test fails if anyone switches it back.
+
+Token accounting is now reported in two voices instead of one: `116.9` (heuristic upper bound, what CI
+gates on) and `105.4` (DeepSeek's calibrated ratio). Pure Chinese prose can be over-estimated by ~45%,
+so the calibrated number is the honest one to quote.
+
+Tests: **227 → 265**. The new ones assert *behaviour* (`rows`, `cost`, `space`, `cursor`), not report
+fields — which is exactly how the price-gate bug slipped through in 0.6.0.
 
 ## What's new in 0.6.0
 
@@ -264,7 +302,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 227 tests
+npm test             # 265 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)
