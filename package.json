@@ -1,6 +1,6 @@
 {
   "name": "bcf-mnemovault",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "MnemoVault — LLM 层面的情感记忆引擎：稀疏码记忆晶格、四路召回、双相巩固、情感内核、3D 星图与调控台；DSH 只是其中一个宿主",
@@ -60,7 +60,9 @@
     "check:publish": "node scripts/ci-check-publish.mjs",
     "publish:all": "node scripts/publish-all.mjs",
     "publish:dry": "node scripts/publish-all.mjs --dry-run",
-    "verify": "npm run build && npm test && npm run check && npm run check:readme && npm run bench:eval && npm run ci:assert-scale"
+    "verify": "npm run build && npm test && npm run check && npm run check:readme && npm run bench:eval && npm run ci:assert-scale && npm run bench:real && npm run ci:assert-real",
+    "bench:real": "node scripts/bench-real.mjs",
+    "ci:assert-real": "node scripts/ci-assert-real.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

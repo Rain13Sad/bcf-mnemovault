@@ -129,7 +129,17 @@ export function preferenceFrame(text: string): PreferenceFrame {
   // 兜底：从整句里找中心名词（'其实我更喜欢无衬线字体' → 字体）。
   // 没有这一步，'等宽' 与 '无衬线字体' 会被判成两个不相干的事实，矛盾检测直接失效。
   if (!okTopic) {
-    const noun = TOPIC_NOUNS.find((n) => text.includes(n) && value !== n)
+    /**
+     * v0.7.0：只在**偏好动词之前**找。
+     *
+     * 旧实现搜整句，于是 "ui.theme 这件事上，我偏好 深色主题" 里的"主题"
+     * （它其实在**取值**内部）被当成话题，topic=主题 / value=深色主题——
+     * 两个字段都"有值"，但"哪一项被偏好"这个键丢了，矛盾检测与 bench 的
+     * ground truth 都跟着失效。
+     */
+    const verbAt = text.search(/(?:喜欢|偏好|倾向|习惯|讨厌|不喜欢|prefer|like|hate)/i)
+    const scope = verbAt > 0 ? text.slice(0, verbAt) : text
+    const noun = TOPIC_NOUNS.find((n) => scope.includes(n) && value !== n)
     if (noun) okTopic = noun
   }
   return { topic: okTopic, value: value || undefined }
@@ -217,6 +227,16 @@ export function parseTimeExpr(text: string, now = Date.now()): TimeRange | undef
   if (/近几个月|最近几个月/.test(t)) return mk(now - 90 * DAY, now)
   if (/上周|last week/i.test(t)) return mk(now - 14 * DAY, now - 7 * DAY)
   if (/本周|这周|this week/i.test(t)) return mk(now - 7 * DAY, now)
+  // v0.7.0：未来时间也要能解析（"我下周要去北京" 是日程，不是过去）
+  if (/下周|下个星期|next week/i.test(t)) return mk(now, now + 7 * DAY)
+  if (/下个月|next month/i.test(t)) {
+    const d = new Date(now)
+    d.setMonth(d.getMonth() + 1, 1)
+    d.setHours(0, 0, 0, 0)
+    const from = d.getTime()
+    const to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
+    return mk(from, to)
+  }
   if (/上个月|last month/i.test(t)) return mk(now - 60 * DAY, now - 30 * DAY)
   if (/最近|近来|recently/i.test(t)) return mk(now - 7 * DAY, now)
   if (/去年/.test(t)) return mk(now - 730 * DAY, now - 365 * DAY)
@@ -394,7 +414,8 @@ export function objectOfVerb(text: string): string | undefined {
   const VERB = '(?:使用|改用|采用|换成|切换到|统一用|(?<![用应费适作利])用)'
 
   // 1) 拉丁标识符优先：技术讨论里宾语几乎都是 pnpm / vitest / TypeScript 这类词
-  const latin = text.match(new RegExp(`${VERB}\\s*([A-Za-z][A-Za-z0-9_.\\-]{1,30})`))
+  // v0.7.0：冒号也是标识符的一部分（`node:test` 被截成 `node` 会让宾语整段失真）
+  const latin = text.match(new RegExp(`${VERB}\\s*([A-Za-z][A-Za-z0-9_.:\\-]{1,30})`))
   if (latin) return latin[1]
 
   // 2) 中文宾语：逐个候选试，跳过'户用'这种被截断的半截词

@@ -204,6 +204,24 @@ export interface Store {
   /** 清空词频表（rebuild / 换库时用）。 */
   clearTokenDf(): void
 
+  /**
+   * 清理派生表（v0.7.0 · 红线 2「无法真正删除」）。
+   *
+   * 审计实测：`forget --hard` 删掉 cell 之后，`session_log` 里仍留着**脱敏原文**，
+   * `recall_snapshots` 里仍留着**渲染过的记忆文本**，`evict_log` 留着 id 与原因。
+   * 也就是说"已物理删除"这句话只在 cell 表上成立。
+   *
+   * 这里把派生表一并清掉，返回每张表的删除行数作为回执——
+   * 用户有权知道"到底删干净了没有"，而不是拿到一句"已删除"。
+   */
+  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' }): {
+    log: number
+    snapshots: number
+    evicts: number
+    shadow: number
+    sources: number
+  }
+
   /** BEGIN IMMEDIATE 语义的单写事务。读侧不进事务（WAL 快照）。 */
   write<T>(fn: () => T): T
   stats(): { cells: number; edges: number; residuals: number; bytes: number; rawBytes?: number; residualBytes?: number }
@@ -211,8 +229,15 @@ export interface Store {
 
 const idKey = (id: bigint) => toHex(id, 16)
 
+/** tags 列 ↔ string[]。空串 = 无标记（绝大多数 cell）。 */
+export function parseTags(raw: unknown): string[] {
+  const s = typeof raw === 'string' ? raw.trim() : ''
+  if (!s) return []
+  return s.split(',').map((x) => x.trim()).filter(Boolean)
+}
+
 /** getCell / forEachCell 共用同一份列清单：blob 与列承载字段一次取回。 */
-const SELECT_COLS = 'blob, confidence, support, topic, digest, t_invalid, scope, session, lens'
+const SELECT_COLS = 'blob, confidence, support, topic, digest, t_invalid, scope, session, lens, tags'
 const SELECT_CELL = `SELECT ${SELECT_COLS} FROM cells`
 const SELECT_ALL = SELECT_CELL
 
@@ -270,6 +295,7 @@ function rowFromCell(c: MemCell): CellRow {
     scope: c.scope ?? 'user:local',
     session: c.session ?? '',
     lens: c.lens ?? 'fact',
+    tags: (c.tags ?? []).join(','),
     // 额外字段：blob
     ...({ blob } as object),
   } as CellRow & { blob: Uint8Array }
@@ -574,6 +600,39 @@ export class MemoryStore implements Store {
     this.tokenDocs = 0
   }
 
+  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' }): {
+    log: number
+    snapshots: number
+    evicts: number
+    shadow: number
+    sources: number
+  } {
+    const all = target.kind === 'all'
+    const sid = target.kind === 'session' ? target.id : ''
+    const out = { log: 0, snapshots: 0, evicts: 0, shadow: 0, sources: 0 }
+    const before = this.logs.length
+    if (all) this.logs = []
+    else this.logs = this.logs.filter((e) => e.session !== sid)
+    out.log = before - this.logs.length
+    out.snapshots = this.snaps.size
+    if (all) this.snaps.clear()
+    out.evicts = this.evicts.length
+    if (all) this.evicts = []
+    for (const k of [...this.shadow]) {
+      if (all || k.startsWith(sid + '#')) {
+        this.shadow.delete(k)
+        out.shadow++
+      }
+    }
+    for (const [k, v] of [...this.sources]) {
+      const keep = all ? [] : v.filter((s) => s.session !== sid)
+      out.sources += v.length - keep.length
+      if (keep.length === 0) this.sources.delete(k)
+      else this.sources.set(k, keep)
+    }
+    return out
+  }
+
   write<T>(fn: () => T): T {
     return fn()
   }
@@ -631,6 +690,9 @@ CREATE TABLE IF NOT EXISTS cells (
   scope       TEXT    NOT NULL DEFAULT 'user:local',
   session     TEXT    NOT NULL DEFAULT '',
   lens        TEXT    NOT NULL DEFAULT 'fact',
+  -- v0.7.0：策略标记（crisis/minor/instruction/sensitive）。列承载而不是进 blob，
+  -- 因为 MC03 的 flags 只有 1 字节且已占满——扩它要 rebuild，加列不用。
+  tags        TEXT    NOT NULL DEFAULT '',
   blob        BLOB    NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_scope ON cells(scope, kind);
@@ -741,7 +803,38 @@ export class SqliteStore implements Store {
     // 没有这一行，两个进程同时写就是随机失败——而这在"宿主 + 面板 + 巩固"三处并发时很常见。
     db.exec('PRAGMA busy_timeout = 5000')
     db.exec(DDL)
+    /**
+     * 增量列迁移（v0.7.0）。
+     *
+     * `CREATE TABLE IF NOT EXISTS` 对**已存在**的表什么都不做——所以给老库加列
+     * 必须显式 `ALTER TABLE ADD COLUMN`。SQLite 的 ADD COLUMN 带默认值时是
+     * 纯元数据操作（不重写行），因此这是安全且即时的，不需要 rebuild。
+     *
+     * 约定：**只加列，不改列、不删列**。改列语义（类型/精度）就得走 rebuild，
+     * 那是另一条路径（`/mnemo rebuild --from-log`），不能混在这里悄悄发生。
+     */
+    this.migrateColumns(db)
     this.db = db
+  }
+
+  /** 幂等加列。每条都是 `ALTER TABLE cells ADD COLUMN <name> <ddl>`。 */
+  private migrateColumns(db: SqliteDb): void {
+    const want: Array<[string, string]> = [['tags', "TEXT NOT NULL DEFAULT ''"]]
+    let have: Set<string>
+    try {
+      const rows = db.prepare('PRAGMA table_info(cells)').all() as Array<{ name?: string }>
+      have = new Set(rows.map((r) => String(r.name ?? '')))
+    } catch {
+      return
+    }
+    for (const [name, ddl] of want) {
+      if (have.has(name)) continue
+      try {
+        db.exec(`ALTER TABLE cells ADD COLUMN ${name} ${ddl}`)
+      } catch {
+        /* 并发启动时另一进程已加过：忽略 */
+      }
+    }
   }
 
   close(): void {
@@ -779,8 +872,8 @@ export class SqliteStore implements Store {
     this.prep(
         `INSERT INTO cells (cell_id,kind,tier,flags,t_from,t_to,t_ingest,t_access,access_cnt,
            stability,importance,valence,arousal,dominance,salience,provenance,trust,
-           confidence,support,topic,digest,residual_sha,residual_off,residual_len,t_invalid,scope,session,lens,blob)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+           confidence,support,topic,digest,residual_sha,residual_off,residual_len,t_invalid,scope,session,lens,tags,blob)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
          ON CONFLICT(cell_id) DO UPDATE SET
            kind=excluded.kind, tier=excluded.tier, flags=excluded.flags,
            t_from=excluded.t_from, t_to=excluded.t_to, t_ingest=excluded.t_ingest,
@@ -792,7 +885,7 @@ export class SqliteStore implements Store {
            digest=excluded.digest, residual_sha=excluded.residual_sha,
            residual_off=excluded.residual_off, residual_len=excluded.residual_len,
            t_invalid=excluded.t_invalid, scope=excluded.scope, session=excluded.session,
-           lens=excluded.lens, blob=excluded.blob`,
+           lens=excluded.lens, tags=excluded.tags, blob=excluded.blob`,
       )
       .run(
         r.cell_id, r.kind, r.tier, r.flags, r.t_from, r.t_to, r.t_ingest, r.t_access, r.access_cnt,
@@ -800,7 +893,7 @@ export class SqliteStore implements Store {
         Math.round(r.dominance * 1000), Math.round(r.salience * 1000),
         r.provenance, r.trust, r.confidence, r.support, r.topic, r.digest,
         r.residual_sha, r.residual_off, r.residual_len, Number(r.t_invalid ?? 0),
-        r.scope ?? 'user:local', r.session ?? '', r.lens ?? 'fact', r.blob,
+        r.scope ?? 'user:local', r.session ?? '', r.lens ?? 'fact', r.tags ?? '', r.blob,
       )
   }
 
@@ -904,6 +997,7 @@ export class SqliteStore implements Store {
     cell.scope = String(row.scope ?? 'user:local')
     cell.session = String(row.session ?? '')
     cell.lens = String(row.lens ?? 'fact') as MemCell['lens']
+    cell.tags = parseTags(row.tags)
     return cell
   }
 
@@ -1193,6 +1287,61 @@ export class SqliteStore implements Store {
   clearTokenDf(): void {
     this.conn.exec('DELETE FROM token_df;')
     this.setMeta('token_df.docs', '0')
+  }
+
+  /**
+   * 派生表级联清理（v0.7.0）。
+   *
+   * 会话级：只删该会话的行（`session_log` / `shadow_map` / `cell_sources` / `evict_log`）。
+   * 全库级：连 `recall_snapshots` 一起清——快照是**渲染过的记忆文本**，
+   * 只要有一份留在盘上，"已删除"就不成立。
+   *
+   * 返回每张表的删除行数：用户有权知道删干净没有。
+   */
+  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' }): {
+    log: number
+    snapshots: number
+    evicts: number
+    shadow: number
+    sources: number
+  } {
+    const count = (sql: string, ...args: unknown[]): number => {
+      const row = this.prep(sql).get(...(args as never[])) as { n?: number } | undefined
+      return Number(row?.n ?? 0)
+    }
+    const run = (sql: string, ...args: unknown[]): void => {
+      this.prep(sql).run(...(args as never[]))
+    }
+    if (target.kind === 'all') {
+      const log = count('SELECT COUNT(*) AS n FROM session_log')
+      const snapshots = count('SELECT COUNT(*) AS n FROM recall_snapshots')
+      const evicts = count('SELECT COUNT(*) AS n FROM evict_log')
+      const shadow = count('SELECT COUNT(*) AS n FROM shadow_map')
+      const sources = count('SELECT COUNT(*) AS n FROM cell_sources')
+      this.conn.exec('DELETE FROM session_log; DELETE FROM recall_snapshots; DELETE FROM evict_log; DELETE FROM shadow_map; DELETE FROM cell_sources;')
+      return { log, snapshots, evicts, shadow, sources }
+    }
+    const sid = target.id
+    /**
+     * ⚠ 调用约定：会话级清理必须在**删 cell 之前**调用。
+     * `cell_sources` 与 `evict_log` 都没有 session 列，只能经 `cells.session` 关联；
+     * cell 一旦删掉，关联就断了，计数与删除都会静默变成 0。
+     */
+    const log = count('SELECT COUNT(*) AS n FROM session_log WHERE session = ?', sid)
+    const shadow = count('SELECT COUNT(*) AS n FROM shadow_map WHERE session = ?', sid)
+    const evicts = count(
+      'SELECT COUNT(*) AS n FROM evict_log WHERE cell_id IN (SELECT cell_id FROM cells WHERE session = ?)',
+      sid,
+    )
+    const sources = count(
+      'SELECT COUNT(*) AS n FROM cell_sources WHERE cell_id IN (SELECT cell_id FROM cells WHERE session = ?)',
+      sid,
+    )
+    run('DELETE FROM session_log WHERE session = ?', sid)
+    run('DELETE FROM shadow_map WHERE session = ?', sid)
+    run('DELETE FROM evict_log WHERE cell_id IN (SELECT cell_id FROM cells WHERE session = ?)', sid)
+    run('DELETE FROM cell_sources WHERE cell_id IN (SELECT cell_id FROM cells WHERE session = ?)', sid)
+    return { log, snapshots: 0, evicts, shadow, sources }
   }
 
   private tokenDocs(): number {

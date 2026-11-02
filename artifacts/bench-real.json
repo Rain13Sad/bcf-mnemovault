@@ -1,0 +1,134 @@
+{
+  "generatedAt": "2026-11-02T14:07:44.029Z",
+  "note": "手写对话 + 手写 query，无模板生成。判据是渲染文本包含期望片段；陷阱题判据是 verdict≠hit。",
+  "cases": 7,
+  "queries": 12,
+  "accuracy": {
+    "overall": 1,
+    "single": 1,
+    "update": 1,
+    "affect": 1,
+    "multi": 1,
+    "trap": 1
+  },
+  "counts": {
+    "single": {
+      "total": 7,
+      "pass": 7
+    },
+    "update": {
+      "total": 1,
+      "pass": 1
+    },
+    "affect": {
+      "total": 1,
+      "pass": 1
+    },
+    "multi": {
+      "total": 1,
+      "pass": 1
+    },
+    "trap": {
+      "total": 2,
+      "pass": 2
+    }
+  },
+  "results": [
+    {
+      "case": "eng-stack",
+      "q": "我们用什么构建来着？",
+      "kind": "single",
+      "ok": true,
+      "note": "hits=3 tokens=59",
+      "verdict": "hit"
+    },
+    {
+      "case": "eng-stack",
+      "q": "仓库叫什么名字？",
+      "kind": "single",
+      "ok": true,
+      "note": "hits=3 tokens=59",
+      "verdict": "hit"
+    },
+    {
+      "case": "eng-stack",
+      "q": "CI 要跑多久？",
+      "kind": "single",
+      "ok": true,
+      "note": "hits=5 tokens=109",
+      "verdict": "hit"
+    },
+    {
+      "case": "pref-ui",
+      "q": "我主题偏好什么？",
+      "kind": "single",
+      "ok": true,
+      "note": "hits=2 tokens=41",
+      "verdict": "hit"
+    },
+    {
+      "case": "pref-ui",
+      "q": "字体我习惯用什么？",
+      "kind": "single",
+      "ok": true,
+      "note": "hits=3 tokens=68",
+      "verdict": "hit"
+    },
+    {
+      "case": "update-deploy",
+      "q": "部署脚本现在用哪个？",
+      "kind": "update",
+      "ok": true,
+      "note": "hits=1 tokens=51",
+      "verdict": "weak"
+    },
+    {
+      "case": "life-cat",
+      "q": "我的猫叫什么？",
+      "kind": "single",
+      "ok": true,
+      "note": "hits=2 tokens=78",
+      "verdict": "weak"
+    },
+    {
+      "case": "life-cat",
+      "q": "我下周去哪出差？",
+      "kind": "single",
+      "ok": true,
+      "note": "hits=4 tokens=106",
+      "verdict": "hit"
+    },
+    {
+      "case": "affect-companion",
+      "q": "我最近心情怎么样？",
+      "kind": "affect",
+      "ok": true,
+      "note": "hits=4 tokens=104",
+      "verdict": "hit"
+    },
+    {
+      "case": "multi-hop",
+      "q": "aurora 什么时候截止？",
+      "kind": "multi",
+      "ok": true,
+      "note": "hits=3 tokens=70",
+      "verdict": "hit"
+    },
+    {
+      "case": "trap-never-happened",
+      "q": "我养的狗叫什么名字？",
+      "kind": "trap",
+      "ok": true,
+      "note": "verdict=weak hits=1",
+      "verdict": "weak"
+    },
+    {
+      "case": "trap-never-happened",
+      "q": "我上次说的那家餐厅在哪？",
+      "kind": "trap",
+      "ok": true,
+      "note": "verdict=weak hits=1",
+      "verdict": "weak"
+    }
+  ]
+}

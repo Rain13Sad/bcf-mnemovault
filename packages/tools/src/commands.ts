@@ -66,6 +66,7 @@ const HELP = `MnemoVault 命令
   /mnemo pin <id> | unpin      固定 / 取消固定
   /mnemo forget <id> [--hard] [--yes]     遗忘（默认软删）
   /mnemo forget --before <date> [--yes]   按时间批量遗忘（先预览）
+  /mnemo purge <session <id>|all|cell <id>> [--yes]   级联删除：cell + 日志 + 快照 + 索引
   /mnemo preset <lean|balanced|fidelity|custom>
   /mnemo mode <rows|compact|prose>
   /mnemo affect                显示当前 PAD 与六变量
@@ -190,6 +191,55 @@ async function runCommandInner(argv: string[], deps: CommandDeps): Promise<strin
       const cell = mem.store.getCell(BigInt('0x' + target))
       mem.forget(target, hard ? 'hard' : 'soft', 'user', 'command')
       return cell ? `已${hard ? '物理删除' : '软删除'} ${id}：${cell.digest ?? ''}` : `未找到 ${id}`
+    }
+
+    case 'purge': {
+      /**
+       * v0.7.0：级联删除（红线 2）。
+       *
+       * 与 `forget --hard` 的区别：后者删 cell，前者连**派生层**一起删
+       * （session_log 的脱敏原文、recall_snapshots 的渲染文本、evict_log、
+       * shadow_map、孤儿残差）。"删除权"要求的是后者。
+       *
+       * 三条 UI 规则沿用 forget：预览先行、二次确认、可审计。
+       */
+      const yes = rest.includes('--yes')
+      const args = rest.filter((x) => !x.startsWith('--'))
+      const what = args[0]
+      if (!what) {
+        return [
+          '用法：',
+          '  /mnemo purge session <id> [--yes]   删该会话的全部记忆与日志',
+          '  /mnemo purge cell <id> [--yes]      删单条（含派生层）',
+          '  /mnemo purge all [--yes]            清空整个库（不可恢复）',
+          '不带 --yes 时只做预览。',
+        ].join('\n')
+      }
+      let target: { kind: 'session'; id: string } | { kind: 'all' } | { kind: 'cell'; id: string }
+      let preview: string
+      if (what === 'all') {
+        const n = mem.store.countCells()
+        target = { kind: 'all' }
+        preview = `将清空整库：${n} 条 cell + 全部会话日志/快照/索引（不可恢复）`
+      } else if (what === 'session') {
+        const sid = args[1]
+        if (!sid) return '用法：/mnemo purge session <id> [--yes]'
+        const n = mem.store.cellsOfSession(sid).length
+        target = { kind: 'session', id: sid }
+        preview = `将删除会话 ${sid}：${n} 条 cell + 该会话日志/影子/来源`
+      } else if (what === 'cell') {
+        const id = args[1]
+        if (!id) return '用法：/mnemo purge cell <id> [--yes]'
+        const resolved = resolveId(mem, id)
+        const cell = mem.store.getCell(BigInt('0x' + resolved))
+        target = { kind: 'cell', id: resolved }
+        preview = `将删除 ${id}：${cell?.digest ?? '（未找到）'}（含派生层）`
+      } else {
+        return `未知目标 ${what}。可用：session / cell / all`
+      }
+      if (!yes) return `${preview}\n\n确认请重跑并加 --yes`
+      const r = mem.purge(target, { confirm: 'purge', cascade: true })
+      return r.ok ? r.message : r.message
     }
 
     case 'preset': {

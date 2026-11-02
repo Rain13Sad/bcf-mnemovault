@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.6.2 -->
+<!-- DOC-VERSION: 0.7.0 -->
 
 # MnemoVault
 
@@ -16,7 +16,7 @@
 [![CI](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml/badge.svg)](https://github.com/Rain13Sad/bcf-mnemovault/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#快速开始)
-[![Tests](https://img.shields.io/badge/tests-290-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-317-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -29,8 +29,8 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.6.1** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 11 个包 · 73 个源文件 / 约 23,700 行 TS（`.ts` + `.tsx`，含 UI）· 290 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **状态** | **v0.7.0** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 11 个包 · 76 个源文件 / 约 25,600 行 TS（`.ts` + `.tsx`，含 UI）· 317 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
 | **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **28 条缺点 D1–D28** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
 | **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 28 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -91,16 +91,16 @@ npm run verify       # 以上四件事一次跑完（CI 跑的就是它）
 
 | 指标 | 实测 | 目标 | 说明 |
 | :--- | ---: | :--- | :--- |
-| Recall@8 | **0.941** | ≥ 0.80 | 34 条合成事实、带 ground truth |
-| MRR | **0.681** | ≥ 0.65 | 同上 |
-| 去重精确率 | **0.90** | ≥ 0.90 | 同一事实重述应合并 |
+| Recall@8 | **0.905** | ≥ 0.80 | 21 条事实 / 24 个 topic，真值按**当前值**取 |
+| MRR | **0.726** | ≥ 0.65 | 同上 |
+| 去重精确率 | **1.00** | ≥ 0.90 | 同一事实重述应合并 |
 | 去重召回率 | **1.00** | — | 同话题不同取值不应合并 |
 | 时间推理准确率 | **1.00** | ≥ 0.75 | 三版 `pnpm→npm→bun` 的双时态查询 |
-| tokens/轮 | **106.9** | ≤ 240 | 含图例摊薄 |
-| 召回 p95 | **32 ms** | ≤ 40 ms @100 万 | 本机 100 cell 规模，非百万级 |
+| tokens/轮 | **118.1** | ≤ 240 | 含图例摊薄 |
+| 召回 p95 | **7 ms** | ≤ 40 ms @100 万 | 本机 100 cell 规模，非百万级 |
 | 召回 p50（真实 SQLite，822 cell） | **4 ms** | — | `bench-scale.mjs`；v0.5.1 同口径为 18 ms |
 | 稳态 ingest p50（822 cell） | **1.8 ms** | — | v0.5.1 为 46.3 ms |
-| 单条 cell 体积 | **342 B** | — | MC03：112 B 头 + 稀疏 SDR + 128 维向量（v0.2 为 844 B） |
+| 单条 cell 体积 | **336 B** | — | MC03：112 B 头 + 稀疏 SDR + 128 维向量（v0.2 为 844 B） |
 | 存储比（短命题库） | 5.32× | 诊断口径 | 100 B 级轮次，定长基底主导，不代表真实轮次 |
 | 存储比（800 字轮次，默认切分） | **0.84×** | ≤ 0.90 | 762 字/轮、2.25 条 cell/轮 |
 | 存储比（800 字轮次，每轮 1 条） | **0.68×** | ≤ 0.72 | 粗粒度对照档，验证"切分粒度 → 存储比"的敏感度 |
@@ -256,6 +256,118 @@ dispose()
 </details>
 
 ---
+
+## v0.7.0：把四条红线补上，并重写写入端
+
+**结构性版本**。补上独立审计判定的四条红线（隔离 / 删除 / 危机 / 未成年），重写写入端抽取管线，
+并修掉一条"四路召回里符号路一直是空的"的真缺陷。
+不改存储布局（MC03 未动，**旧库不需要 rebuild**；新增的 `tags` 列走 `ALTER TABLE ADD COLUMN` 增量迁移）。
+
+### 隔离：从"数据过滤参数"变成"由身份推导的边界"
+
+`scopeKey` 曾经只是 `RecallQuery` 上的一个普通字符串——审计实测：一次工具调用声明
+`scopeKey: 'user:bob'` 就能读到别人的记忆。隔离是个**建议**，不是边界。
+
+现在：
+
+- 配置默认值 `'auto'`：有 `userId` 就推导 `user:<id>`；没有就退回共享域**并明确告警**
+  （`doctor` 的 warnings + 面板的诚实清单）；
+- 调用方传的 `scopeKey` **默认被忽略**（`security.allowScopeOverride`）；
+- `scope: 'global'` 是宿主/用户权限，不是模型权限（`security.allowGlobalScope`）；
+- `stripScopeArgs()` 在工具入口剥掉作用域字段——伪造在类型层面不可能。
+
+### 删除：级联 purge
+
+`forget --hard` 删了 cell，但 `session_log` 留着脱敏原文、`recall_snapshots` 留着**渲染过的记忆文本**、
+`evict_log` 留着 id。"已物理删除"只在 cells 表上成立。
+
+`memory.purge()` + `/mnemo purge` 现在一次清掉 cell + 边 + 来源 + 残差 + 日志 + 快照 + 驱逐记录 + 影子表，
+并**逐表回报行数**——用户有权知道到底删干净没有。
+
+### 危机干预（此前为零）
+
+一个内置依恋、主动关怀、情感记忆的陪伴层，对"自杀/自残"零识别。
+`crisis.ts` 补上**否定感知**的四级评估（自杀意念 / 自伤 / 暴力 / 关系暴力 / 急性痛苦）与
+**固定转介文案**（内置中国大陆热线，可按地区覆盖）。
+
+三条原则写进代码：不诊断、**危机轮不得驱动系统自身心境**（`suspendCompanion`）、
+宁可漏报不可误判成"没事"。
+
+两处固定搭配必须区别对待，否定规则专门处理了：**"我不想死"要降级，"不想活"不降级**（它本身就是意念表达）。
+
+未成年人：自述年龄/学段识别（`(?<!\d)` 防止把"30 岁"读成"0 岁"）+ 会话级粘性；
+约束落在 **ingest**（唯一写入口）——不进热层、不打情感闪光灯、关闭陪伴层。
+
+### 写入端：从句 → 类型化帧
+
+审计把这层判定为天花板：默认规则路径下，连"我的猫叫雪球"都是 **0 条 cell**。
+`frames.ts` 把"整句 → 一堆槽位"换成三段：切从句 → 每句建一个 `Frame`（谓词 + 角色 + 极性 +
+例外 + 时间/地点/数量）→ **抽不出成分的帧不产出 cell**（不再有 `X=states` 空壳）。
+
+跨从句能力：否定传播、指代回填（"它的 deadline"要知道"它"是哪个项目）、
+例外与更正（"但川菜除外" / "不是 4 月"）、话题携带（"ui.theme 这件事上，我偏好深色主题"）。
+
+| 输入 | 0.6.2 | 0.7.0 |
+| :--- | :--- | :--- |
+| 我的猫叫雪球 | **0 条 cell** | 猫=雪球 |
+| 我不吃辣，但川菜除外 | `吃辣=states`（值/否定/例外全丢） | eats · 辣 · neg · 例外=川菜 |
+| 生日其实是 3 月不是 4 月 | `上周说错=is` | 生日=3月 · 被否定=4 |
+| 上次提到的那个项目，它的 deadline 提前了 | `上次提到=states` | 项目=deadline（指代已回填） |
+| 新服务用 Go 写、gRPC 通信、部署在杭州，测试继续用 pytest | 1 条 | 4 条，各自带主语 |
+| 我下周要去北京出差三天 | 只留"下周" | 去北京 · 三天 · 时间 |
+
+顺带修掉三处"为省字节而丢事实"：单轮预算保证容纳最多 3 条有信息的从句（14 字两件事过去只存一条）、
+残差**惰性写入**（没有 cell 的一轮不再留孤儿残差）、`objectOfVerb` 接受 `node:test`（冒号此前被截成 `node`）。
+
+### 四路召回里，符号路一直是空的
+
+一个真 bug：cell 的 SDR 用 `identity('V:' + value)` 并 `bind` 到角色，查询 SDR 用
+`identity('E:' + entity)` 且不 bind——**命名空间与位位置双重错开**，`containment` 恒在噪声底。
+符号路有代码、有测试、没有效果，这正是审计 B1（单跳精确事实）失败的根因。
+
+不动存量数据修好：查询侧对齐 `V:` + `normToken`，cell SDR 叠一条**裸实体通道**（`[...bound, ...bare]`）。
+角色绑定继续服务解绑，裸实体让"这条记忆提到过哪些实体"可匹配。
+
+弃权判定也重做：旧 `verdict` 在手动检索上恒为 `hit`；而总分（近因 0.35 + 心境 0.25 + 情境 0.30
+是与问题无关的基线）与 SDR containment（查询二元组把 `|q|` 稀释，真命中只有 0.01）都分不开陷阱与命中。
+现在用**实体重叠**——陷阱题与任何 cell 都不共享实体，于是弃权。
+
+### 更新链：跨谓词取代
+
+`conflictFamily()` 把 `uses/changes/deploys/decides/prefers/dislikes/named/is` 在**冲突判定**上归为一族
+（`predFamily()` 不变，渲染仍要区分偏好与事实）。此前"决定用 pnpm"与"改用 npm"分属不同家族，
+矛盾检测看不到对方，**"现在到底是什么"永远答不出来**——审计 C1 的根因。
+
+### 渲染：新槽位必须可见
+
+`kvPairs()` 此前只读 AGENT/PATIENT/PRED/QTY/TIME/MANNER，于是新加的 PLACE/EXCEPTION/NEGVALUE
+**对模型完全不可见**："去北京"存进了 cell 却永远渲染不出来。存了看不见 = 没存，而且不报错。
+
+### 评测：两个 bench，各守一件事
+
+合成集的**口径修正**：它原来同一个 key 写 3 个不同取值，然后期望全部召回——但系统语义是后写取代先写，
+旧值本来就不该被召回，于是旧口径在惩罚正确行为（改口越准，recall 越低）。
+现在按 key 取当前值、topic 扩到 24 个、真值按**槽位**而非 digest 字符串取。
+
+新增 `bench-real.mjs` + `ci:assert-real`：**手写对话 + 手写 query**（不做模板生成），
+覆盖单跳 / 改口 / 多跳 / 陷阱弃权 / 情感。审计对评测可信度最尖锐的批评就是"query 按模板生成"，这一档补的就是那一半。
+
+### 数值（两个 bench 都进 CI）
+
+合成集（口径已变，**不可与 0.6.2 直接比较**）：
+Recall@8 **0.905** · MRR **0.726** · 去重 P **1.00** / R **1.00** · 时间推理 **1.00** ·
+**118.1** token/轮 · 存储比 realistic **0.812** / coarse **0.621** · 10k cell recall p95 **29.8 ms**
+
+真实语料（手写）：**12/12**（单跳 7/7 · 改口 1/1 · 多跳 1/1 · 陷阱 2/2 · 情感 1/1）
+
+测试 **290 → 317**。
+
+### 已知未做
+
+- 真实语料只有 12 条 query，是**口径修正**，不是公开基准（LoCoMo / LongMemEval 接入仍待做）；
+- `extractEnabled` 默认仍为 false：默认联网会破坏"零依赖、离线可跑"的承诺，
+  规则路径这一版已到可用水位，LLM 抽取仍是可选增强；
+- rerank 层、访问时间戳环形数组、跨会话身份统一：留给后续版本。
 
 ## v0.6.2：按独立技术审计修七个缺陷
 
@@ -677,7 +789,7 @@ v0.2 的 README 末尾列了六个"接口就绪、实机未验证/未实现"的�
 | `@rain13sad/llm-mnemo-encoder` | 写侧 | `Encoder`（订阅 `session/event`，turn/end 编码） |
 | `@rain13sad/llm-mnemo-recall` | 读侧 | `agent/pre-step` 门控与注入 |
 | `@rain13sad/llm-mnemo-consolidator` | 离线巩固 | `Consolidator`（NREM / REM / 遗忘） |
-| `@rain13sad/llm-mnemo-tools` | 工具面 + 命令面 | 6 个工具、26 条子命令（`/mnemo`）、egress 守卫 |
+| `@rain13sad/llm-mnemo-tools` | 工具面 + 命令面 | 6 个工具、27 条子命令（`/mnemo`）、egress 守卫 |
 | `@rain13sad/llm-mnemo-proactive` | **主动开口** | `ctx.mnemoProactive`、`candidate()`、`tick()`、静音 |
 | `@rain13sad/llm-mnemo-settings` | 设置面板 | `ctx.mnemoSettings`、生效矩阵、配置快照 |
 | `@rain13sad/llm-mnemo-ui` | **侧栏面板（client）** | `main` + `sidebar.panellist` 槽注册 |

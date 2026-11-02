@@ -13,7 +13,8 @@
 import { Service, type Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-session'
 import z from '@deepseek-ai/schemastery'
-import type { Appraisal, Intero, MemoryService, Pad, RelationalSnapshot } from '@rain13sad/llm-mnemo-core'
+import type { Appraisal, CrisisAssessment, Intero, MemoryService, Pad, RelationalSnapshot } from '@rain13sad/llm-mnemo-core'
+import { assessCrisis, detectMinor } from '@rain13sad/llm-mnemo-core'
 import { neutralIntero } from './appraisal.js'
 import { appraise, clampPersona, coreAffect, DEFAULT_COEFF, integrateMood, label, neutralPad, type AffectCoefficients } from './appraisal.js'
 import { derivePolicy, interocept, type InteroSignals } from './policy.js'
@@ -48,6 +49,12 @@ export interface Config {
   personaDriftEpsilon: number
   negativeWeight: number
   enabled: boolean
+  /** v0.7.0：危机识别与转介（红线 3）。关掉需要写进部署文档 */
+  crisisEnabled: boolean
+  /** v0.7.0：转介文案覆盖（中国大陆以外必须改） */
+  crisisReferral: string
+  /** v0.7.0：未成年人保护（关闭陪伴层、更短保留） */
+  minorGuardEnabled: boolean
   coeff: AffectCoefficients
 }
 
@@ -56,6 +63,9 @@ export const Config: z<Config> = z.object({
   personaDriftEpsilon: z.number().min(0).max(0.5).default(0.25).description('人格漂移上限。只在超界时收缩，绝不放大（修 D-13）'),
   negativeWeight: z.number().min(1).max(6).default(3).description('关系负面权重。调高更保守，是反谄媚手段'),
   enabled: z.boolean().default(true).description('关闭后走降级路径：不做情感门控，也不注入情感状态行'),
+  crisisEnabled: z.boolean().default(true).description('危机识别与固定转介（自杀/自残/暴力）。关掉它必须写进部署文档'),
+  crisisReferral: z.string().default('').description('转介文案覆盖（号码随地区变）。空 = 用内置默认'),
+  minorGuardEnabled: z.boolean().default(true).description('未成年人保护：识别后关闭陪伴层与主动开口'),
   coeff: z.object({
     v1: z.number().default(DEFAULT_COEFF.v1),
     v4: z.number().default(DEFAULT_COEFF.v4),
@@ -123,6 +133,15 @@ export class AffectService extends Service {
   private emotionalTurns = 0
   private negativeAccum = 0
   private repeats = 0
+  /**
+   * v0.7.0：未成年人模式（会话级粘性）。
+   *
+   * 一旦识别到就不再回退——"用户第二句没说年龄"不代表保护可以失效。
+   * 只提供 reset 入口（`/mnemo preset reset` 或换会话）。
+   */
+  private minorMode = false
+  /** 最近一次危机评估（面板与 doctor 读它） */
+  private lastCrisis: CrisisAssessment | null = null
 
   constructor(ctx: Context, config: Config) {
     super(ctx, 'affect')
@@ -173,6 +192,21 @@ export class AffectService extends Service {
       topic: input.topic,
       lastAssistantRejected: input.lastAssistantRejected,
     })
+    /**
+     * v0.7.0：危机评估（红线 3）。
+     *
+     * 在**任何情感积分之前**跑：危机轮不参与 `integrateMood`，
+     * 也不参与 `updateRelational` 的正向累加。这是 `suspendCompanion` 的实现位置——
+     * 如果先积分再判断，系统心境已经被用户的自杀意念推动了，事后挂起没有意义。
+     */
+    const crisis = this.config.crisisEnabled
+      ? assessCrisis(input.text, { referral: this.config.crisisReferral })
+      : null
+    const minor = this.config.minorGuardEnabled ? detectMinor(input.text) : { detected: false, source: 'none' as const, evidence: [] }
+    // 未成年人识别是**会话级粘性**的：一旦识别到，后续轮次都算
+    if (minor.detected) this.minorMode = true
+    if (crisis && crisis.level !== 'none') this.lastCrisis = crisis
+
     this.intero = interocept(
       {
         ...input.signals,
@@ -183,8 +217,16 @@ export class AffectService extends Service {
     )
     const e = coreAffect(a, this.intero, this.config.coeff)
     this.pad = e
-    this.mood = integrateMood(this.mood, e, this.config.moodTau)
-    this.negativeAccum = Math.max(0, this.negativeAccum * 0.85 + (e.v < -0.2 ? 0.15 : 0))
+    /**
+     * 危机轮：情绪状态照常记录（否则面板看不到这一轮发生了什么），
+     * 但**不积分进心境**。心境是跨轮的慢变量，它必须对"用户此刻很痛苦"保持免疫——
+     * 否则系统会越来越"低落"，而这既不真实也不负责。
+     */
+    const suspend = Boolean(crisis && crisis.level !== 'none' && crisis.suspendCompanion) || this.minorMode
+    if (!suspend) {
+      this.mood = integrateMood(this.mood, e, this.config.moodTau)
+      this.negativeAccum = Math.max(0, this.negativeAccum * 0.85 + (e.v < -0.2 ? 0.15 : 0))
+    }
     if (input.repeated) this.repeats = Math.min(1, this.repeats + 0.2)
     else this.repeats = Math.max(0, this.repeats * 0.9)
 
@@ -215,7 +257,26 @@ export class AffectService extends Service {
       turns: this.relational.turns,
       hasGoal: (input.goalEntities?.length ?? 0) > 0,
       neglect: this.neglectCount(),
+      crisis: crisis ? { level: crisis.level, needsReferral: crisis.needsReferral, categories: crisis.categories } : null,
+      minorMode: this.minorMode,
     })
+    // 危机转介文案随策略一起给宿主：它不该由模型"即兴组织"
+    if (policy.crisis?.needsReferral && crisis?.referral) {
+      policy.crisisReferral = crisis.referral
+    }
+    // 审计事件：危机轮必须留痕（谁、何时、什么级别），供事后复盘
+    if (crisis && crisis.level !== 'none') {
+      const mem = this.ctx.get('memory') as MemoryService | undefined
+      mem?.emit('memory/crisis', {
+        level: crisis.level,
+        categories: crisis.categories,
+        needsReferral: crisis.needsReferral,
+        matched: crisis.matched,
+        negated: crisis.negated,
+        minorMode: this.minorMode,
+        at: Date.now(),
+      })
+    }
 
     this.lastTurn = {
       appraisal: a,
@@ -500,6 +561,21 @@ export class AffectService extends Service {
   }
 
   /** affect_report 的数据源：**只有数值**，没有感受。 */
+  /**
+   * v0.7.0：危机与未成年人状态。
+   *
+   * 面板、doctor、编码器都可以读它——"当前会话是否处于保护模式"
+   * 必须是一个可查询的事实，而不是散落在各处的布尔值。
+   */
+  crisisState(): { last: CrisisAssessment | null; minorMode: boolean } {
+    return { last: this.lastCrisis, minorMode: this.minorMode }
+  }
+
+  /** 退出未成年人模式（用户显式操作，不是自动流程）。 */
+  clearMinorMode(): void {
+    this.minorMode = false
+  }
+
   report(): Record<string, number | string> {
     const p = this.pad
     return {

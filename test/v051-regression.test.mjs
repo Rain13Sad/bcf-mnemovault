@@ -165,20 +165,32 @@ test('升档：强命中把归档层记忆拉回一级；纯时间不会', async
   let clock = T0
   const h = await open({ now: () => clock })
   await h.turn('我用 pnpm 构建，别用 npm。')
-  const cell = firstCell(h)
-  cell.tier = 3
-  cell.tAccess = BigInt(T0 - 200 * DAY)
-  h.memory.store.putCell(cell)
+  /**
+   * v0.7.0：一轮可能产出**多条** cell（"用 pnpm 构建" + "别用 npm"）。
+   * 只挑第一条会让断言依赖遍历顺序——改成把本轮所有 cell 都压到归档层，
+   * 然后断言"至少有一条被强命中升档"。契约不变：升档只来自使用信号。
+   */
+  const cells = h.memory.store.listCells({ limit: 20 }).filter((c) => c.provenance === 0 && c.kind <= 2)
+  assert.ok(cells.length >= 1)
+  for (const c of cells) {
+    c.tier = 3
+    c.tAccess = BigInt(T0 - 200 * DAY)
+    h.memory.store.putCell(c)
+  }
 
   // 纯时间推进：不动
   clock = T0 + 30 * DAY
   h.memory.demoteDue()
-  assert.equal(h.memory.store.getCell(cell.cellId).tier, 3, '纯时间不该升档')
+  assert.ok(
+    cells.every((c) => h.memory.store.getCell(c.cellId).tier === 3),
+    '纯时间不该升档',
+  )
 
-  // 强命中：升一级
+  // 强命中：至少一条升一级
   clock = T0 + 31 * DAY
   h.memory.recall({ text: '我用 pnpm 构建 别用 npm', budget: 400, manual: true })
-  assert.equal(h.memory.store.getCell(cell.cellId).tier, 2, '强命中应把归档层拉回冷层')
+  const after = cells.map((c) => h.memory.store.getCell(c.cellId).tier)
+  assert.ok(after.some((t) => t === 2), `强命中应把归档层拉回冷层，实际 ${after.join(',')}`)
 })
 
 // ── 数据卫生 ──────────────────────────────────────────────────────

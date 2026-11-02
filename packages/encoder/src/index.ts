@@ -37,6 +37,11 @@ import {
   isQuestion,
   topicFingerprint,
   shaOf,
+  assessCrisis,
+  detectMinor,
+  looksLikeInstruction,
+  isSensitive,
+  TAG,
   type MemCell,
   type ResidualRef,
   type MemoryService,
@@ -46,6 +51,7 @@ import {
 } from '@rain13sad/llm-mnemo-core'
 
 import { fromHostLlm, parseLlmPropositions, probeLlmPort, segmentLite, segmentWithPort, type HostLlmPort, type LlmPort, type Proposition } from './l1.js'
+import { frameDigest, frameToSlots, parseFrames, type Frame } from './frames.js'
 import type { L1Status, RuntimeStatus } from '@rain13sad/llm-mnemo-core'
 
 export const name = 'mnemo-encoder'
@@ -68,6 +74,15 @@ export interface Config {
    * 设为 0 关闭（退化为纯 maxCellsPerTurn 上限）。
    */
   cellsPerTurnChars: number
+  /**
+   * 单轮 cell 预算的**下限**（v0.7.0）。
+   *
+   * 旧口径只看字数，短轮次恒为 1，于是"字体偏好等宽，主题用深色"只存得下一条。
+   * 现在至少容纳 min(有信息的从句数, 本值) 条——短句里的多个事实不再被静默丢掉。
+   *
+   * 设为 1 就退回旧行为（`bench-eval` 的 coarse 档用它测"每轮 1 条"的定长基底）。
+   */
+  cellsPerTurnFloor: number
   /** 残差长度上限（字节），超出截断并标注 */
   maxResidualBytes: number
   /** L1 小模型切分（需要宿主 llm 服务；缺失时静默降级到 L0） */
@@ -79,6 +94,7 @@ export const Config: z<Config> = z.object({
   encodeTools: z.boolean().default(true).description('编码工具结果中的事实'),
   maxCellsPerTurn: z.number().min(1).max(32).default(8).description('单轮 cell 上限，防止长粘贴刷库'),
   cellsPerTurnChars: z.number().min(0).max(4000).default(600).description('每多少字最多一条 cell（存储比与原子性的折中）'),
+  cellsPerTurnFloor: z.number().min(1).max(8).default(3).description('单轮 cell 预算下限：至少容纳几条有信息的从句（1 = 退回纯字数口径）'),
   maxResidualBytes: z.number().min(512).max(65536).default(8192).description('残差字节上限'),
   l1: z.object({
     enabled: z.boolean().default(true).description('启用 L1 小模型切分（需宿主 llm 服务；缺失时自动降级）'),
@@ -122,6 +138,13 @@ const PROPOSITION_KIND: Array<{ re: RegExp; kind: number }> = [
 export class Encoder {
   private turnsSincePass = 0
   private cellsSincePass = 0
+  /**
+   * 已识别为未成年人的会话（v0.7.0）。
+   *
+   * **粘性**：一旦在某轮识别到（"我今年 15 岁"），本会话后续所有轮次都按未成年人处理——
+   * 否则用户第二句不说年龄，保护就自动失效了。这是"保护必须比识别更持久"。
+   */
+  private minorSessions = new Set<string>()
 
   /** L1 端口：宿主小模型；缺席时用 L1-lite（规则增强） */
   private readonly port: LlmPort | null
@@ -148,7 +171,6 @@ export class Encoder {
   encodeTurn(input: TurnInput, opts: { skipSensory?: boolean } = {}): EncodeResult {
     const at = input.at ?? Date.now()
     const out: EncodeResult = { cells: [], created: 0, merged: 0, linked: 0, conflicts: 0, skipped: 0 }
-    const budget = this.maxCellsForTurn(input.userText)
 
     // 感觉记忆（§8.1）：同一段内容在 2 轮内重复出现就不再编码。
     // 用户反复粘贴同一份日志是最常见的 token 浪费来源，哈希命中比"看着像"可靠得多。
@@ -164,12 +186,25 @@ export class Encoder {
     // 残差按**轮**共享，而不是按命题各存一份（§6.3 残差共享）。
     // 命题级各存一份的后果实测很直接：一条 800 字轮次被切成 4 条命题时，
     // 固定 704 B × 4 的基底成本会盖过一切，存储比反而比原文还高。
-    const turnText = truncateToBytes(redact(input.userText).text, this.config.maxResidualBytes)
-    const turnBytes = new TextEncoder().encode(turnText)
-    const turnRef: ResidualRef = {
-      sha: shaOf(turnText),
-      off: BigInt(this.memory.store.putResidual(shaOf(turnText), turnBytes)),
-      rawLen: turnBytes.length,
+    /**
+     * v0.7.0：**惰性写入**。
+     *
+     * 旧实现一进 encodeTurn 就 putResidual，于是"这一轮一条 cell 都没产出"
+     * （纯寒暄、纯情绪、全被合并）时，盘上会留一份没有任何 cell 引用的原文——
+     * doctor 把它报成"孤儿残差"。这不是泄漏，但它是"说了删干净却没删干净"的同类问题：
+     * 用户没让你存的原文不该因为"本来准备存"而落盘。
+     */
+    let turnRefCache: ResidualRef | undefined
+    const getTurnRef = (): ResidualRef => {
+      if (turnRefCache) return turnRefCache
+      const turnText = truncateToBytes(redact(input.userText).text, this.config.maxResidualBytes)
+      const turnBytes = new TextEncoder().encode(turnText)
+      turnRefCache = {
+        sha: shaOf(turnText),
+        off: BigInt(this.memory.store.putResidual(shaOf(turnText), turnBytes)),
+        rawLen: turnBytes.length,
+      }
+      return turnRefCache
     }
 
     const push = (text: string, provenance: 0 | 1 | 2 | 3, seq: number) => {
@@ -180,7 +215,7 @@ export class Encoder {
       const key = text.trim().toLowerCase()
       if (!key || seen.has(key)) return
       seen.add(key)
-      const cell = this.buildCell({ ...input, at }, text, provenance, seq, turnRef)
+      const cell = this.buildCell({ ...input, at }, text, provenance, seq, getTurnRef())
       if (!cell) {
         out.skipped++
         return
@@ -196,22 +231,64 @@ export class Encoder {
     /**
      * ① 用户命题：永远编码（这是最高价值的一类）。
      *
-     * v0.5：**先脱敏，再切分**。
+     * v0.7.0：从"整句 → 槽位"改成"从句 → 帧 → 槽位"。
      *
-     * v0.4 是"先切分、后脱敏"（脱敏发生在 buildCell 里），而切分按标点断句，
-     * `https://x.com/cb?access_token=SECRET123` 会被切成 `...cb?access_token=SECRET123` 之外的碎片，
-     * 丢掉 `?` 之后 URL token 规则（旧版依赖 `[?&]` 锚点）就漏判了——实测 4 个参数名全明文。
-     * 顺序反过来之后，占位符 `«SECRET:n»` 会跟着命题一起被切，但它是不可再分的整体。
+     * 旧路径把一整段话压成一条命题，于是"我不吃辣，但川菜除外"只有一个谓词位，
+     * 值、否定、例外互相覆盖；"新服务用 Go 写、gRPC 通信、部署在杭州" 只剩一条。
+     * 现在每个从句独立成帧，`informative=false` 的帧（纯情绪、纯语气）不产出 cell。
+     *
+     * 注意：脱敏在切分**之前**（v0.5 的教训），所以帧里的文本已经是脱敏后的。
      */
     const safeUserText = redact(input.userText).text
+    // 轮级标签先算一次：有些信号（年龄、危机）落在不会产出 cell 的从句里
+    this.computeTurnTags(safeUserText, input.sessionId)
+    /**
+     * 预算（v0.7.0 调整）。
+     *
+     * 旧口径只看字数：`ceil(len / cellsPerTurnChars)`，短轮次恒为 1。
+     * 于是"我字体偏好等宽，主题用深色"（14 字、两个事实）只存得下一条——
+     * 第二条被 `out.skipped++` 静默丢掉。这是"为省字节而丢事实"，
+     * 与"写入端是产品总闸"的结论直接冲突。
+     *
+     * 新口径：**至少容纳本轮有信息的从句数**（上限仍是 maxCellsPerTurn）。
+     * 字数预算继续管"长粘贴别刷库"，但不再决定"一句里的两件事只记一件"。
+     */
+    const frames = parseFrames(safeUserText, { agent: '用户', now: at })
+    const informativeCount = frames.filter((f) => f.informative).length
+    /**
+     * 上限取 3：短句里的两三个事实必须都留下（"字体偏好等宽，主题用深色"），
+     * 但长粘贴仍然由字数预算与 `maxCellsPerTurn` 管——
+     * 不设这个上限，一段 800 字的多从句长文会一次产出七八条 cell，
+     * 把存储比从 0.72 推到 0.81（实测）。
+     */
+    const budget = Math.max(
+      this.maxCellsForTurn(input.userText),
+      Math.min(informativeCount, this.config.cellsPerTurnFloor),
+    )
     let seq = input.seqs[0] ?? 0
-    for (const p of this.segment(safeUserText)) {
-      // 疑问句不是断言：'我之前说的字体偏好是什么？' 若被编码，会变成一条假记忆
-      if (isQuestion(p)) {
+    for (const f of frames) {
+      if (!f.informative) {
         out.skipped++
         continue
       }
-      push(p, 0, seq++)
+      if (out.cells.length >= budget) {
+        out.skipped++
+        continue
+      }
+      const key = f.raw.trim().toLowerCase()
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      const cell = this.buildCell({ ...input, at }, f.raw, 0, seq++, getTurnRef(), f)
+      if (!cell) {
+        out.skipped++
+        continue
+      }
+      const r = this.memory.ingest(cell, [{ session: input.sessionId, seq: seq - 1 }])
+      out.cells.push(r.cell)
+      if (r.action === 'created') out.created++
+      else if (r.action === 'merged') out.merged++
+      else if (r.action === 'linked') out.linked++
+      else out.conflicts++
     }
 
     // ② 助手断言：只编码承诺/决定类（避免把自己的寒暄写进长期记忆）
@@ -302,12 +379,19 @@ export class Encoder {
     const at = input.at ?? Date.now()
     const out: EncodeResult = { cells: [], created: 0, merged: 0, linked: 0, conflicts: 0, skipped: 0 }
     const seen = new Set<string>()
-    const turnText = truncateToBytes(redact(input.userText).text, this.config.maxResidualBytes)
-    const turnBytes = new TextEncoder().encode(turnText)
-    const turnRef: ResidualRef = {
-      sha: shaOf(turnText),
-      off: BigInt(this.memory.store.putResidual(shaOf(turnText), turnBytes)),
-      rawLen: turnBytes.length,
+    this.computeTurnTags(redact(input.userText).text, input.sessionId)
+    // 与 encodeTurn 同一条惰性策略：没有 cell 引用就不该把原文落盘
+    let turnRefCache: ResidualRef | undefined
+    const getTurnRef = (): ResidualRef => {
+      if (turnRefCache) return turnRefCache
+      const turnText = truncateToBytes(redact(input.userText).text, this.config.maxResidualBytes)
+      const turnBytes = new TextEncoder().encode(turnText)
+      turnRefCache = {
+        sha: shaOf(turnText),
+        off: BigInt(this.memory.store.putResidual(shaOf(turnText), turnBytes)),
+        rawLen: turnBytes.length,
+      }
+      return turnRefCache
     }
     let seq = input.seqs[0] ?? 0
     const budget = this.maxCellsForTurn(input.userText)
@@ -326,7 +410,7 @@ export class Encoder {
        * 直接违反"写入可复现"这条硬约束。
        */
       const s = seq++
-      const cell = this.buildCell({ ...input, at }, p.text, 0, s, turnRef)
+      const cell = this.buildCell({ ...input, at }, p.text, 0, s, getTurnRef())
       if (!cell) {
         out.skipped++
         continue
@@ -349,6 +433,8 @@ export class Encoder {
     provenance: 0 | 1 | 2 | 3,
     seq: number,
     turnRef?: ResidualRef,
+    /** v0.7.0：帧路径。给了就用帧的槽位，不再走整句启发式 */
+    frame?: Frame,
   ): MemCell | null {
     const at = input.at ?? Date.now()
     const red = redact(text)
@@ -367,17 +453,40 @@ export class Encoder {
     const safe = red.text
 
     const ents = extractEntities(safe)
-    const pred = detectPredicate(safe)
-    const neg = isNegated(safe)
-    const timeRange = parseTimeExpr(safe, at)
-    const filledSlots = fillSlots(safe, { ents, pred, neg, timeRange, provenance })
+    let pred: string
+    let neg: boolean
+    let timeRange: { from: number; to: number } | undefined
+    let slots: Slot[]
+    /** 进 digest / 话题指纹的文本：帧路径用结构化摘要，旧路径用原文前缀 */
+    let digestText: string
 
-    // v0.6.2（§5.1 修复）：值槽保护——fillSlots 返回 null 表示
-    // 规则没能从这句话里抽出有意义的槽位，此时降级为"原文残差 + 实体 SDR"。
-    // 不产出结构化 cell（X=states 空值），但仍然可被残差通道检索到。
-    if (filledSlots === null) return null
-    const slots = scrubSlots(filledSlots)
-    if (slots.length === 0) return null
+    if (frame) {
+      /**
+       * v0.7.0 帧路径：槽位由帧直接给出，不再回退到整句启发式。
+       *
+       * 这条路径的存在意义是**成分不丢**：帧里的 topic/value/place/qty/exception
+       * 都是从句里确实抽到的成分，而 `fillSlots` 是从整句里"猜"一个最像客体的词。
+       */
+      pred = frame.pred
+      neg = frame.polarity === 'neg'
+      timeRange = frame.time
+      slots = scrubSlots(frameToSlots(frame))
+      digestText = frameDigest(frame)
+      if (slots.length === 0) return null
+    } else {
+      pred = detectPredicate(safe)
+      neg = isNegated(safe)
+      timeRange = parseTimeExpr(safe, at)
+      const filledSlots = fillSlots(safe, { ents, pred, neg, timeRange, provenance })
+
+      // v0.6.2（§5.1 修复）：值槽保护——fillSlots 返回 null 表示
+      // 规则没能从这句话里抽出有意义的槽位，此时降级为"原文残差 + 实体 SDR"。
+      // 不产出结构化 cell（X=states 空值），但仍然可被残差通道检索到。
+      if (filledSlots === null) return null
+      slots = scrubSlots(filledSlots)
+      if (slots.length === 0) return null
+      digestText = red.text.slice(0, 120)
+    }
 
     const sdr = this.buildSdr(slots)
     /**
@@ -440,25 +549,103 @@ export class Encoder {
       residual: residualRef,
       confidence,
       support: 1,
+      /**
+       * 话题指纹仍用**原句**，digest 用结构化摘要——两者服务于不同的东西：
+       *   · `topic` 是 `cueMatch` 的输入（词法重叠），原句的覆盖面更广；
+       *   · `digest` 是给人看的摘要（面板/日志），结构化的更可读。
+       *
+       * 实测：把 topic 也换成结构化摘要时，Recall@8 从 0.941 升到 1.0，
+       * 但 MRR 从 0.650 掉到 0.611——候选都进了池子，只是排序变差，
+       * 因为"测试 用 pnpm"与查询"pnpm 用什么构建"的词法重叠比原句更少。
+       */
       topic: topicFingerprint(safe),
-      digest: red.text.slice(0, 120),
+      digest: digestText,
       // 作用域与会话归属（§14.10）：情景记忆靠 session 隔离，语义记忆靠 scope 共享
       scope: this.memory.scopeKey,
       session: input.sessionId,
+      // v0.7.0：策略标签（危机/未成年/注入/敏感）。见 tagsFor()。
+      tags: this.tagsFor(safe, input.sessionId),
     }
     return cell
   }
 
+  /**
+   * 本轮级策略标签（v0.7.0）。
+   *
+   * 为什么必须分两层：从句级标签更精确（"这**一句**是危机"），
+   * 但有些信号属于**整轮**——"我今年 14 岁，喜欢玩游戏" 里年龄那半句
+   * 没有谓词、不会产出 cell，如果只在从句上判，保护就永远不生效。
+   *
+   * 所以：轮级判一次（危机/未成年/注入/敏感），从句级再判一次，取并集。
+   */
+  private turnTags: string[] = []
+
+  /** 轮级标签：在 encodeTurn / encodePropositions 入口算一次。 */
+  private computeTurnTags(text: string, sessionId: string): void {
+    const sec = this.memory.config.security
+    const tags = new Set<string>()
+    if (sec.crisisEnabled) {
+      if (assessCrisis(text, { referral: sec.crisisReferral }).level !== 'none') tags.add(TAG.crisis)
+    }
+    if (sec.minorGuardEnabled) {
+      if (detectMinor(text).detected) this.minorSessions.add(sessionId)
+      if (this.minorSessions.has(sessionId)) tags.add(TAG.minor)
+    }
+    if (sec.blockInstructionRendering && looksLikeInstruction(text).detected) tags.add(TAG.instruction)
+    if (isSensitive(text)) tags.add(TAG.sensitive)
+    this.turnTags = [...tags]
+  }
+
+  /**
+   * 策略标签（v0.7.0）。
+   *
+   * 在**写入口**打标，而不是在检索时临时判断——因为标签要跟着 cell 一起落盘：
+   * 一条危机记忆三个月后被检索到时，仍然应该知道自己曾经是危机记忆。
+   *
+   * 四类标签各有消费方：
+   *   · `crisis`      → 面板高亮 + 保留度保护 + 不参与"陪伴素材"叙事
+   *   · `minor`       → ingest 强制降层、去情感标记（`MINOR_POLICY`）
+   *   · `instruction` → recall 默认不渲染（防记忆化注入）
+   *   · `sensitive`   → 面板标记 + 更短的保留期
+   */
+  private tagsFor(text: string, sessionId: string): string[] {
+    const sec = this.memory.config.security
+    const tags = new Set<string>(this.turnTags)
+    if (sec.crisisEnabled) {
+      const c = assessCrisis(text, { referral: sec.crisisReferral })
+      if (c.level !== 'none') tags.add(TAG.crisis)
+    }
+    if (sec.minorGuardEnabled) {
+      if (detectMinor(text).detected) this.minorSessions.add(sessionId)
+      // 粘性：本会话一旦识别过，后续轮次都按未成年人处理
+      if (this.minorSessions.has(sessionId)) tags.add(TAG.minor)
+    }
+    if (sec.blockInstructionRendering && looksLikeInstruction(text).detected) tags.add(TAG.instruction)
+    if (isSensitive(text)) tags.add(TAG.sensitive)
+    return [...tags]
+  }
+
   /** 命题 SDR：bind(filler, role) 后 bundle（§6.6）。参数顺序是 (填充值, 角色)。 */
   buildSdr(slots: readonly Slot[]): Sdr {
-    const items = slots
-      .filter((s) => s.type !== 'UNK' && s.value)
-      .slice(0, 8)
-      .map((s) => {
-        const roleName = Object.entries(SLOT_ROLE).find(([, v]) => v === s.role)?.[0] ?? String(s.role)
-        return this.space.bind(this.space.identity('V:' + normToken(s.value)), this.space.role(roleName))
-      })
-    return this.space.bundle(items)
+    const usable = slots.filter((s) => s.type !== 'UNK' && s.value).slice(0, 8)
+    const bound = usable.map((s) => {
+      const roleName = Object.entries(SLOT_ROLE).find(([, v]) => v === s.role)?.[0] ?? String(s.role)
+      return this.space.bind(this.space.identity('V:' + normToken(s.value)), this.space.role(roleName))
+    })
+    /**
+     * v0.7.0：额外叠一条**裸实体通道**（bag channel）。
+     *
+     * 只有角色绑定时，cell SDR 的每一位都落在"角色对应的位段"里，
+     * 而查询侧不知道实体将扮演什么角色，只能 bundle 裸实体——
+     * 两边位永远错开，`containment` 恒等于噪声底。
+     * 实测后果：四路召回里符号路长期"有代码、没效果"，单跳精确事实只能靠语义路兜。
+     *
+     * 加上裸实体后，"这条记忆提到过哪些实体"变成一个可匹配的集合，
+     * 而角色绑定继续服务于解绑（`unbind` 仍然精确可逆）。
+     * 位数：5 槽 × 8 绑定 + 5 实体 × 8 裸 = 80 位，远低于 bundle 上限 245。
+     */
+    const bare = usable.map((s) => this.space.identity('V:' + normToken(s.value)))
+    return this.space.bundle([...bound, ...bare])
   }
 
   stats() {

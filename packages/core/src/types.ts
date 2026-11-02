@@ -107,6 +107,29 @@ export interface AffectPolicy {
    * 不是"表达情绪"，而是"怎么处理情绪"——情境选择 / 情境修改 / 注意分配 / 认知改变 / 反应调节。
    */
   regulation?: RegulationStrategy
+  /**
+   * v0.7.0：危机状态（红线 3）。非空表示本轮命中危机信号。
+   *
+   * 一旦非空，策略表里其他规则全部让位：不精简、不发散、不做认知重评，
+   * 只做"接住 + 转介"。`needsReferral` 决定是否插入固定求助文案。
+   */
+  crisis?: { level: 'none' | 'watch' | 'elevated' | 'critical'; needsReferral: boolean; categories: string[] }
+  /**
+   * v0.7.0：固定转介文案（`needsReferral` 时由 core 提供，宿主直接插入上下文）。
+   *
+   * 刻意不让模型自己组织这段：措辞的安全边界（不给诊断、不承诺"会好起来"、
+   * 必须给号码）不该交给生成式模型即兴发挥。
+   */
+  crisisReferral?: string
+  /**
+   * v0.7.0：挂起情感闭环。
+   *
+   * 危机轮与未成年人模式都必须为 true。语义是：**本轮不把用户的状态积分进系统心境**。
+   * 理由不是"系统不该有情绪"，而是"用户在最脆弱时刻说的话，不该变成系统的表演素材"。
+   */
+  suspendCompanion?: boolean
+  /** v0.7.0：未成年人模式（关闭陪伴层与主动开口） */
+  minorMode?: boolean
   /** 触发原因，供 UI 与解释器展示 */
   reasons: string[]
 }
@@ -163,6 +186,46 @@ export interface SafetyConfig {
   piiRedaction: boolean
   blockMemoryInEgress: boolean
   requireApprovalFor: string[]
+}
+
+/**
+ * 安全边界配置（v0.7.0）。
+ *
+ * 这一段的每一项都对应独立审计里的一条红线或一个实测缺陷，
+ * 默认值一律取**安全侧**——放宽必须由部署方显式做出。
+ */
+export interface SecurityConfig {
+  /**
+   * 允许调用方在查询里覆盖作用域。默认 **false**。
+   *
+   * 审计实测：`scopeKey` 曾是 `RecallQuery` 上的普通字符串，模型经工具调用
+   * 可以声明任意作用域，于是"隔离"只是一个建议。默认关掉之后，
+   * 作用域只能由服务端从身份推导。
+   */
+  allowScopeOverride: boolean
+  /**
+   * 允许 `scope: 'global'`（跨域全库检索）。默认 **false**。
+   *
+   * 它对应"用户显式要求翻遍所有记忆"这一场景，属于宿主/用户权限，
+   * 不该是模型可以自己决定的事。
+   */
+  allowGlobalScope: boolean
+  /**
+   * 语义记忆是否按会话隔离。默认 **false**（同一用户的跨会话共享是设计意图）。
+   *
+   * 多租户部署若无法保证 per-user scopeKey，把它设为 true 可退化为会话级隔离。
+   */
+  sessionIsolateSemantic: boolean
+  /** 指令形态文本默认不进 MRS 渲染（仍可检索、可在面板查看） */
+  blockInstructionRendering: boolean
+  /** 危机识别与转介总开关。默认 **true**——关掉它需要写进部署文档 */
+  crisisEnabled: boolean
+  /** 转介文案覆盖（部署到中国大陆以外必须改）。空 = 用内置默认 */
+  crisisReferral: string
+  /** 未成年人保护（更短保留、关闭陪伴层）。默认 **true** */
+  minorGuardEnabled: boolean
+  /** 物理/级联删除必须带 confirm 令牌。默认 **true** */
+  purgeRequiresConfirm: boolean
 }
 
 /**
@@ -223,6 +286,8 @@ export interface MnemoConfig {
   recall: RecallWeights
   consolidation: ConsolidationConfig
   safety: SafetyConfig
+  /** v0.7.0：安全边界（作用域/危机/未成年/注入） */
+  security: SecurityConfig
   /** v0.5.2：SDR 倒排索引与保留度缓存（规模化相关的两个可调项） */
   index: IndexConfig
   /** v0.6：LLM 适配（模型画像 / 端口 / 预算闸） */
@@ -454,6 +519,15 @@ export interface DoctorReport {
   sdrDim: number
   issues: string[]
   fixed: string[]
+  /**
+   * v0.7.0：部署提示（不是缺陷）。
+   *
+   * 与 `issues` 的分工：`issues` 让 `ok=false`，是"这个库有问题"；
+   * `warnings` 是"这个库没问题，但这个部署方式有风险"（例如共享作用域）。
+   * 把后者塞进 `issues` 会让每一次单机安装都显示"发现问题"，
+   * 告警疲劳之后真正的缺陷就没人看了。
+   */
+  warnings?: string[]
 }
 
 // ── 面板快照（host → client，§12.10 / §20.2） ───────────────────────
@@ -531,6 +605,20 @@ export interface PanelRuntimeInfo {
   capabilities: string[]
   /** 限制说明（诚实清单） */
   limits: string[]
+  /**
+   * v0.7.0：安全边界快照。
+   *
+   * 面板"设置"页展示它，doctor 也读——"当前是共享域还是按用户隔离"
+   * 必须是可查询的事实，而不是读代码才知道。
+   */
+  security?: {
+    scopeKey: string
+    scopeMode: 'shared' | 'per-user' | 'per-session'
+    allowGlobalScope: boolean
+    allowScopeOverride: boolean
+    crisisEnabled: boolean
+    minorGuardEnabled: boolean
+  }
 }
 
 export interface PanelIndexInfo {

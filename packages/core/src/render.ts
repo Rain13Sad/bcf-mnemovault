@@ -98,26 +98,63 @@ export function kvPairs(cell: MemCell): Array<[string, string]> {
   const pred = slotLit(cell.slots, 'PRED')
   const qty = slotLit(cell.slots, 'QTY')
   const time = slotLit(cell.slots, 'TIME')
+  const place = slotLit(cell.slots, 'PLACE')
+  const manner = slotLit(cell.slots, 'MANNER')
+  const exception = slotLit(cell.slots, 'EXCEPTION')
+  const negValue = slotLit(cell.slots, 'NEGVALUE')
   const out: Array<[string, string]> = []
   const clean = (s: string) => s.replace(/[|\s]+/g, '_').slice(0, 32)
-  const manner = slotLit(cell.slots, 'MANNER')
-  // 偏好帧与动宾帧都读作 '话题=取值'（字体=等宽、部署=pnpm），比 '等宽=prefers' 更接近人话
+
   const isPreference = pred === 'prefers' || pred === 'dislikes'
   const isUses = pred === 'uses' || pred === 'changes' || pred === 'deploys'
-  if ((isPreference || isUses) && patient && manner) {
-    out.push([clean(manner), clean(patient)])
-    if (qty) out.push(['qty', clean(qty)])
-    return out.slice(0, 3)
+  const isMovement = pred === 'goes' || pred === 'lives' || pred === 'scheduled'
+
+  /**
+   * v0.7.0：渲染必须覆盖**所有**承载信息的槽。
+   *
+   * 之前 `kvPairs` 只读 AGENT/PATIENT/PRED/QTY/TIME/MANNER——
+   * 于是 v0.7 新加的 PLACE / EXCEPTION / NEGVALUE **对模型完全不可见**：
+   * "我下周要去北京出差三天" 的"北京"存进了 cell，却永远渲染不出来。
+   * 存了看不见 = 没存，而且这种缺陷不会报错，只在真实问答里表现为"它忘了"。
+   */
+  const push = (k: string, v?: string) => {
+    if (v && out.length < 3) out.push([clean(k), clean(v)])
   }
-  if (isPreference && patient) {
-    out.push([clean(pred === 'dislikes' ? 'dislike' : 'pref'), clean(patient)])
-    return out.slice(0, 3)
+
+  if (isMovement && place) {
+    // 移动/日程类：地点是第一信息（"去北京"比"用户=goes"有用得多）
+    push('at', place)
+    push('qty', qty)
+    push('t', time)
+  } else if ((isPreference || isUses) && patient && manner) {
+    // 偏好帧与动宾帧都读作 '话题=取值'（字体=等宽、部署=pnpm），比 '等宽=prefers' 更接近人话
+    push(manner, patient)
+    push('at', place)
+    push('qty', qty)
+  } else if (isPreference && patient) {
+    push(pred === 'dislikes' ? 'dislike' : 'pref', patient)
+    push('qty', qty)
+    push('t', time)
+  } else if (patient && pred) {
+    push(patient, pred)
+    push('at', place)
+    push('qty', qty)
+  } else if (manner && pred) {
+    push(manner, pred)
+    push('at', place)
+    push('qty', qty)
+  } else if (agent && pred) {
+    push(agent, pred)
+    push('at', place)
+    push('qty', qty)
+  } else if (pred) {
+    push('pred', pred)
   }
-  if (patient && pred) out.push([clean(patient), clean(pred)])
-  else if (agent && pred) out.push([clean(agent), clean(pred)])
-  else if (pred) out.push(['pred', clean(pred)])
-  if (qty) out.push(['qty', clean(qty)])
-  if (time && out.length < 3) out.push(['t', clean(time)])
+
+  // 例外与更正：它们是"这条记忆的限定条件"，丢了会让结论变成无条件断言
+  push('except', exception)
+  push('not', negValue)
+  if (time && out.length < 3) push('t', time)
   if (out.length === 0 && cell.digest) out.push(['k', cell.digest.replace(/[|\s]+/g, '_').slice(0, 28)])
   return out.slice(0, 3)
 }

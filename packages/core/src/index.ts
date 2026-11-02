@@ -25,7 +25,7 @@ export const inject = ['sessions']
 
 export const Config = z.object({
   dbPath: z.string().default('~/.dsh/mnemo/vault.db').description('晶格数据库路径。换库需重启（§12.8）'),
-  scopeKey: z.string().default('user:local').description('作用域键。多用户部署传 user:<id>；改它等于换一个记忆域'),
+  scopeKey: z.string().default('auto').description("作用域键。'auto' = 从 userId 推导；显式字符串 = 固定域；多用户部署请传 userId"),
   residualDir: z.string().default('~/.dsh/mnemo/blob').description('残差存储目录'),
   sdrDim: z
     .union([z.const(1024), z.const(2048), z.const(4096)])
@@ -91,6 +91,22 @@ export const Config = z.object({
     blockMemoryInEgress: z.boolean().default(true).description('记忆内容禁止出现在外发工具参数里'),
     requireApprovalFor: z.array(z.string()).default(['memory_forget', 'memory_assert']).description('需审批的工具清单'),
   }),
+  /**
+   * v0.7.0：安全边界。默认值全部取安全侧——放宽必须由部署方显式做出。
+   * 这一段直接对应独立审计的四条红线（隔离/删除/危机/未成年）。
+   */
+  security: z
+    .object({
+      allowScopeOverride: z.boolean().default(false).description('允许查询参数覆盖作用域（默认关：隔离只能由服务端推导）'),
+      allowGlobalScope: z.boolean().default(false).description("允许 scope='global' 跨域全库检索（宿主/用户权限，不是模型权限）"),
+      sessionIsolateSemantic: z.boolean().default(false).description('语义记忆也按会话隔离（多租户无法保证 per-user scopeKey 时开启）'),
+      blockInstructionRendering: z.boolean().default(true).description('指令形态文本默认不进 MRS 渲染（仍可检索）'),
+      crisisEnabled: z.boolean().default(true).description('危机识别与转介。关掉它必须写进部署文档'),
+      crisisReferral: z.string().default('').description('转介文案覆盖（中国大陆以外部署必须改）。空 = 用内置默认'),
+      minorGuardEnabled: z.boolean().default(true).description('未成年人保护：更短保留 + 关闭陪伴层'),
+      purgeRequiresConfirm: z.boolean().default(true).description('级联删除必须带 confirm 令牌'),
+    })
+    .default({}),
   index: z
     .object({
       sdrEnabled: z.boolean().default(true).description('SDR 倒排索引（超预算自动退化并上报）'),
@@ -256,6 +272,28 @@ export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buil
 export { HnswIndex, BruteIndex, type VectorIndex, type VectorHit } from './ann.js'
 export { createStore, MemoryStore, SqliteStore, type Store } from './store.js'
 export * from './text.js'
+// v0.7.0：安全边界与危机干预（红线 1/2/3/7）
+export {
+  resolveScopeKey,
+  stripScopeArgs,
+  looksLikeInstruction,
+  isSensitive,
+  SCOPE_ARG_KEYS,
+  type ScopeMode,
+  type ScopeResolution,
+  type InstructionSignal,
+} from './security.js'
+export {
+  assessCrisis,
+  detectMinor,
+  DEFAULT_REFERRAL,
+  CRISIS_DISCLAIMER,
+  MINOR_POLICY,
+  type CrisisLevel,
+  type CrisisCategory,
+  type CrisisAssessment,
+  type MinorSignal,
+} from './crisis.js'
 export { SensoryRing, WorkingSet } from './working.js'
 export { compress, decompress, type Codec } from './codec.js'
 export { hash64, toHex, digest32, shortId } from './hash.js'

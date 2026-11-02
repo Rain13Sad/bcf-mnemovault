@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.6.2 -->
+<!-- DOC-VERSION: 0.7.0 -->
 
 # MnemoVault
 
@@ -18,7 +18,7 @@ instead of replaying the transcript.
 [![npm](https://img.shields.io/npm/v/@rain13sad/llm-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-290-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-317-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -34,8 +34,8 @@ instead of replaying the transcript.
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.6.1** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 11 packages · 73 source files / ~23,700 lines of TS (`.ts` + `.tsx`, UI included) · 290 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
+| **Status** | **v0.7.0** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 11 packages · 76 source files / ~25,600 lines of TS (`.ts` + `.tsx`, UI included) · 317 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 | **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (28 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -51,6 +51,133 @@ instead of replaying the transcript.
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
 
 ---
+
+## What's new in 0.7.0
+
+A **structural** release: it closes the four red lines an independent audit flagged (isolation,
+deletion, crisis, minors), rewrites the write path, and fixes a defect that made one of the four
+recall channels dead on arrival. No storage-layout change — MC03 is untouched, **existing vaults
+need no rebuild** (the new `tags` column is an additive `ALTER TABLE ADD COLUMN`).
+
+### The isolation default was not a boundary
+
+`scopeKey` used to be a plain string on `RecallQuery` — the audit demonstrated that a tool call
+declaring `scopeKey: 'user:bob'` read another user's memories. Isolation was a *filter parameter*,
+not a *boundary*. It is now derived server-side from identity:
+
+- config default `'auto'`: derive `user:<id>` from `userId`; without one, fall back to the shared
+  domain **and say so** (warning in `doctor`, line in the panel's honesty list);
+- caller-supplied `scopeKey` is **ignored** by default (`security.allowScopeOverride`);
+- `scope: 'global'` is a host/user permission, not a model permission (`security.allowGlobalScope`);
+- `stripScopeArgs()` removes scope fields at the tool boundary — forgery is impossible by type.
+
+### Deletion did not actually delete
+
+`forget --hard` removed the cell, but `session_log` kept the redacted text, `recall_snapshots` kept
+the **rendered memory text**, and `evict_log` kept ids. "Physically deleted" was true only for the
+`cells` table. `memory.purge()` + `/mnemo purge` now clears cell + edges + sources + residuals + logs
++ snapshots + evictions + shadow rows, and **reports the row count per table** — the user is entitled
+to know whether it is actually gone.
+
+### Crisis intervention (previously zero)
+
+A companion layer that ships attachment, proactive care and emotional memory had no crisis
+recognition at all. `crisis.ts` adds a negation-aware four-level assessment (self-harm, suicide,
+violence, abuse, acute distress) and a **fixed referral text** (China hotlines built in, overridable
+per region). Three rules are enforced in code: no diagnosis, **never let a crisis turn drive the
+system's own mood** (`suspendCompanion`), and prefer missing a signal over calling it fine.
+
+Two fixed phrases must be treated differently, and the negation rule gets this right:
+**"我不想死" (I don't want to die) must be downgraded; "不想活" (I don't want to live) must not** —
+the latter is itself ideation.
+
+Minors: self-reported age/school-stage detection (with `(?<!\d)` so "30 岁" is not read as "0 岁"),
+sticky for the whole session, and enforced in `ingest` (the single write entry): no hot tier, no
+emotional flashbulb, companion layer off.
+
+### Write path: clause → typed frame
+
+The audit called this the ceiling: under the default rule extractor, even "我的猫叫雪球" produced
+**zero cells**. `frames.ts` replaces "whole sentence → bag of slots" with three stages — split
+clauses, build a typed `Frame` per clause (predicate + roles + polarity + exception + time/place/qty),
+and **drop frames that carry nothing** (no more `X=states` shells).
+
+Cross-clause abilities: negation propagation, pronoun backfill ("它的 deadline" needs to know which
+project "它" is), exceptions ("但川菜除外") and corrections ("不是 4 月"), and topic carry-over
+("ui.theme 这件事上，我偏好深色主题").
+
+| Input | 0.6.2 | 0.7.0 |
+| :--- | :--- | :--- |
+| 我的猫叫雪球 | **0 cells** | 猫=雪球 |
+| 我不吃辣，但川菜除外 | `吃辣=states` (value/negation/exception all lost) | eats · 辣 · neg · except=川菜 |
+| 生日其实是 3 月不是 4 月 | `上周说错=is` | 生日=3月 · negated=4 |
+| 上次提到的那个项目，它的 deadline 提前了 | `上次提到=states` | 项目=deadline (pronoun resolved) |
+| 新服务用 Go 写、gRPC 通信、部署在杭州，测试继续用 pytest | 1 cell | 4 cells, each with its own subject |
+| 我下周要去北京出差三天 | only "下周" | 去北京 · 三天 · time |
+
+Three "save bytes by losing facts" defects fixed with it: the per-turn budget now guarantees room for
+up to 3 informative clauses (a 14-char sentence with two facts used to keep one), residuals are written
+**lazily** (a turn with no cell no longer leaves an orphan residual), and `objectOfVerb` accepts
+`node:test` (the colon used to truncate it to `node`).
+
+### One of the four recall channels was dead
+
+A real bug: cell SDRs used `identity('V:' + value)` **bound to a role**, while query SDRs used
+`identity('E:' + entity)` **unbound**. Both the namespace and the bit positions were disjoint, so
+`containment(q, cell)` sat at the noise floor forever. The symbolic channel had code, tests, and no
+effect — which is exactly why single-hop factual questions (audit B1) failed.
+
+Fixed without touching stored data: the query side aligns to `V:` + `normToken`, and the cell SDR
+gains a **bag channel** (`[...bound, ...bare]`). Role bindings still serve unbinding; bare entities
+make "which entities does this memory mention" matchable.
+
+Abstention was rebuilt on top of it. The old `verdict` was always `hit` for manual recall, and
+neither total score (recency 0.35 + mood 0.25 + cue 0.30 are question-independent baselines) nor SDR
+containment (query bigrams dilute `|q|`, so a true hit scores 0.01) could separate traps from hits.
+It now uses **entity overlap** — trap queries share no entity with any cell, so they abstain.
+
+### Update chain: cross-predicate supersede
+
+`conflictFamily()` groups `uses/changes/deploys/decides/prefers/dislikes/named/is` for **conflict
+detection only** (`predFamily()` still separates preference from fact for rendering). Before this,
+"决定用 pnpm" and "改用 npm" lived in different families, so conflict detection never compared them
+and "what is it now?" was unanswerable — the root cause of audit C1.
+
+### Rendering: new slots must be visible
+
+`kvPairs()` only read AGENT/PATIENT/PRED/QTY/TIME/MANNER, so the new PLACE/EXCEPTION/NEGVALUE slots
+were **invisible to the model**: "去北京" was stored in the cell and never rendered. Stored-but-invisible
+is the same as not stored, and it fails silently.
+
+### Evaluation: two benchmarks, different jobs
+
+The synthetic bench's premise was wrong and is now fixed: it wrote 3 different values per key and then
+expected *all* of them to be retrievable — but the system's semantics are last-write-wins, so old values
+**should not** be recalled. The old metric punished correct behaviour (the better the update chain, the
+lower the recall). It now asks for the current value per key, uses 24 topics, and takes ground truth
+from **slots** rather than digest strings.
+
+New `bench-real.mjs` + `ci:assert-real`: **hand-written dialogues and hand-written queries** (no
+template generation), covering single-hop / update / multi-hop / trap-abstention / affect. The audit's
+sharpest criticism of the evaluation was exactly this, so it gets its own gate.
+
+### Numbers (both benches are CI gates)
+
+Synthetic (new, harder definition — **not comparable to 0.6.2**):
+Recall@8 **0.905** · MRR **0.726** · dedupe P **1.00** / R **1.00** · temporal **1.00** ·
+**118.1** tokens/turn · storage ratio realistic **0.812** / coarse **0.621** · 10k-cell recall p95 **29.8 ms**
+
+Real corpus (hand-written): **12/12** (single 7/7 · update 1/1 · multi 1/1 · trap 2/2 · affect 1/1)
+
+Tests **290 → 317**.
+
+### Not done
+
+- The real corpus is 12 queries — a calibration fix, not a public benchmark (LoCoMo / LongMemEval
+  integration is still open).
+- `extractEnabled` stays `false` by default: default-on networking would break the zero-dependency,
+  offline promise. The rule path is now at a usable level; LLM extraction remains an opt-in upgrade.
+- Rerank layer, access-timestamp ring buffer, cross-session identity: still future work.
 
 ## What's new in 0.6.2
 
@@ -353,7 +480,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 290 tests
+npm test             # 317 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)
@@ -470,17 +597,17 @@ Measured on Node 22.22 / Windows; reproducible from `artifacts/bench.json` (`npm
 
 | Metric | Measured | Target | Note |
 | :--- | ---: | :--- | :--- |
-| Recall@8 | **0.941** | ≥ 0.80 | 34 synthetic facts with ground truth |
-| MRR | **0.681** | ≥ 0.65 | same |
-| Dedupe precision | **0.90** | ≥ 0.90 | restating a fact should merge |
+| Recall@8 | **0.905** | ≥ 0.80 | 21 facts / 24 topics, current-value ground truth |
+| MRR | **0.726** | ≥ 0.65 | same |
+| Dedupe precision | **1.00** | ≥ 0.90 | restating a fact should merge |
 | Dedupe recall | **1.00** | — | same topic, different value should not merge |
 | Temporal reasoning | **1.00** | ≥ 0.75 | `pnpm → npm → bun` across three versions |
-| tokens / turn | **106.4** | ≤ 240 | legend amortised |
-| Recall p95 | **15 ms** | ≤ 40 ms @1M | 42 cells locally, not a million |
-| Bytes per cell | **342 B** | — | MC03: 112 B header + sparse SDR + 128-dim vector (844 B in v0.2) |
+| tokens / turn | **118.1** | ≤ 240 | legend amortised |
+| Recall p95 | **7 ms** | ≤ 40 ms @1M | 42 cells locally, not a million |
+| Bytes per cell | **336 B** | — | MC03: 112 B header + sparse SDR + 128-dim vector (844 B in v0.2) |
 | Storage ratio (short config-style DB) | 5.32× | diagnostic only | ~98 B turns (“我用 pnpm。”) — the fixed 342 B per cell dominates |
-| Storage ratio (800-char turn, default split) | **0.839×** | ≤ 0.90 | 762 chars/turn, 2.25 cells/turn |
-| Storage ratio (800-char turn, one cell) | **0.678×** | ≤ 0.72 | coarse control, shows split-granularity sensitivity |
+| Storage ratio (800-char turn, default split) | **0.812×** | ≤ 0.90 | 762 chars/turn, 2.25 cells/turn |
+| Storage ratio (800-char turn, one cell) | **0.621×** | ≤ 0.72 | coarse control, shows split-granularity sensitivity |
 
 **Size and latency are a trade — read both numbers.** MC03 cut a cell from 844 B to 341 B at the
 cost of a more expensive decode (sparse delta-varint SDR, `encodeCell` +29%). Size is a persistent
@@ -589,7 +716,7 @@ Tests 109 → 115. `npm run verify` green. `storageRatioRealistic` unchanged at 
 | [`…-encoder`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-encoder) | write side | Preview | `Encoder` (subscribes to `session/event`) |
 | [`…-recall`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-recall) | read side | Preview | `agent/pre-step` gating and injection |
 | [`…-consolidator`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-consolidator) | offline consolidation + sleep replay | Preview | `Consolidator` (NREM / REM / replay / forgetting) |
-| [`…-tools`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-tools) | tools + commands | Stable-ish | 6 tools, 26 subcommands, egress guard |
+| [`…-tools`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-tools) | tools + commands | Stable-ish | 6 tools, 27 subcommands, egress guard |
 | [`…-proactive`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-proactive) | speaking up first | Experimental | `ctx.mnemoProactive`, `candidate()`, `tick()` |
 | [`…-settings`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-settings) | settings panel | Experimental | `ctx.mnemoSettings`, effect matrix |
 | [`…-ui`](https://www.npmjs.com/package/@rain13sad/llm-mnemo-ui) | panel (client, React) | Experimental — needs `react` | `main` + `sidebar.panellist` slot registration |

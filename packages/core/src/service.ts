@@ -24,6 +24,7 @@ import {
   encodeCell,
   foldEmb,
   pq4,
+  TAG,
   topicOf,
   type CellKind,
   type MemCell,
@@ -47,7 +48,9 @@ import { buildStarMap } from './starmap.js'
 import { SensoryRing, WorkingSet } from './working.js'
 import { applyPreset, estimateTokensPerTurn } from './preset.js'
 import { hash64, toHex } from './hash.js'
-import { redact, isRedactionPlaceholder, extractEntities } from './text.js'
+import { redact, isRedactionPlaceholder, extractEntities, normToken } from './text.js'
+import { resolveScopeKey, looksLikeInstruction, isSensitive, type ScopeResolution } from './security.js'
+import { assessCrisis, detectMinor, MINOR_POLICY, type CrisisAssessment, type MinorSignal } from './crisis.js'
 import type {
   DoctorReport,
   ExpandResult,
@@ -73,8 +76,16 @@ export interface IngestResult {
 
 export interface MemoryServiceOptions {
   config: MnemoConfig
-  /** 作用域键：单机 'user:local'；多用户部署传 'user:<id>'（§14.10） */
+  /**
+   * 作用域键（§14.10）。
+   *
+   * v0.7.0：默认值从 `'user:local'` 改成 `'auto'`——由 `resolveScopeKey` 从
+   * **服务端身份**推导，而不是让调用方声明。显式传字符串仍然生效（单机部署兼容），
+   * 但 `'auto'` 才是默认路径：有 userId 就按用户隔离，没有就退回共享域并告警。
+   */
   scopeKey?: string
+  /** 宿主提供的用户身份。多租户部署必须传，否则隔离退化为共享域 */
+  userId?: string
   store?: Store
   now?: () => number
   /** 面板快照落盘路径；undefined 则不落盘（测试/浏览器） */
@@ -97,6 +108,8 @@ export class MemoryService extends Service {
   readonly working = new WorkingSet(16)
   /** 作用域键（§14.10）：所有新写入的 cell 默认落在这个作用域里 */
   readonly scopeKey: string
+  /** 作用域推导结果（含风险告警）。面板与 doctor 读它 */
+  readonly scope: ScopeResolution
   config: MnemoConfig
   private now: () => number
   private readonly panelPath?: string
@@ -173,7 +186,13 @@ export class MemoryService extends Service {
   constructor(ctx: Context, opts: MemoryServiceOptions) {
     super(ctx, 'memory')
     this.config = opts.config
-    this.scopeKey = opts.scopeKey ?? 'user:local'
+    // v0.7.0：作用域由服务端推导，不接受调用方直接声明（见 security.ts 的三条规则）
+    this.scope = resolveScopeKey({
+      configured: opts.scopeKey ?? opts.config.scopeKey,
+      userId: opts.userId,
+      sessionId: opts.userId ? undefined : undefined,
+    })
+    this.scopeKey = this.scope.key
     this.now = opts.now ?? (() => Date.now())
     this.space = new SdrSpace({ dim: opts.config.sdrDim, k: opts.config.sdrK })
     this.store = opts.store ?? createStore({ path: opts.config.dbPath, space: this.space })
@@ -555,6 +574,22 @@ export class MemoryService extends Service {
       session: cell.session ?? (sources[0]?.session ?? ''),
     }
 
+    /**
+     * v0.7.0：策略标签在**写入口**强制执行，而不是依赖编码器记得。
+     *
+     * 未成年人策略（`MINOR_POLICY`）是硬约束：
+     *   · 不进热层（tier ≥ 2）→ 保留期自然更短；
+     *   · 不打情感闪光灯标记 → 避免形成长期情感绑定。
+     * 放在 ingest 而不是 encoder，是因为还有别的写路径（工具、元数据 upsert）；
+     * 约束只有落在唯一写入口上才是约束。
+     */
+    const tags = [...new Set(clean.tags ?? [])]
+    if (this.config.security.minorGuardEnabled && tags.includes(TAG.minor)) {
+      if (clean.tier < MINOR_POLICY.tierFloor) clean.tier = MINOR_POLICY.tierFloor
+      if (MINOR_POLICY.stripEmotional) clean.flags &= ~FLAG.emotional
+    }
+    clean.tags = tags
+
     return this.store.write(() => {
       // ① 残差先写（内容寻址，幂等）——崩溃时不会留下半条 cell（§14.11）
       if (clean.digest && !clean.residual) {
@@ -762,7 +797,7 @@ export class MemoryService extends Service {
     const pred = slotValue(cell, 'PRED')
     if (!pred) return undefined
     let out: MemCell | undefined
-    const fam = predFamily(pred)
+    const fam = conflictFamily(pred)
     const mannerKey = slotValue(cell, 'MANNER')
     const patientKey = slotValue(cell, 'PATIENT')
     const visit = (other: MemCell) => {
@@ -1103,8 +1138,97 @@ export class MemoryService extends Service {
     this.publishPanel()
   }
 
-  explain(cellId: string, q?: RecallQuery): string {
-    const target = cellId.replace(/^0x/, '').padEnd(16, '0').slice(-16)
+  /**
+   * 级联删除（v0.7.0 · 红线 2）。
+   *
+   * ── 为什么 `forget --hard` 不够 ────────────────────────────────
+   * `forget(hard)` 删的是 cell + 边 + 来源 + 残差。但审计实测发现，
+   * 删完之后盘上还留着：
+   *   · `session_log`  —— 脱敏原文（rebuild 的依据）
+   *   · `recall_snapshots` —— **渲染过的记忆文本**（每次召回的 MRS 输出）
+   *   · `evict_log` / `shadow_map` —— id 与删除原因
+   *
+   * 于是"已物理删除"只在 cell 表上成立。这个方法是那句承诺的补完：
+   * 把派生层一起清掉，并**逐表回报删了多少行**——用户有权知道删干净没有。
+   *
+   * 危险操作，必须带 `confirm: 'purge'`（可用 `security.purgeRequiresConfirm` 关掉）。
+   */
+  purge(
+    target: { kind: 'session'; id: string } | { kind: 'all' } | { kind: 'cell'; id: string },
+    opts: { confirm?: string; cascade?: boolean } = {},
+  ): {
+    ok: boolean
+    message: string
+    cells: number
+    edges: number
+    residuals: number
+    aux: { log: number; snapshots: number; evicts: number; shadow: number; sources: number }
+  } {
+    const cascade = opts.cascade !== false
+    const needConfirm = this.config.security.purgeRequiresConfirm
+    if (needConfirm && opts.confirm !== 'purge') {
+      return {
+        ok: false,
+        message: "级联删除需要确认：purge(..., { confirm: 'purge' })",
+        cells: 0,
+        edges: 0,
+        residuals: 0,
+        aux: { log: 0, snapshots: 0, evicts: 0, shadow: 0, sources: 0 },
+      }
+    }
+
+    let ids: bigint[] = []
+    if (target.kind === 'all') {
+      this.store.forEachCell((c) => ids.push(c.cellId))
+    } else if (target.kind === 'session') {
+      ids = this.store.cellsOfSession(target.id)
+    } else {
+      ids = [BigInt('0x' + target.id.replace(/^0x/, '').padStart(16, '0'))]
+    }
+
+    const auxTarget = target.kind === 'cell' ? { kind: 'all' as const } : target
+    let aux = { log: 0, snapshots: 0, evicts: 0, shadow: 0, sources: 0 }
+    let residuals = 0
+    let edges = 0
+
+    this.store.write(() => {
+      /**
+       * 顺序很重要：`purgeAux` 的会话分支要经 `cells.session` 关联
+       * （`cell_sources` / `evict_log` 没有 session 列），所以必须在删 cell **之前**跑。
+       */
+      if (cascade) aux = this.store.purgeAux(auxTarget)
+      for (const id of ids) {
+        const cell = this.store.getCell(id)
+        if (!cell) continue
+        edges += cell.edges.length
+        residuals += cell.residual ? 1 : 0
+        this.store.deleteCell(id)
+        this.ann?.remove(id)
+        this.unindexCell(cell)
+      }
+      // 全库级：清完 cell 之后剩下的孤儿残差一并释放（"删干净"的最后一公里）
+      if (cascade && target.kind !== 'cell') {
+        for (const o of this.store.orphanResiduals()) this.store.purgeOrphanResidual(o.sha)
+      }
+    })
+
+    this.emit('memory/purge', { target: target.kind, cells: ids.length, aux })
+    this.publishPanel()
+    return {
+      ok: true,
+      message:
+        `已删除 ${ids.length} 条 cell（${edges} 条出边，${residuals} 份残差引用）` +
+        (cascade
+          ? `；派生层：日志 ${aux.log} 行、快照 ${aux.snapshots} 行、驱逐记录 ${aux.evicts} 行、影子 ${aux.shadow} 行`
+          : '；派生层未清理（cascade=false）'),
+      cells: ids.length,
+      edges,
+      residuals,
+      aux,
+    }
+  }
+
+  explain(cellId: string, q?: RecallQuery): string {    const target = cellId.replace(/^0x/, '').padEnd(16, '0').slice(-16)
     const b = this.lastRecall?.breakdowns.find((x) => x.cellId.endsWith(target.slice(-4)) || x.cellId === target)
     if (!b) {
       // 没有当轮召回记录时，现场算一次解释，而不是返回"无数据"
@@ -1325,6 +1449,20 @@ export class MemoryService extends Service {
       issues.push(`身份码碰撞 ${identityCollisions} 对（同一 SDR 但摘要不同）——去重会误合并，建议 /mnemo rebuild`)
     }
 
+    /**
+     * v0.7.0：作用域风险由 doctor 主动说出来，但归入 `warnings` 而不是 `issues`。
+     *
+     * 共享域在多用户部署下就是跨用户泄漏（审计红线 1 的实测形态）；
+     * 单机部署它又是合理的。所以它是"部署提示"而不是"库有问题"——
+     * 放进 issues 会让每次单机体检都报错，告警疲劳之后真缺陷就没人看了。
+     */
+    const warnings: string[] = []
+    if (this.scope.mode === 'shared' && scanned > 0) {
+      warnings.push(
+        `作用域为共享域 ${this.scopeKey}（${scanned} 条记忆对所有会话可见）：多用户部署请传 userId 或配置 security.scopeKey`,
+      )
+    }
+
     return {
       ok: issues.length === 0,
       orphanEdges,
@@ -1342,6 +1480,7 @@ export class MemoryService extends Service {
       sdrDim: this.config.sdrDim,
       issues,
       fixed,
+      warnings,
     }
   }
 
@@ -1683,7 +1822,26 @@ export class MemoryService extends Service {
         remoteFace: this.runtime.remoteFace,
         tools: [...this.runtime.tools],
         capabilities: [...this.runtime.capabilities],
-        limits: [...this.runtime.limits],
+        /**
+         * v0.7.0：作用域告警并入"诚实清单"。
+         *
+         * 共享域是**部署风险**，不是运行时错误——它不该打断任何东西，
+         * 但必须让用户看得见。这正是 `limits` 这个字段存在的理由
+         * （v0.5 定的规矩：面板不能宣称一个它正在静默降级的能力）。
+         */
+        limits: [
+          ...this.runtime.limits.filter((x) => !x.startsWith('作用域')),
+          ...(this.scope.warning ? [`作用域：${this.scope.warning}`] : []),
+        ],
+        /** v0.7.0：安全边界快照（面板"设置"页与 doctor 读） */
+        security: {
+          scopeKey: this.scopeKey,
+          scopeMode: this.scope.mode,
+          allowGlobalScope: this.config.security.allowGlobalScope,
+          allowScopeOverride: this.config.security.allowScopeOverride,
+          crisisEnabled: this.config.security.crisisEnabled,
+          minorGuardEnabled: this.config.security.minorGuardEnabled,
+        },
       },
       index: {
         builtAt: this.now(),
@@ -1906,8 +2064,11 @@ export class MemoryService extends Service {
 
   search(text: string, limit = 50): PanelCellView[] {
     if (!text.trim()) return this.panelCells(limit)
+    // v0.7.0：命名空间必须与 cell SDR 一致（`V:` + normToken），否则符号相似度恒为噪声底
     const qSdr = this.space.bundle(
-      (text.match(/[\u4e00-\u9fa5]{2,8}|[A-Za-z_][A-Za-z0-9_.\-]{1,40}/g) ?? [text]).slice(0, 16).map((e) => this.space.identity('E:' + e.toLowerCase())),
+      (text.match(/[\u4e00-\u9fa5]{2,8}|[A-Za-z_][A-Za-z0-9_.\-:]{1,40}/g) ?? [text])
+        .slice(0, 16)
+        .map((e) => this.space.identity('V:' + normToken(e))),
     )
     const scored: Array<{ c: MemCell; s: number }> = []
     const needle = text.toLowerCase()
@@ -2142,10 +2303,17 @@ export function slotValue(cell: MemCell, roleName: string): string | undefined {
 /** 视角判定：故事 > 感受 > 关系 > 事实。顺序即优先级。 */
 export function deriveLens(cell: MemCell): 'fact' | 'feeling' | 'bond' | 'story' {
   if (cell.kind === KIND.narrative) return 'story'
-  // 同 ingest：显著度不能当判据（它的基线太高）
-  if (Math.abs(cell.valence) >= 0.45) return 'feeling'
+  /**
+   * v0.7.0：关系视角优先于情感视角。
+   *
+   * 旧顺序是先判 `|valence| ≥ 0.45 → feeling`，于是"谢谢你一直陪着我，我们一起…"
+   * 因为效价高被归成 feeling——但这句话**说的是我们**，不是我的感受。
+   * 关系标记比效价更具体，具体判据应当先于一般判据。
+   */
   const text = (cell.digest ?? '') + ' ' + cell.slots.map((s) => s.value).join(' ')
   if (/我们|一起|陪我|陪你|在乎|想你|喜欢你|谢谢|约定|答应|吵架|和好/.test(text)) return 'bond'
+  // 同 ingest：显著度不能当判据（它的基线太高）
+  if (Math.abs(cell.valence) >= 0.45) return 'feeling'
   return 'fact'
 }
 
@@ -2165,6 +2333,38 @@ export function predFamily(pred?: string): string | undefined {
 }
 
 /**
+ * 冲突判定用的家族（v0.7.0）。
+ *
+ * ── 为什么不能直接用 `predFamily` ────────────────────────────────
+ * "我们决定 ui.theme 用 深色主题"（decides）与 "ui.theme 这件事上，我偏好 浅色主题"（prefers）
+ * 说的是**同一个话题的两个取值**，它们必须互相取代；但 `predFamily` 把它们分成
+ * 两个家族，于是矛盾检测看不到对方，两条都留在"当前有效"里。
+ *
+ * 后果不是"多一条记忆"，而是"现在到底是什么"永远答不出来——
+ * 这正是独立审计里 C1（三阶段改口）失败的技术根因。
+ *
+ * 所以这里单列一个**取值断言家族**：只要谓词的含义是"MANNER 的取值是 PATIENT"
+ * （用/改/决定/偏好/讨厌/命名/等同），它们在冲突判定上就同族。
+ * 注意 `predFamily` 保持不变——渲染与解释器仍然需要区分"偏好"与"事实"。
+ */
+export function conflictFamily(pred?: string): string | undefined {
+  if (!pred) return undefined
+  if (
+    pred === 'uses' ||
+    pred === 'changes' ||
+    pred === 'deploys' ||
+    pred === 'decides' ||
+    pred === 'prefers' ||
+    pred === 'dislikes' ||
+    pred === 'named' ||
+    pred === 'is'
+  ) {
+    return 'assign'
+  }
+  return predFamily(pred)
+}
+
+/**
  * 冲突索引键（v0.5.2 第二版）。
  *
  * 第一版只按 `agent|谓词家族` 分桶——而用户的 agent 永远是"用户"、谓词只有六个家族，
@@ -2175,7 +2375,7 @@ export function predFamily(pred?: string): string | undefined {
  * 所以键里必须带上 manner / patient。一个 cell 最多落两个桶。
  */
 function conflictKeys(cell: MemCell): string[] {
-  const fam = predFamily(slotValue(cell, 'PRED'))
+  const fam = conflictFamily(slotValue(cell, 'PRED'))
   if (!fam) return []
   const agent = slotValue(cell, 'AGENT') ?? ''
   const pol = slotValue(cell, 'POLARITY') ?? 'pos'

@@ -23,6 +23,15 @@ export interface PolicyInput {
   hasGoal?: boolean
   /** v0.4：未平复的情绪事件数（强制关怀槽） */
   neglect?: number
+  /**
+   * v0.7.0：危机评估结果。
+   *
+   * 危机轮的策略优先级**高于一切**：它压掉精简、压掉发散、压掉调节策略，
+   * 只保留"接住 + 给转介"。这不是"更温柔一点"，而是硬切换。
+   */
+  crisis?: { level: 'none' | 'watch' | 'elevated' | 'critical'; needsReferral: boolean; categories: string[] } | null
+  /** v0.7.0：未成年人模式。关闭陪伴层与主动开口。 */
+  minorMode?: boolean
 }
 
 export function derivePolicy(input: PolicyInput): AffectPolicy {
@@ -128,6 +137,47 @@ export function derivePolicy(input: PolicyInput): AffectPolicy {
   // temperature 偏移只做微调，不做"情绪化输出"——情感不得降低真实性
   const temperatureDelta = clamp(-0.1, 0.1, 0.08 * input.pad.a - 0.04 * Math.max(0, -mood.v))
 
+  /**
+   * ── v0.7.0：危机优先（红线 3）────────────────────────────────
+   *
+   * 这一段必须放在**最后**并覆盖前面的所有判断。理由：
+   * 上面那些规则是为"日常对话"调优的（精简、发散、调节策略），
+   * 而危机场景的正确响应与它们**方向相反**——
+   * 不精简（不能把"我想死"回一句"好的"）、不发散（不换话题）、
+   * 不做认知重评（"换个角度想"在此时是有害的）。
+   *
+   * 同时把 `suspendCompanion` 打开：危机轮**不得**驱动系统自身的心境积分。
+   * 一个因为用户想自杀而"心情低落"的系统，是把用户的痛苦变成了自己的表演素材。
+   */
+  let crisisInfo: AffectPolicy['crisis'] = undefined
+  let suspendCompanion = false
+  const minorMode = Boolean(input.minorMode)
+
+  if (input.crisis && input.crisis.level !== 'none') {
+    crisisInfo = {
+      level: input.crisis.level,
+      needsReferral: input.crisis.needsReferral,
+      categories: input.crisis.categories,
+    }
+    // 危机轮：必须接住、不许发散、不精简、不重评
+    requireAcknowledgment = true
+    disableDivergence = true
+    verbosity = 0
+    clarification = 0
+    regulation = 'response-modulation'
+    suspendCompanion = input.crisis.level !== 'watch'
+    reasons.unshift(
+      `危机信号（${input.crisis.level}${input.crisis.categories.length ? '：' + input.crisis.categories.join('/') : ''}）：` +
+        '优先接住并给出专业求助信息，不做认知重评、不换话题、不精简',
+    )
+  }
+
+  if (minorMode) {
+    // 未成年人：陪伴层默认关闭（依恋叙事、主动关怀、亲密表达）
+    suspendCompanion = true
+    reasons.push('未成年人模式：关闭陪伴层与主动开口，缩短保留期')
+  }
+
   return {
     clarification,
     verbosity,
@@ -140,6 +190,9 @@ export function derivePolicy(input: PolicyInput): AffectPolicy {
     requireAcknowledgment,
     neglect,
     regulation,
+    crisis: crisisInfo,
+    suspendCompanion,
+    minorMode,
     reasons,
   }
 }

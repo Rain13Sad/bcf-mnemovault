@@ -41,6 +41,18 @@ const TOPICS = [
   ['test.framework', 'node:test', 'vitest'],
   ['ci.stage', 'smoke 与 full 两档', '单档全量'],
   ['editor.config', 'tab 两空格', 'tab 四空格'],
+  ['lint.rule', '严格模式', '宽松模式'],
+  ['router.mode', 'history 模式', 'hash 模式'],
+  ['state.store', 'Zustand', 'Redux'],
+  ['style.sys', 'CSS 变量', 'Tailwind'],
+  ['http.client', 'fetch', 'axios'],
+  ['pkg.manager', 'pnpm workspace', 'npm workspaces'],
+  ['i18n.mode', '按需加载', '全量打包'],
+  ['monitor.tool', 'Sentry', '自建上报'],
+  ['backup.mode', '每日增量', '每周全量'],
+  ['auth.session', 'JWT 短时', 'Cookie 长时'],
+  ['docs.tool', 'VitePress', 'Docusaurus'],
+  ['queue.mode', '内存队列', 'Redis 队列'],
 ]
 
 const TEMPLATES = [
@@ -53,16 +65,67 @@ const TEMPLATES = [
 const h = await createHarness({ sessionId: 'bench', config: { preset: 'balanced' } })
 
 // ── 1. 写入事实（每条事实带 ground truth：期望被哪条 query 找回） ──────────
-const facts = []
+/** key → 最后一次写入的**原句**（dedupe 要回放原句，不能回放 digest） */
+const lastText = new Map()
 for (let i = 0; i < FACT_COUNT; i++) {
   const [key, a, b] = pick(TOPICS)
   const value = rnd() < 0.5 ? a : b
   const text = pick(TEMPLATES)(key, value)
   await h.turn(`${text}（第 ${i} 轮）`)
-  const cells = h.memory.store.listCells({ limit: 200 }).filter((c) => c.provenance === 0)
-  // 取最新写入、且 digest 含该 value 的那条作为 ground truth
-  const target = cells.find((c) => (c.digest ?? '').includes(value) && (c.digest ?? '').includes(key))
-  if (target) facts.push({ key, value, text, cellId: target.cellId.toString(16).padStart(16, '0') })
+  lastText.set(key, text)
+}
+
+/**
+ * ── ground truth：每个 key 的**当前值**（v0.7.0 修正口径）──────────────
+ *
+ * 旧口径是"每写一条事实就记一条真值，最后期望 36 条全部召回"。
+ * 但 36 条事实只落在 12 个 key 上，同一个 key 被写了 3 次不同取值——
+ * 而系统的语义是**后写取代先写**（SUPERSEDES + tInvalid），
+ * 旧值本来就不该出现在"现在是什么"的答案里。
+ *
+ * 于是旧口径在惩罚正确行为：改口越准，recall 越低。
+ * 现在改成按 key 取当前有效的那条：既符合"现在是什么"这个问法，
+ * 也顺带把审计 C1（三阶段改口后答不出当前值）变成一条可回归的指标。
+ */
+const facts = []
+{
+  const slotHas = (c, needle) => c.slots.some((s) => s.type === 'LIT' && s.value === needle)
+  const all = h.memory.store.listCells({ limit: 500 }).filter((c) => c.provenance === 0)
+  const byKey = new Map()
+  for (const c of all) {
+    for (const [key] of TOPICS) {
+      if (!slotHas(c, key)) continue
+      const prev = byKey.get(key)
+      // 当前有效（tInvalid=0）里最新的那条
+      if (Number(c.tInvalid ?? 0) !== 0) continue
+      if (!prev || Number(c.tFrom) > Number(prev.tFrom)) byKey.set(key, c)
+    }
+  }
+  for (const [key, c] of byKey) {
+    const value = c.slots.find((s) => s.role === 2)?.value ?? ''
+    /**
+     * 同一事实可能有多条 cell（不同句式 → PRED 不同 → `sameSlots` 判否 → 不合并）。
+     * 它们**都持有同一条事实**，召回任意一条都算答对——
+     * 只认某一条特定 id 会把"排第 2 但其实也对"记成失败。
+     */
+    const cellIds = all
+      .filter((x) => Number(x.tInvalid ?? 0) === 0 && slotHas(x, key) && slotHas(x, value))
+      .map((x) => x.cellId.toString(16).padStart(16, '0'))
+    /**
+     * dedupe 阶段要回放**原句**，不能回放 digest。
+     *
+     * digest 是归一后的结构化摘要（谓词已被映射成 `uses`），
+     * 回放它得到的槽位与原始 cell 不完全相同（PRED 从 `decides` 变 `uses`），
+     * `sameSlots` 判否 → 不合并 → 指标被"摘要格式"而不是"去重能力"决定。
+     */
+    facts.push({
+      key,
+      value,
+      text: lastText.get(key) ?? c.digest ?? '',
+      cellIds: cellIds.length ? cellIds : [c.cellId.toString(16).padStart(16, '0')],
+      cellId: c.cellId.toString(16).padStart(16, '0'),
+    })
+  }
 }
 
 // ── 2. Recall@8 / MRR ──────────────────────────────────────────────────
@@ -92,7 +155,12 @@ for (const f of facts) {
   tokenSumCalibrated += countWith(r.rendered, calibrationOf('cjk-ratio'))
   tokenN++
   const ids = r.hits.map((x) => x.cellId)
-  const rank = ids.indexOf(f.cellId)
+  // 命中任意一条同 (key,value) 的 cell 即算命中，取其中最好的名次
+  let rank = -1
+  for (const want of f.cellIds) {
+    const at = ids.indexOf(want)
+    if (at >= 0 && (rank < 0 || at < rank)) rank = at
+  }
   if (rank >= 0 && rank < K) hit8++
   if (rank >= 0) mrr += 1 / (rank + 1)
 }
@@ -199,7 +267,7 @@ const breakEvenChars = residualShare < 0.98 ? (cellsPerTurnLong * bytesPerCellLo
 
 // 对照组：把切分预算放大到"每轮一条"，验证存储比对切分粒度的敏感度。
 // 这不是为了刷数字——它回答的是"文档 0.45–0.60× 到底在什么前提下成立"。
-const h4 = await createHarness({ sessionId: 'bench-storage-coarse', encoder: { cellsPerTurnChars: 4000 } })
+const h4 = await createHarness({ sessionId: 'bench-storage-coarse', encoder: { cellsPerTurnChars: 4000, cellsPerTurnFloor: 1 } })
 for (let i = 0; i < 8; i++) await h4.turn(turnText(i))
 const stCoarse = h4.memory.store.stats()
 const coarseRatio = stCoarse.rawBytes ? stCoarse.bytes / stCoarse.rawBytes : 0

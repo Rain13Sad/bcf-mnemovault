@@ -34,22 +34,67 @@ test('作用域隔离：情景记忆不跨会话可见', async () => {
   const sameSession = h.memory.recall({ text: 'lockfile 冲突 报错', budget: 400, manual: true, sessionId: 'sess-A' })
   const otherSession = h.memory.recall({ text: 'lockfile 冲突 报错', budget: 400, manual: true, sessionId: 'sess-B' })
   assert.ok(sameSession.hits.length >= 1, '本会话应可见')
-  assert.equal(otherSession.hits.length, 0, `别的会话不该看到，实际 ${otherSession.hits.length} 条`)
+  /**
+   * v0.7.0：断言改成"别的会话看不到**情景**记忆"。
+   *
+   * 契约本身没变（情景按会话隔离、语义跨会话共享），变的是抽取：
+   * "构建报错了，是 lockfile 冲突导致的" 现在会拆成两条——
+   * 情景（构建报错）+ 语义（lockfile 冲突）。语义那条本来就该跨会话可见，
+   * 所以 `hits.length === 0` 这条断言把"正确的共享"也算成了泄漏。
+   */
+  const leakedEpisodic = otherSession.hits.filter((x) => {
+    const c = h.memory.store.getCell(BigInt('0x' + x.cellId))
+    return c && c.kind === 0
+  })
+  assert.equal(leakedEpisodic.length, 0, `别的会话不该看到情景记忆，实际 ${leakedEpisodic.length} 条`)
 })
 
-test('作用域隔离：scope=global 可以显式放宽（用户要求翻遍所有记忆）', async () => {
+test('作用域隔离：scope=global 需要显式开启（v0.7 起默认关闭）', async () => {
   const h = await open()
   await h.turn('构建报错了，是 lockfile 冲突导致的。', { session: 'sess-A' })
+  /**
+   * v0.7.0 的契约变化：`scope: 'global'` 是**宿主/用户**权限，不是模型权限。
+   * 默认关闭时，即便调用方传了 global，也只能看到本会话。
+   * 打开 `security.allowGlobalScope` 后才放宽——下面两个断言一起守这件事。
+   */
+  const denied = h.memory.recall({ text: 'lockfile 冲突 报错', budget: 400, manual: true, sessionId: 'sess-B', scope: 'global' })
+  /**
+   * v0.7.0：判据改成"看不到**情景**记忆"。
+   *
+   * 语义记忆（kind 1）按设计跨会话共享——"构建报错了，是 lockfile 冲突导致的"
+   * 现在会拆出情景 + 语义两条，语义那条本来就不该被隔离挡住。
+   * 原断言 `hits.length === 0` 把正确的共享也算成了泄漏。
+   */
+  const leaked = denied.hits.filter((x) => {
+    const c = h.memory.store.getCell(BigInt('0x' + x.cellId))
+    return c && c.kind === 0
+  })
+  assert.equal(leaked.length, 0, `默认不该跨会话放宽情景记忆，实际 ${leaked.length} 条`)
+
+  h.memory.config.security.allowGlobalScope = true
   const wide = h.memory.recall({ text: 'lockfile 冲突 报错', budget: 400, manual: true, sessionId: 'sess-B', scope: 'global' })
-  assert.ok(wide.hits.length >= 1, '显式 global 时应可见')
+  assert.ok(wide.hits.length >= 1, '显式开启后应可见')
+  h.memory.config.security.allowGlobalScope = false
 })
 
 test('作用域隔离：不同 scopeKey 的记忆互相不可见（多用户 ACL 的地基）', async () => {
   const h = await open({ config: { scopeKey: 'user:alice' } })
   await h.turn('我们决定用 pnpm 部署。')
+  /**
+   * v0.7.0：**查询参数里的 scopeKey 默认被忽略**（审计实测的泄漏形态）。
+   * 想验证两个用户互相不可见，必须真的换服务实例——这正是隔离应有的样子：
+   * 它由身份推导，不由调用方声明。
+   */
   const alice = h.memory.recall({ text: 'pnpm 部署', budget: 400, manual: true, scopeKey: 'user:alice' })
-  const bob = h.memory.recall({ text: 'pnpm 部署', budget: 400, manual: true, scopeKey: 'user:bob' })
   assert.ok(alice.hits.length >= 1, 'alice 应能看到自己的记忆')
+
+  // 伪造 bob 的作用域：被忽略，看到的仍是 alice 自己的记忆
+  const spoofed = h.memory.recall({ text: 'pnpm 部署', budget: 400, manual: true, scopeKey: 'user:bob' })
+  assert.ok(spoofed.hits.length >= 1, '伪造 scopeKey 应被忽略（仍看到本域记忆），而不是切到 bob 域')
+
+  // 真的另一个用户：独立实例 + 独立库
+  const other = await open({ config: { scopeKey: 'user:bob' } })
+  const bob = other.memory.recall({ text: 'pnpm 部署', budget: 400, manual: true })
   assert.equal(bob.hits.length, 0, `bob 不该看到 alice 的记忆，实际 ${bob.hits.length} 条`)
 })
 

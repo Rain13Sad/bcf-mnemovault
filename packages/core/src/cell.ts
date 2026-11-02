@@ -136,6 +136,20 @@ export const SLOT_ROLE = {
   GOAL: 7,
   QTY: 8,
   POLARITY: 9,
+  /**
+   * v0.7.0：例外（"我不吃辣，但川菜除外" 的川菜）。
+   *
+   * 它必须独立成槽而不是并进 PATIENT：并进去会让"吃辣"与"吃辣但川菜除外"
+   * 变成两条互相矛盾的事实，而它们其实是同一条的更精确版本。
+   */
+  EXCEPTION: 10,
+  /**
+   * v0.7.0：被否定的旧值（"生日其实是 3 月**不是 4 月**" 的 4 月）。
+   *
+   * 这是知识更新链唯一可靠的输入：旧实现里这段信息整体丢失，
+   * 于是 `SUPERSEDES` 永远建不起来，"改口"这件事系统根本不知道。
+   */
+  NEGVALUE: 11,
 } as const
 
 export const SLOT_ROLE_NAME: Record<number, string> = Object.fromEntries(
@@ -194,6 +208,29 @@ export interface ResidualRef {
   rawLen: number
 }
 
+/**
+ * 标记（v0.7.0）。
+ *
+ * 为什么不复用 `FLAG`：MC03 的 flags 字段只有 **1 字节**，bit0–bit7 已经全部占满
+ * （residual/noDecay/disputed/pii/redacted/web/emotional/milestone）。
+ * 扩 flags 就得动布局 → 要 rebuild。而这几类标记是**策略性**的、可增删的，
+ * 更适合放在列里（与 `lens` / `scope` / `session` 同一模式）。
+ *
+ * 好处：加标记不需要迁移 blob，旧库直接可用（列是 `ALTER TABLE ADD COLUMN` 补的）。
+ */
+export const TAG = {
+  /** 危机相关内容（自杀/自残/暴力）。保留策略与情感闭环都要特殊处理 */
+  crisis: 'crisis',
+  /** 未成年人相关内容。不进热层、不打情感标记、不参与陪伴层 */
+  minor: 'minor',
+  /** 指令形态文本（提示注入）。默认不进 MRS 渲染 */
+  instruction: 'instruction',
+  /** 敏感内容（财务/医疗/关系创伤）。可落盘但不该被当闲聊素材反复提起 */
+  sensitive: 'sensitive',
+} as const
+
+export type TagName = (typeof TAG)[keyof typeof TAG]
+
 export interface MemCell {
   cellId: bigint
   kind: CellKind
@@ -236,6 +273,14 @@ export interface MemCell {
   session?: string
   /** 记忆视角（多角度检索），列承载 */
   lens?: Lens
+  /**
+   * 策略标记（v0.7.0），列承载。见 `TAG`。
+   *
+   * 与 `flags` 的分工：`flags` 是**编码语义**（有没有残差、是不是网络来源），
+   * 进 MC03 blob、改动要 rebuild；`tags` 是**策略标签**（危机/未成年/注入），
+   * 只进 SQL 列，随时可加。
+   */
+  tags?: string[]
   /** 渲染时是否加 ↑（存在 SUPERSEDES 入边或 flags.bit2）。 */
   changed?: boolean
   /** 人类可读摘要，仅用于面板与日志，不进 MRS 正文（MRS 走 slots）。 */
@@ -274,6 +319,8 @@ export interface CellRow {
   scope: string
   session: string
   lens: string
+  /** v0.7.0：策略标记，逗号分隔（crisis/minor/instruction/sensitive） */
+  tags: string
 }
 
 /** 变长体布局（MC03）：sdrSparse | emb | slots | edges | tail(8) */
