@@ -97,6 +97,9 @@ export const Config = z.object({
       sdrMaxCells: z.number().min(1000).default(200_000).description('索引容量上限，超过退回全扫'),
       demoteBatch: z.number().min(1).default(2000).description('单次降档 pass 最多评估的条数'),
       retentionTtlMs: z.number().min(60_000).default(6 * 3600_000).description('保留度缓存有效期'),
+      idfEnabled: z.boolean().default(true).description('查询侧 IDF 剪枝：剔除无区分力的高频 token（不改落盘向量）'),
+      idfMinDocs: z.number().min(1).default(30).description('低于这么多条记忆时不做剪枝（统计量不足）'),
+      idfMaxDfRatio: z.number().min(0.1).max(1).default(0.6).description('df/docs 超过此比例视为无区分力'),
     })
     .default({}),
   /**
@@ -249,7 +252,7 @@ export * from './reconsolidation.js'
 export * from './neuromod.js'
 export * from './lifecycle.js'
 export * from './render.js'
-export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr, canonicalToken, quantize, TopK } from './recall.js'
+export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr, pruneQueryEntities, canonicalToken, quantize, TopK } from './recall.js'
 export { HnswIndex, BruteIndex, type VectorIndex, type VectorHit } from './ann.js'
 export { createStore, MemoryStore, SqliteStore, type Store } from './store.js'
 export * from './text.js'

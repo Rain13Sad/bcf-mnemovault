@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T11:04:02.462Z",
+  "generatedAt": "2026-11-02T06:44:28.925Z",
   "seed": 20261028,
   "dataset": {
     "facts": 34,
@@ -14,8 +14,8 @@
     "timeReasoningAccuracy": 1,
     "tokensPerTurn": 116.853,
     "tokensPerTurnCalibrated": 105.382,
-    "recallP95Ms": 7,
-    "storageRatio": 4.515,
+    "recallP95Ms": 6,
+    "storageRatio": 4.512,
     "storageRatioRealistic": 0.769,
     "storageRatioCoarse": 0.639,
     "avgRawBytesPerTurn": 97.824,
@@ -23,9 +23,9 @@
     "avgCharsPerTurnRealistic": 762,
     "cellsPerTurnRealistic": 2.25,
     "cellsPerTurnCoarse": 1.25,
-    "bytesPerCell": 276.889,
+    "bytesPerCell": 277.111,
     "residualShare": 0.468,
-    "storageBreakEvenChars": 1172,
+    "storageBreakEvenChars": 1173,
     "cells": 42,
     "residuals": 55,
     "invalidated": 4

@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.6.1 -->
+<!-- DOC-VERSION: 0.6.2 -->
 
 # MnemoVault
 
@@ -18,7 +18,7 @@ instead of replaying the transcript.
 [![npm](https://img.shields.io/npm/v/@rain13sad/llm-mnemo-core.svg?logo=npm&label=npm)](https://www.npmjs.com/package/@rain13sad/llm-mnemo-core)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.13-339933?logo=node.js&logoColor=white)](#requirements)
-[![Tests](https://img.shields.io/badge/tests-265-brightgreen.svg)](test/)
+[![Tests](https://img.shields.io/badge/tests-290-brightgreen.svg)](test/)
 [![DSH](https://img.shields.io/badge/DSH-0.2.1--rc.3-4b6bfb.svg)](docs/API-CONTRACT.md)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-ff69b4.svg)](CONTRIBUTING.md)
 
@@ -35,7 +35,7 @@ instead of replaying the transcript.
 | | |
 | :--- | :--- |
 | **Status** | **v0.6.1** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 11 packages · 73 source files / ~23,300 lines of TS (`.ts` + `.tsx`, UI included) · 265 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
+| **Size** | 11 packages · 73 source files / ~23,700 lines of TS (`.ts` + `.tsx`, UI included) · 290 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 | **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (28 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -51,6 +51,55 @@ instead of replaying the transcript.
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
 
 ---
+
+## What's new in 0.6.2
+
+A correctness release driven by an independent technical audit. Seven defects fixed, no storage-layout
+change (MC03 untouched — no rebuild needed). Every fix ships with an assertion that **fails if you
+revert it**, because 0.6.1 had at least one test that was passing for the wrong reason.
+
+| # | Defect | Root cause | Consequence |
+| :--- | :--- | :--- | :--- |
+| M1 | `identity()` silently produced **fewer than `k` bits** | `(hLo ^ hHi)` is a *signed* 32-bit int in JS; a negative index makes `out[neg] \|= m` a non-index property — the bit is lost while `placed++` still runs | identity codes were weaker than documented; fixed with `>>> 0`, and the hash is now 64-bit (dual FNV-1a) instead of 32-bit |
+| M2 | `kWTA` kept the **lowest bit indices** | `idx.sort((x,y)=>x-y)` contradicted the documented "hash decides ties" | over-density systematically dropped high-index components; now sorted by per-bit hash strength |
+| A8 | `上月` / `本月` / `近几个月` / `前年` unparsed | sequential `if` chain over a whitelist | the temporal channel silently missed common expressions |
+| §3.3 | no way to say "I don't know" | `RecallResult` had no abstention primitive | trap questions got plausible-but-wrong memories injected; now `verdict: 'hit' \| 'weak' \| 'none'` plus an explicit line in the rendered block |
+| §3.6 | mixed emotion collapsed to **zero arousal** | `charge = (pos−neg)/total` fed both valence and arousal | "难受但也挺开心" read as flat; `intensity` is now an independent axis driving arousal |
+| §5.1 | preference sentences with no extracted value still produced a cell | `PATIENT` fell back to *any* entity — often the predicate itself | `我喜欢` became `PATIENT=喜欢`, a confidently wrong memory; such sentences now return `null` and fall back to the residual channel |
+| §3.6b | star map collapsed to a single point | `project3` scaled by `v[i]/127` (int8 full range) while real vectors are only ±4…±8 | 1200 memories drew as one dot; now L2-normalized, and the projection basis is constant within each `pq4` dimension pair |
+
+### The star-map correction, and why the old test passed
+
+0.6.1 claimed measurement had beaten the audit here: "`expandEmb` made it worse (0.467 vs 0.031)".
+That measurement was taken on a **degenerate scale**. Because of the `/127` scaling, every coordinate
+sat within ±0.03 — so the distance between two points that had *both collapsed to the origin* was
+naturally tiny. The assertion `drift ≤ 0.08` was therefore vacuously true: it measured "both points
+collapsed", not "both points coincide".
+
+With proper normalization the numbers invert: `expandEmb` drift **0.130**, zero-fill **0.500**. `pq4`
+at dim=64 uses `perSub = 2` — each nibble covers a *pair* of dimensions — and `expandEmb`'s 32-dim
+branch lays out exactly those 8 segments × 4 bytes × 2 dims. It is the faithful inverse; zero-padding
+was never it. Making the projection weights constant within each dimension pair removes the pairwise
+averaging error entirely, which is where the 0.289 → 0.130 improvement comes from.
+
+The tests now guard the thing that actually matters: **the point cloud must spread** (mean radius,
+coordinate std-dev, count of visually separated pairs). That assertion fails loudly on the 0.03-radius
+collapse the old one happily accepted.
+
+### Query-side IDF without breaking determinism
+
+`containment(q,c) = |q∩c| / |q|` weights every token equally, so `我的` / `这个` / `是` both inflate the
+denominator and only reward cells that happen to contain them. A token-frequency table (`token_df`)
+now backs **query-side pruning** of tokens present in more than 60% of documents.
+
+Deliberately *not* done: IDF inside `hashEmbedding`. Stored vectors must stay a pure function of text —
+cell ids are derived from them, and replay/idempotency depend on "same text → same vector". Corpus
+statistics inside that function would break a hard invariant to fix a soft one. The table is bumped
+only on genuinely new documents (the merge path returns before it), so re-asserting the same fact does
+not inflate `df`.
+
+Tests: **265 → 290**. Benchmark metrics are unchanged from 0.6.1 to the digit (Recall@8 0.941,
+MRR 0.650, dedupe 0.90/1.00, temporal 1.00, 116.853 tokens/turn).
 
 ## What's new in 0.6.1
 
@@ -77,10 +126,12 @@ Three more defects were the quiet kind — they never raised an error:
   45 entries, negation now uses word boundaries plus an `n't` suffix rule (the old 3-character window
   could never match `not`), and intensifiers no longer fire on `太阳` / `超市` / `太空`.
 
-One place where the audit was wrong and measurement won: the star map's cold-layer drift.
-The proposed fix (`expandEmb`) made it **worse** (0.467 vs 0.031 average drift) because `pq32` is a
-4-bit quantization of the *first* 32 dimensions — zero-padding is its faithful inverse.
-The code comment now states that, and a regression test fails if anyone switches it back.
+One place where 0.6.1 believed measurement had beaten the audit — the star map's cold-layer drift —
+turned out to be a measurement artifact, and **0.6.2 reverses it**. The claim was that `expandEmb` made
+drift worse (0.467 vs 0.031); both numbers were taken while every coordinate was collapsed within
+±0.03, so they measured "both points fell to the origin", not "both points coincide". After the
+normalization fix in 0.6.2 the ordering inverts (0.130 vs 0.500). See
+[What's new in 0.6.2](#whats-new-in-062) for the full correction.
 
 Token accounting is now reported in two voices instead of one: `116.9` (heuristic upper bound, what CI
 gates on) and `105.4` (DeepSeek's calibrated ratio). Pure Chinese prose can be over-estimated by ~45%,
@@ -302,7 +353,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 265 tests
+npm test             # 290 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)

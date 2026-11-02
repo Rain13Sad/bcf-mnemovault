@@ -25,7 +25,8 @@ import { KIND_LABEL, fmt2, signed } from '../ui.js'
 export interface StarMapProps {
   snapshot: PanelSnapshot
   onOpen: (id: string) => void
-  height?: number
+  /** v0.6.2：允许传 CSS 长度（默认随视口高度伸缩，固定 360px 在大屏上浪费空间） */
+  height?: number | string
 }
 
 type Filter = 'all' | 'emotional' | 'pinned' | 'fading'
@@ -102,7 +103,23 @@ export function StarMap(props: StarMapProps): ReactNode {
       const hgt = canvas.height / dpr
       const cx = w / 2
       const cy = hgt / 2
-      const R = Math.min(w, hgt) * 0.42 * v.zoom
+      /**
+       * v0.6.2：自适应铺满。
+       *
+       * 投影坐标的**绝对尺度**取决于向量源与画布：同一批记忆在窄画布上
+       * 只占中间一小团（实测 1400×980 下点云半径 ~70px，画布半径 ~130px，
+       * 看着像"星图还是没铺开"）。固定 `R` 无法同时适配大库与小库。
+       *
+       * 这里按实际包围半径缩放：云总能铺满画布，上限 3× 防止
+       * "库里只有两条记忆"时被放大成两个巨球。
+       */
+      let cloudR = 0
+      for (const n of nodes) {
+        const d = Math.hypot(n.x, n.y, n.z)
+        if (d > cloudR) cloudR = d
+      }
+      const fit = Math.min(3, 1 / Math.max(0.2, cloudR))
+      const R = Math.min(w, hgt) * 0.42 * v.zoom * fit
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, w, hgt)
@@ -322,7 +339,7 @@ export function StarMap(props: StarMapProps): ReactNode {
     ),
     h(
       'div',
-      { className: 'mnv-star-stage', ref: wrapRef, style: { height: props.height ?? 360 } },
+      { className: 'mnv-star-stage', ref: wrapRef, style: { height: props.height ?? 'clamp(360px, 62vh, 920px)' } },
       h('canvas', { ref: canvasRef, className: 'mnv-star-canvas', 'aria-label': '3D 记忆星图' }),
       hover
         ? h(

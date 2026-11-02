@@ -47,7 +47,7 @@ import { buildStarMap } from './starmap.js'
 import { SensoryRing, WorkingSet } from './working.js'
 import { applyPreset, estimateTokensPerTurn } from './preset.js'
 import { hash64, toHex } from './hash.js'
-import { redact, isRedactionPlaceholder } from './text.js'
+import { redact, isRedactionPlaceholder, extractEntities } from './text.js'
 import type {
   DoctorReport,
   ExpandResult,
@@ -695,6 +695,25 @@ export class MemoryService extends Service {
        */
       this.conflictIndexedCount = this.store.countCells()
 
+      /**
+       * v0.6.2 · IDF 词频累加。
+       *
+       * 放在这里（而不是 putCell 里）有两个理由：
+       *   1. 合并路径在上面已 return——同一事实重复出现不该让 df 继续膨胀，
+       *      否则"高频"退化成"被重复说过"的同义词；
+       *   2. putCell 是热路径（降档、改效价、压实墓碑都会调），
+       *      在那里累加会把"更新"算成"新文档"。
+       *
+       * token 口径必须与查询侧一致（都用 `extractEntities`），
+       * 否则 `df.get(e)` 永远查不到，剪枝静默失效。
+       */
+      try {
+        const dfText = [clean.digest ?? '', ...clean.slots.map((s) => s.value)].join(' ')
+        this.store.bumpTokenDf(extractEntities(dfText))
+      } catch {
+        /* 词频表只是查询侧优化，失败不影响入库 */
+      }
+
       return {
         cell: clean,
         action: conflict ? 'conflict' : best && best.j > 0.45 ? 'linked' : 'created',
@@ -823,6 +842,8 @@ export class MemoryService extends Service {
         ann: this.ensureAnn() ?? undefined,
         sdrCandidates: (sdr, minOverlap) => this.sdrCandidates(sdr, minOverlap)?.map((c) => c.id) ?? null,
         embScan: (q, visit) => this.embScan(q, visit),
+        // v0.6.2 · IDF：查询侧剪枝的统计来源。只读，不写库。
+        tokenDf: (tokens) => this.store.tokenDf(tokens),
       },
       portVec ? { ...q, emb: portVec } : q,
     )
@@ -1180,9 +1201,33 @@ export class MemoryService extends Service {
     let tombstones = 0
     let tombstoneBytes = 0
     let scanned = 0
+    /**
+     * 身份码碰撞审计（v0.6.2 · M1 的另一半）。
+     *
+     * 判据：**同一 SDR 但 digest 不同**。同一句话被合并成一条时 SDR 与 digest 都相同，
+     * 不算碰撞；而两条不同的话落到同一个身份码上，正是 `identity()` 撞哈希的症状——
+     * 它会让去重误合并、让符号路混淆，而且**永远不报错**。
+     *
+     * 成本：每条一次 hash64（BigInt）。为了不让它变成 doctor 的主要开销，
+     * 超过 `IDENTITY_AUDIT_MAX` 条就跳过并如实上报 `identityAuditSkipped`——
+     * 谎称"查过了"比不查更糟。
+     */
+    const IDENTITY_AUDIT_MAX = 50_000
+    const sdrSeen = new Map<string, string>()
+    let identityCollisions = 0
+    let identityAuditSkipped = false
     this.store.forEachCell((c) => {
       scanned++
       ids.add(toHex(c.cellId, 16))
+      if (scanned > IDENTITY_AUDIT_MAX) {
+        identityAuditSkipped = true
+      } else {
+        const sdrKey = toHex(hash64(new Uint8Array(new Uint32Array(c.sdr).buffer)), 16)
+        const digest = c.digest ?? ''
+        const prev = sdrSeen.get(sdrKey)
+        if (prev === undefined) sdrSeen.set(sdrKey, digest)
+        else if (prev !== digest) identityCollisions++
+      }
       for (const s of c.slots) if (s.type === 'REF') refTargets.push(s.value.padStart(16, '0'))
       const tInvalid = Number(c.tInvalid ?? 0)
       if (tInvalid !== 0 && now - tInvalid > INVALID_GRACE_MS && c.tier < 3) {
@@ -1276,6 +1321,10 @@ export class MemoryService extends Service {
       }
     }
 
+    if (identityCollisions > 0) {
+      issues.push(`身份码碰撞 ${identityCollisions} 对（同一 SDR 但摘要不同）——去重会误合并，建议 /mnemo rebuild`)
+    }
+
     return {
       ok: issues.length === 0,
       orphanEdges,
@@ -1285,6 +1334,8 @@ export class MemoryService extends Service {
       tombstones,
       tombstoneBytes,
       scanned,
+      identityCollisions,
+      identityAuditSkipped,
       staleLocks: openLock ? 1 : 0,
       indexConsistent: orphanEdges === 0 && danglingSlots === 0,
       layoutVersion: Number(this.store.meta('layoutVersion') ?? 3),

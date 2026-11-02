@@ -57,18 +57,38 @@ export class SdrSpace {
     return new Uint32Array(this.words)
   }
 
-  /** 稳定身份码。这是身份码，不是语义码——语义相似性由 E（embedding）承担。 */
+  /**
+   * 稳定身份码。这是身份码，不是语义码——语义相似性由 E（embedding）承担。
+   *
+   * v0.6.2：从 32 位 FNV-1a 升级到 **64 位双 FNV-1a**（M1 修复）。
+   *
+   * 32 位熵上限意味着 ~7.7 万 token 即有 50% 碰撞概率——两个实体共享身份码
+   * 会导致 Jaccard 去重误合并。64 位把生日碰撞推到 ~6×10⁹ token，
+   * 在可预见的规模下不再发生。
+   */
   identity(token: string, k = this.k, seed = this.seed): Sdr {
     const out = this.zero()
-    let h = seed
+    // 双 FNV-1a：高 32 位与低 32 位各走一条独立链，等价于 64 位哈希
+    let hLo = seed
+    let hHi = seed ^ 0x5bd1e995
     for (let i = 0; i < token.length; i++) {
-      h = Math.imul(h ^ token.charCodeAt(i), 0x01000193) >>> 0
+      const ch = token.charCodeAt(i)
+      hLo = Math.imul(hLo ^ ch, 0x01000193) >>> 0
+      hHi = Math.imul(hHi ^ ch, 0x01000193) >>> 0
     }
+    // 尾部扩散：让短输入的高位不退化为常数
+    hHi = (Math.imul(hHi ^ (hLo >>> 13), 0x85ebca6b) >>> 0) ^ hLo
     let placed = 0
     let guard = 0
     while (placed < k) {
-      h = Math.imul(h ^ (h >>> 15), 0x2545f491) >>> 0
-      const bit = h % this.dim
+      // 用 xorshift 推进两个 32 位通道，保证 64 位联合熵
+      hLo = Math.imul(hLo ^ (hLo >>> 15), 0x2545f491) >>> 0
+      hHi = Math.imul(hHi ^ (hHi >>> 13), 0x85ebca77) >>> 0
+      // 混合两个通道取 bit 位置——任意一个通道的碰撞不会单独决定结果。
+      // 注意 `^` 在 JS 里返回**有符号** 32 位整数：不 >>>0 就会得到负的 bit 下标，
+      // 而 `out[负下标] |= m` 是往数组对象上挂一个非索引属性——**静默丢位**，
+      // 且 placed 照常自增，于是 identity 悄悄产出少于 k 个 1 的码。
+      const bit = ((hLo ^ hHi) >>> 0) % this.dim
       const w = bit >>> 5
       const m = 1 << (bit & 31)
       if ((out[w] & m) === 0) {
@@ -152,10 +172,20 @@ export class SdrSpace {
     return this.popcount(o) <= limit ? o : this.kWTA(o, limit)
   }
 
+  /**
+   * k-Winner-Take-All：保留 limit 个位。
+   *
+   * v0.6.2（M2 修复）：按 `hash(bit)` 强度排序，而非位索引排序。
+   *
+   * 原实现 `idx.sort((x,y)=>x-y)` 系统性地偏袒低位索引——超密度触发时
+   * 高位段成分被优先裁剪，与内容无关。文档声明"哈希决定平手"，
+   * 现在对齐：每个位用其自身的 FNV 哈希作为"强度"，排序后取 top-limit。
+   */
   kWTA(a: Sdr, limit: number): Sdr {
     const idx: number[] = []
     for (let i = 0; i < this.dim; i++) if ((a[i >>> 5] >>> (i & 31)) & 1) idx.push(i)
-    idx.sort((x, y) => x - y) // 稳定序，保证确定性
+    // 按位的哈希强度降序排：强度大的优先保留
+    idx.sort((x, y) => bitStrength(y) - bitStrength(x) || x - y)
     const o = this.zero()
     for (let i = 0; i < Math.min(limit, idx.length); i++) {
       const b = idx[i]
@@ -240,3 +270,20 @@ export class SdrSpace {
 }
 
 export const DEFAULT_SPACE = new SdrSpace({ dim: 2048, k: 8 })
+
+/**
+ * 位的"强度"——用于 kWTA 的哈希平手规则（M2 修复）。
+ *
+ * 每个位索引通过 FNV-1a 映射到一个 32 位"强度值"，
+ * 强度大的优先保留。这是文档声明的"哈希决定平手"的实现。
+ */
+function bitStrength(bitIndex: number): number {
+  let h = 0x811c9dc5
+  h = Math.imul(h ^ (bitIndex & 0xff), 0x01000193) >>> 0
+  h = Math.imul(h ^ ((bitIndex >>> 8) & 0xff), 0x01000193) >>> 0
+  h = Math.imul(h ^ ((bitIndex >>> 16) & 0xff), 0x01000193) >>> 0
+  h = Math.imul(h ^ ((bitIndex >>> 24) & 0xff), 0x01000193) >>> 0
+  // 额外扩散一轮，避免低位字节完全决定强度
+  h = Math.imul(h ^ (h >>> 15), 0x2545f491) >>> 0
+  return h
+}

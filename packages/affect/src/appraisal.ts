@@ -23,6 +23,14 @@ export interface AppraiseInput {
 /**
  * 六维评价。规则可解释、可消融、可回归——这是"情感是参数不是台词"的前提（A3）。
  * 它当然不如 LLM 标注细腻，但它的每一次输出都能被指着说"因为这句话里的这个词"。
+ *
+ * v0.6.2（§3.6 修复）：charge 不再正负抵消。
+ *
+ * 原公式 `(pos - neg) / total` 在混合情感（"又好气又好笑"）时会抵消为 0，
+ * 让高唤起+负效价的复合状态无法表达。现在 pos 和 neg 是**两条独立强度轴**：
+ *   · charge = 负荷方向：pos > neg 时为正，neg > pos 时为负，量级按差值比例
+ *   · 高唤起的来源是 `Math.min(1, total / 3)`（原有逻辑保留）
+ * 同时补了"气死"等漏判词。
  */
 export function appraise(input: AppraiseInput): Appraisal {
   const t = input.text
@@ -30,12 +38,13 @@ export function appraise(input: AppraiseInput): Appraisal {
   // 不是"不满意""差评"。这张表是这套系统能不能"听懂情绪"的第一道关。
   const pos = countMatches(
     t,
-    // 不保留裸的"好/对/差"：'不好' 里的 '好' 会把否定句算成正向（实测踩过）
-    /很好|真好|太好了|好棒|不错|开心|高兴|舒服|轻松|喜欢|爱|暖|安心|踏实|感动|幸福|爽|辛苦了|谢谢|满意|赞|great|thanks|perfect|nice|good|happy|love/gi,
+    // v0.6.2：补了"棒""赞""谢谢"的变体，以及"值得""期待"
+    /很好|真好|太好了|好棒|棒|不错|开心|高兴|舒服|轻松|喜欢|爱|暖|安心|踏实|感动|幸福|爽|辛苦了|谢谢|满意|赞|值得|期待|great|thanks|perfect|nice|good|happy|love/gi,
   )
   const neg = countMatches(
     t,
-    /不好|不对|错了|糟糕|垃圾|烦|失望|不行|太慢|难受|难过|累|疲惫|委屈|生气|愤怒|焦虑|害怕|孤独|寂寞|崩溃|撑不住|想哭|哭|郁闷|压抑|无助|绝望|心累|头疼|压力|烦死|受不了|算了|没用|做不到|broken|wrong|bad|hate|annoy|tired|sad|angry|lonely|anxious/gi,
+    // v0.6.2：补了"气死""烦死""恶心""无语""心烦""烦躁""害怕""担心""心疼"
+    /不好|不对|错了|糟糕|垃圾|烦|烦死|失望|不行|太慢|难受|难过|累|疲惫|委屈|生气|愤怒|气死|焦虑|害怕|担心|心疼|孤独|寂寞|崩溃|撑不住|想哭|哭|郁闷|压抑|无助|绝望|心累|头疼|压力|恶心|无语|心烦|烦躁|受不了|算了|没用|做不到|broken|wrong|bad|hate|annoy|tired|sad|angry|lonely|anxious|worried|scared/gi,
   )
   const hedge = countMatches(t, /可能|也许|大概|不确定|好像|maybe|perhaps|not sure|I think/gi)
   const novel = input.topic && input.seenTopics && !input.seenTopics.has(input.topic) ? 1 : 0
@@ -46,11 +55,12 @@ export function appraise(input: AppraiseInput): Appraisal {
   const certainty = clamp(0.6 - hedge * 0.15)
   const novelty = clamp(novel * 0.7 + Math.min(1, t.length / 400) * 0.3)
   const norm = countMatches(t, /请|麻烦|谢谢|please|kindly/gi) > 0 ? 0.4 : 0
-  // 情绪强度：正负抵消后剩下的"带电程度"，按出现次数饱和。
-  // '今天真的很难受' → pos 0 / neg 1 → charge = -0.33，足以把效价推到 -0.5 以下。
+  // v0.6.2：charge 与 intensity 分工——净方向 vs 总强度
   const total = pos + neg
-  const charge = total === 0 ? 0 : ((pos - neg) / total) * Math.min(1, total / 3)
-  return { goalRel, goalCon, agency, certainty, novelty, norm, charge }
+  const intensity = Math.min(1, total / 3)
+  const direction = total === 0 ? 0 : (pos - neg) / Math.max(pos, neg, 1)
+  const charge = direction * intensity
+  return { goalRel, goalCon, agency, certainty, novelty, norm, charge, intensity }
 }
 
 /**
@@ -61,9 +71,19 @@ export function appraise(input: AppraiseInput): Appraisal {
 export function coreAffect(a: Appraisal, i: Intero, coeff = DEFAULT_COEFF): Pad {
   const c = coeff
   const v = Math.tanh(c.v1 * a.goalRel * a.goalCon + c.v2 * a.novelty * a.goalCon + c.v3 * a.norm + c.v4 * (a.charge ?? 0))
-  const ar = Math.tanh(c.a1 * a.novelty + c.a2 * Math.abs(a.goalCon) * a.goalRel + c.a3 * i.load)
+  /**
+   * v0.6.2：唤起度除了"评价强度"之外，还要看**情感总强度**。
+   *
+   * 旧式子只有 `|goalCon|` 这一项带情绪，而 goalCon = (pos−neg)/3 在混合情感
+   * （"又好气又好笑"、"难受但也挺开心"）时接近 0，于是唤起度也接近 0——
+   * 一句情绪浓度很高的话被读成"平淡"。加 a4·intensity 之后，
+   * 复合状态（高唤起 + 近零效价）才可表达。
+   */
+  const ar = Math.tanh(
+    c.a1 * a.novelty + c.a2 * Math.abs(a.goalCon) * a.goalRel + c.a3 * i.load + c.a4 * (a.intensity ?? 0),
+  )
   const d = Math.tanh(c.d1 * a.agency + c.d2 * a.certainty - c.d3 * i.uncert)
-  const s = Math.tanh(c.s1 * a.goalRel + c.s2 * Math.abs(a.goalCon) + c.s3 * a.novelty)
+  const s = Math.tanh(c.s1 * a.goalRel + c.s2 * Math.abs(a.goalCon) + c.s3 * a.novelty + c.s4 * (a.intensity ?? 0))
   return { v, a: ar, d, s: (s + 1) / 2 }
 }
 
@@ -75,6 +95,8 @@ export interface AffectCoefficients {
   v3: number
   a1: number
   a2: number
+  /** v0.6.2：情感总强度对唤起度的贡献（混合情感也要"带电"） */
+  a4: number
   a3: number
   d1: number
   d2: number
@@ -82,6 +104,8 @@ export interface AffectCoefficients {
   s1: number
   s2: number
   s3: number
+  /** v0.6.2：情感总强度对显著度的贡献 */
+  s4: number
 }
 
 export const DEFAULT_COEFF: AffectCoefficients = {
@@ -91,6 +115,7 @@ export const DEFAULT_COEFF: AffectCoefficients = {
   v3: 0.3,
   a1: 0.8,
   a2: 0.6,
+  a4: 0.7,
   a3: 0.5,
   d1: 0.7,
   d2: 0.3,
@@ -98,6 +123,7 @@ export const DEFAULT_COEFF: AffectCoefficients = {
   s1: 0.9,
   s2: 0.7,
   s3: 0.4,
+  s4: 0.5,
 }
 
 /** 心境积分（§11.4）：m ← m + (e − m)/τ。τ≈20 轮。这层是稳定性来源，没有它 persona 会碎。 */

@@ -370,7 +370,13 @@ export class Encoder {
     const pred = detectPredicate(safe)
     const neg = isNegated(safe)
     const timeRange = parseTimeExpr(safe, at)
-    const slots = scrubSlots(fillSlots(safe, { ents, pred, neg, timeRange, provenance }))
+    const filledSlots = fillSlots(safe, { ents, pred, neg, timeRange, provenance })
+
+    // v0.6.2（§5.1 修复）：值槽保护——fillSlots 返回 null 表示
+    // 规则没能从这句话里抽出有意义的槽位，此时降级为"原文残差 + 实体 SDR"。
+    // 不产出结构化 cell（X=states 空值），但仍然可被残差通道检索到。
+    if (filledSlots === null) return null
+    const slots = scrubSlots(filledSlots)
     if (slots.length === 0) return null
 
     const sdr = this.buildSdr(slots)
@@ -480,10 +486,19 @@ export function scrubSlots(slots: readonly Slot[]): Slot[] {
   })
 }
 
-/** 槽位填充：规则版。8 个语义槽 + POLARITY（§7.3 / §7.6）。 */
+/**
+ * 槽位填充：规则版。8 个语义槽 + POLARITY（§7.3 / §7.6）。
+ *
+ * v0.6.2（§5.1 修复）：值槽保护。
+ *
+ * 当 preferenceFrame / objectOfVerb 抽不到 (topic, value) 时，
+ * 原实现仍会产出 `X=states` 型空值 cell——等于"确认过记错了"。
+ * 现在 fillSlots 返回 `null` 表示"只有残差可检索、不应产出结构化 cell"，
+ * 调用方 buildCell 会据此降级为"原文残差 + 实体 SDR"的可检索单元。
+ */
 export function fillSlots(  text: string,
   ctx: { ents: string[]; pred: string; neg: boolean; timeRange?: { from: number; to: number }; provenance: number },
-): Slot[] {
+): Slot[] | null {
   const slots: Slot[] = []
   const lit = (role: number, value: string): Slot => ({ role, type: 'LIT', value: value.slice(0, 64) })
 
@@ -508,6 +523,21 @@ export function fillSlots(  text: string,
   const verbObject = ctx.pred === 'uses' || ctx.pred === 'changes' || ctx.pred === 'deploys' ? objectOfVerb(text) : undefined
   const patient =
     pref.value ?? verbObject ?? ident ?? short[0] ?? ctx.ents.filter((e) => !/^#/.test(e)).sort((a, b) => b.length - a.length)[0]
+
+  // v0.6.2（§5.1 修复）：值槽保护
+  //
+  // 偏好句（prefers/dislikes）的语义是「(话题, 取值) 二元组」。
+  // 如果规则既没抽到取值（pref.value）、也没抽到话题（pref.topic）、
+  // 也没有标识符或动宾宾语，那么 PATIENT 只能从"随便一个实体"兜底——
+  // 而那个实体往往就是谓词本身（'我喜欢' → PATIENT='喜欢'）。
+  // 这种 cell 的价值是负的：它会让矛盾检测把两句无关的偏好判成"同一件事被改了"，
+  // 还会让模型自信地复述一条它从没被告诉过的事实。
+  //
+  // 所以宁可不产出结构化 cell（返回 null），把这句话交给残差通道兜底。
+  if (ctx.pred === 'prefers' || ctx.pred === 'dislikes') {
+    const hasValue = Boolean(pref.value || pref.topic || ident || verbObject)
+    if (!hasValue) return null
+  }
   if (patient) slots.push(lit(SLOT_ROLE.PATIENT, patient))
 
   if (ctx.timeRange) {

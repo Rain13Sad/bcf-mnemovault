@@ -1,22 +1,21 @@
 {
   "version": 2,
-  "generatedAt": 1793389304921,
+  "generatedAt": 1793599304724,
   "stats": {
-    "cells": 28,
-    "edges": 156,
-    "bytes": 9903,
+    "cells": 29,
+    "edges": 176,
+    "bytes": 8854,
     "byKind": {
       "episodic": 1,
       "semantic": 19,
       "procedure": 4,
-      "schema": 1,
+      "schema": 2,
       "persona": 1,
       "relational": 1,
       "narrative": 1
     },
     "byTier": {
-      "1": 22,
-      "3": 1,
+      "1": 24,
       "4": 5
     },
     "supportOne": 26,
@@ -24,7 +23,7 @@
     "invalidated": 1,
     "contradictions": 0,
     "hitRate": 1,
-    "tokensPerTurn": 106.75757575757575,
+    "tokensPerTurn": 107.93548387096774,
     "tokenSeries": [
       {
         "turn": 1,
@@ -44,7 +43,7 @@
       },
       {
         "turn": 4,
-        "tokens": 65
+        "tokens": 72
       },
       {
         "turn": 5,
@@ -52,7 +51,7 @@
       },
       {
         "turn": 5,
-        "tokens": 51
+        "tokens": 120
       },
       {
         "turn": 6,
@@ -60,7 +59,7 @@
       },
       {
         "turn": 6,
-        "tokens": 119
+        "tokens": 118
       },
       {
         "turn": 7,
@@ -68,7 +67,7 @@
       },
       {
         "turn": 7,
-        "tokens": 112
+        "tokens": 111
       },
       {
         "turn": 8,
@@ -76,7 +75,7 @@
       },
       {
         "turn": 8,
-        "tokens": 111
+        "tokens": 115
       },
       {
         "turn": 9,
@@ -84,7 +83,7 @@
       },
       {
         "turn": 9,
-        "tokens": 120
+        "tokens": 119
       },
       {
         "turn": 10,
@@ -92,7 +91,7 @@
       },
       {
         "turn": 10,
-        "tokens": 122
+        "tokens": 120
       },
       {
         "turn": 11,
@@ -100,7 +99,7 @@
       },
       {
         "turn": 11,
-        "tokens": 19
+        "tokens": 111
       },
       {
         "turn": 12,
@@ -108,7 +107,7 @@
       },
       {
         "turn": 12,
-        "tokens": 119
+        "tokens": 21
       },
       {
         "turn": 13,
@@ -132,7 +131,7 @@
       },
       {
         "turn": 15,
-        "tokens": 116
+        "tokens": 110
       },
       {
         "turn": 16,
@@ -140,27 +139,19 @@
       },
       {
         "turn": 16,
-        "tokens": 114
-      },
-      {
-        "turn": 17,
-        "tokens": 113
-      },
-      {
-        "turn": 17,
-        "tokens": 123
+        "tokens": 108
       },
       {
         "turn": 26,
-        "tokens": 119
+        "tokens": 117
       },
       {
         "turn": 26,
-        "tokens": 112
+        "tokens": 116
       }
     ],
-    "storageRatio": 8.937725631768952,
-    "recallP95Ms": 7,
+    "storageRatio": 7.990974729241877,
+    "recallP95Ms": 5,
     "turns": 26,
     "evictions": 0
   },
@@ -182,9 +173,9 @@
     },
     "mood": {
       "v": 0.025352808929108316,
-      "a": 0.4882121059111358,
+      "a": 0.5068011131999142,
       "d": 0.4670425494418962,
-      "s": 0.6566434535483523
+      "s": 0.6626815963874723
     },
     "relational": {
       "trust": 0,
@@ -210,11 +201,11 @@
       "restateGoal": false,
       "temperatureDelta": 0.05,
       "requireAcknowledgment": true,
-      "neglect": 10,
+      "neglect": 11,
       "regulation": "cognitive-change",
       "reasons": [
         "trust 0.00 < 0.25：高风险工具转 ask（新用户同样适用）",
-        "有 10 个未平复的情绪事件：必须回到它，不许换话题",
+        "有 11 个未平复的情绪事件：必须回到它，不许换话题",
         "调节策略：认知改变（先接住，再一起换个角度看）"
       ]
     },
@@ -262,7 +253,7 @@
       {
         "turn": 4,
         "v": 0.5381871129777478,
-        "a": 0.6238396715064369,
+        "a": 0.7463216910757554,
         "d": 0.507977432897896
       },
       {
@@ -292,13 +283,13 @@
       {
         "turn": 9,
         "v": 0.5391099278375627,
-        "a": 0.6285809323198553,
+        "a": 0.7497570537791572,
         "d": 0.507977432897896
       },
       {
         "turn": 10,
         "v": 0.538613188120583,
-        "a": 0.6260337012574765,
+        "a": 0.7479122249851571,
         "d": 0.507977432897896
       },
       {
@@ -310,7 +301,7 @@
       {
         "turn": 12,
         "v": -0.5386841738803179,
-        "a": 0.6263984133034258,
+        "a": 0.7481764827507086,
         "d": 0.3670417874726312
       },
       {
@@ -328,7 +319,7 @@
       {
         "turn": 15,
         "v": -0.5379739721818256,
-        "a": 0.622738953370601,
+        "a": 0.7455232121981474,
         "d": 0.3670417874726312
       },
       {
@@ -370,7 +361,7 @@
       {
         "turn": 22,
         "v": 0.5391808600618703,
-        "a": 0.6289437270557222,
+        "a": 0.7500196542319053,
         "d": 0.507977432897896
       },
       {
@@ -402,85 +393,92 @@
       {
         "turn": 22,
         "v": 0.5391808600618703,
-        "a": 0.6289437270557222,
-        "strength": 0.6289463242104911,
+        "a": 0.7500196542319053,
+        "strength": 0.7500213764244678,
         "trigger": "另外我喜欢把日志放在 stderr，stdout 留给数据。"
       },
       {
         "turn": 9,
         "v": 0.5391099278375627,
-        "a": 0.6285809323198553,
-        "strength": 0.6285855154431321,
+        "a": 0.7497570537791572,
+        "strength": 0.7497598592560043,
         "trigger": "我不喜欢自动生成的 commit message，太啰嗦。"
       },
       {
         "turn": 12,
         "v": -0.5386841738803179,
-        "a": 0.6263984133034258,
-        "strength": 0.626402302041088,
+        "a": 0.7481764827507086,
+        "strength": 0.7481788715825314,
         "trigger": "CI 现在跑 6 分钟，主要是 e2e 太慢。"
+      },
+      {
+        "turn": 10,
+        "v": 0.538613188120583,
+        "a": 0.7479122249851571,
+        "strength": 0.7479148915807151,
+        "trigger": "其实我更喜欢无衬线字体，等宽只用在代码块里。"
       },
       {
         "turn": 4,
         "v": 0.5381871129777478,
-        "a": 0.6238396715064369,
-        "strength": 0.6238457822441217,
+        "a": 0.7463216910757554,
+        "strength": 0.7463253437201118,
         "trigger": "字体我也偏好等宽，读代码更舒服。"
       },
       {
         "turn": 15,
         "v": -0.5379739721818256,
-        "a": 0.622738953370601,
-        "strength": 0.6227423560325951,
+        "a": 0.7455232121981474,
+        "strength": 0.7455253232646919,
         "trigger": "我现在有点烦，构建又挂了。"
       },
       {
         "turn": 5,
         "v": 0,
         "a": 0.5926018352973128,
-        "strength": 0.5926075294175149,
+        "strength": 0.592605293511051,
         "trigger": "API key 存在 ~/.config/dsh/credentials.jso"
       },
       {
         "turn": 23,
         "v": 0,
         "a": 0.5926018352973128,
-        "strength": 0.592604390787562,
+        "strength": 0.5926035158246263,
         "trigger": "那个 API key 在 ~/.config/dsh/credentials.j"
       },
       {
         "turn": 13,
         "v": 0,
         "a": 0.5843656023726241,
-        "strength": 0.5843693105684469,
+        "strength": 0.5843679356515147,
         "trigger": "我们决定把 e2e 拆成 smoke 和 full 两档。"
       },
       {
         "turn": 16,
         "v": 0,
         "a": 0.5831790252263885,
-        "strength": 0.5831822334567922,
+        "strength": 0.5831810251863896,
         "trigger": "构建挂是因为 lockfile 冲突，删掉重装就好。"
       },
       {
         "turn": 11,
         "v": 0,
         "a": 0.5819899543122302,
-        "strength": 0.5819940652543383,
+        "strength": 0.5819924681379248,
         "trigger": "记住：部署脚本要用 pnpm，不要用 npm。"
       }
     ],
     "episodeDetail": [
       {
-        "id": "ep-mvvdorrv-yvha",
+        "id": "ep-mvyupspi-ms0x",
         "trigger": "另外我喜欢把日志放在 stderr，stdout 留给数据。",
         "status": "open",
-        "onset": 1793389304731,
+        "onset": 1793599304598,
         "turn": 22,
         "valence": 0.5391808600618703,
-        "arousal": 0.6289437270557222,
-        "peak": 0.6289437270557222,
-        "strength": 0.6289463242104911,
+        "arousal": 0.7500196542319053,
+        "peak": 0.7500196542319053,
+        "strength": 0.7500213764244678,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -500,15 +498,15 @@
         ]
       },
       {
-        "id": "ep-mvvdornw-plqp",
+        "id": "ep-mvyupsnc-vmun",
         "trigger": "我不喜欢自动生成的 commit message，太啰嗦。",
         "status": "open",
-        "onset": 1793389304588,
+        "onset": 1793599304520,
         "turn": 9,
         "valence": 0.5391099278375627,
-        "arousal": 0.6285809323198553,
-        "peak": 0.6285809323198553,
-        "strength": 0.6285855154431321,
+        "arousal": 0.7497570537791572,
+        "peak": 0.7497570537791572,
+        "strength": 0.7497598592560043,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -528,15 +526,15 @@
         ]
       },
       {
-        "id": "ep-mvvdorpa-cty8",
+        "id": "ep-mvyupso6-ke92",
         "trigger": "CI 现在跑 6 分钟，主要是 e2e 太慢。",
         "status": "open",
-        "onset": 1793389304638,
+        "onset": 1793599304550,
         "turn": 12,
         "valence": -0.5386841738803179,
-        "arousal": 0.6263984133034258,
-        "peak": 0.6263984133034258,
-        "strength": 0.626402302041088,
+        "arousal": 0.7481764827507086,
+        "peak": 0.7481764827507086,
+        "strength": 0.7481788715825314,
         "decayResistance": 0.6193420869401589,
         "closure": 0,
         "repairDebt": 0,
@@ -552,15 +550,43 @@
         ]
       },
       {
-        "id": "ep-mvvdorku-xmkx",
+        "id": "ep-mvyupsnm-sr5g",
+        "trigger": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
+        "status": "open",
+        "onset": 1793599304530,
+        "turn": 10,
+        "valence": 0.538613188120583,
+        "arousal": 0.7479122249851571,
+        "peak": 0.7479122249851571,
+        "strength": 0.7479148915807151,
+        "decayResistance": 0.35,
+        "closure": 0,
+        "repairDebt": 0,
+        "labels": [
+          {
+            "label": "interest",
+            "intensity": 0.716
+          },
+          {
+            "label": "satisfaction",
+            "intensity": 0.333
+          },
+          {
+            "label": "pride",
+            "intensity": 0.2
+          }
+        ]
+      },
+      {
+        "id": "ep-mvyupsln-i9lx",
         "trigger": "字体我也偏好等宽，读代码更舒服。",
         "status": "open",
-        "onset": 1793389304478,
+        "onset": 1793599304459,
         "turn": 4,
         "valence": 0.5381871129777478,
-        "arousal": 0.6238396715064369,
-        "peak": 0.6238396715064369,
-        "strength": 0.6238457822441217,
+        "arousal": 0.7463216910757554,
+        "peak": 0.7463216910757554,
+        "strength": 0.7463253437201118,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -580,15 +606,15 @@
         ]
       },
       {
-        "id": "ep-mvvdorq9-adyu",
+        "id": "ep-mvyupsoq-my0u",
         "trigger": "我现在有点烦，构建又挂了。",
         "status": "open",
-        "onset": 1793389304673,
+        "onset": 1793599304570,
         "turn": 15,
         "valence": -0.5379739721818256,
-        "arousal": 0.622738953370601,
-        "peak": 0.622738953370601,
-        "strength": 0.6227423560325951,
+        "arousal": 0.7455232121981474,
+        "peak": 0.7455232121981474,
+        "strength": 0.7455253232646919,
         "decayResistance": 0.6189869860909127,
         "closure": 0,
         "repairDebt": 0,
@@ -604,15 +630,15 @@
         ]
       },
       {
-        "id": "ep-mvvdorlo-cfsw",
+        "id": "ep-mvyupsm1-zhsi",
         "trigger": "API key 存在 ~/.config/dsh/credentials.jso",
         "status": "open",
-        "onset": 1793389304508,
+        "onset": 1793599304473,
         "turn": 5,
         "valence": 0,
         "arousal": 0.5926018352973128,
         "peak": 0.5926018352973128,
-        "strength": 0.5926075294175149,
+        "strength": 0.592605293511051,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -624,15 +650,15 @@
         ]
       },
       {
-        "id": "ep-mvvdorry-gky6",
+        "id": "ep-mvyupspl-b3b5",
         "trigger": "那个 API key 在 ~/.config/dsh/credentials.j",
         "status": "open",
-        "onset": 1793389304734,
+        "onset": 1793599304601,
         "turn": 23,
         "valence": 0,
         "arousal": 0.5926018352973128,
         "peak": 0.5926018352973128,
-        "strength": 0.592604390787562,
+        "strength": 0.5926035158246263,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -644,15 +670,15 @@
         ]
       },
       {
-        "id": "ep-mvvdorpn-41v7",
+        "id": "ep-mvyupsoa-eooo",
         "trigger": "我们决定把 e2e 拆成 smoke 和 full 两档。",
         "status": "open",
-        "onset": 1793389304651,
+        "onset": 1793599304554,
         "turn": 13,
         "valence": 0,
         "arousal": 0.5843656023726241,
         "peak": 0.5843656023726241,
-        "strength": 0.5843693105684469,
+        "strength": 0.5843679356515147,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -664,15 +690,15 @@
         ]
       },
       {
-        "id": "ep-mvvdorqn-ztlk",
+        "id": "ep-mvyupsoy-fg66",
         "trigger": "构建挂是因为 lockfile 冲突，删掉重装就好。",
         "status": "open",
-        "onset": 1793389304687,
+        "onset": 1793599304578,
         "turn": 16,
         "valence": 0,
         "arousal": 0.5831790252263885,
         "peak": 0.5831790252263885,
-        "strength": 0.5831822334567922,
+        "strength": 0.5831810251863896,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -684,15 +710,15 @@
         ]
       },
       {
-        "id": "ep-mvvdorou-86rm",
+        "id": "ep-mvyupsnx-mtgk",
         "trigger": "记住：部署脚本要用 pnpm，不要用 npm。",
         "status": "open",
-        "onset": 1793389304622,
+        "onset": 1793599304541,
         "turn": 11,
         "valence": 0,
         "arousal": 0.5819899543122302,
         "peak": 0.5819899543122302,
-        "strength": 0.5819940652543383,
+        "strength": 0.5819924681379248,
         "decayResistance": 0.35,
         "closure": 0,
         "repairDebt": 0,
@@ -726,12 +752,12 @@
   },
   "cells": [
     {
-      "cellId": "a83a33c2aaaf8c66",
-      "shortId": "8c66",
+      "cellId": "d94b30bee64637e2",
+      "shortId": "37e2",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793482904336,
+      "tFrom": 1793692904368,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -776,12 +802,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "02304549114b1fa6",
-      "shortId": "1fa6",
+      "cellId": "b10543ef87dbeae9",
+      "shortId": "eae9",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793475704336,
+      "tFrom": 1793685704368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -836,12 +862,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "7c0e2bdc42d37048",
-      "shortId": "7048",
+      "cellId": "925f37c9240ef7c1",
+      "shortId": "f7c1",
       "kind": 2,
       "kindName": "procedure",
       "tier": 4,
-      "tFrom": 1793472104336,
+      "tFrom": 1793682104368,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -891,16 +917,16 @@
       "accessCount": 0
     },
     {
-      "cellId": "53a2906ef6d65999",
-      "shortId": "5999",
+      "cellId": "86502a1089531265",
+      "shortId": "1265",
       "kind": 1,
       "kindName": "semantic",
-      "tier": 3,
-      "tFrom": 1793468504336,
+      "tier": 1,
+      "tFrom": 1793678504368,
       "valence": 0.5354330708661418,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.8223086900129701,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.8321660181582361,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -951,12 +977,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "93f56cd4e2fc05cf",
-      "shortId": "05cf",
+      "cellId": "ba2b773b0ef8342f",
+      "shortId": "342f",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793464904336,
+      "tFrom": 1793674904368,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -1001,12 +1027,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "75f94bd2642d3e8d",
-      "shortId": "3e8d",
+      "cellId": "4a765aa1435a41ba",
+      "shortId": "41ba",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793457704336,
+      "tFrom": 1793667704368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1065,12 +1091,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "881d3c67f7740454",
-      "shortId": "0454",
+      "cellId": "b01e933bc20bba19",
+      "shortId": "ba19",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793454104336,
+      "tFrom": 1793664104368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1129,12 +1155,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "72c7706e804e6264",
-      "shortId": "6264",
+      "cellId": "269a077ef07a9f10",
+      "shortId": "9f10",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793450504336,
+      "tFrom": 1793660504368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1186,15 +1212,15 @@
       ],
       "residualChars": 66,
       "stability": 7,
-      "accessCount": 3
+      "accessCount": 1
     },
     {
-      "cellId": "7000acec82c34504",
-      "shortId": "4504",
+      "cellId": "da8df37deb09c51a",
+      "shortId": "c51a",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793446904336,
+      "tFrom": 1793656904368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1249,16 +1275,16 @@
       "accessCount": 2
     },
     {
-      "cellId": "cb9b31a87cea4e40",
-      "shortId": "4e40",
+      "cellId": "37beaf15470ff877",
+      "shortId": "f877",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793443304336,
+      "tFrom": 1793653304368,
       "valence": -0.5196850393700787,
-      "arousal": 0.6220472440944882,
-      "salience": 0.8392156862745098,
-      "importance": 0.8216067750057221,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.8315403982604715,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1309,15 +1335,15 @@
       "accessCount": 2
     },
     {
-      "cellId": "77149780856d86ac",
-      "shortId": "86ac",
+      "cellId": "48d660ec2aa7505b",
+      "shortId": "505b",
       "kind": 6,
       "kindName": "narrative",
       "tier": 1,
-      "tFrom": 1793443304336,
+      "tFrom": 1793653304368,
       "valence": 0.11811023622047244,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
       "importance": 0.8500038147554742,
       "support": 5,
       "confidence": 0.7,
@@ -1373,12 +1399,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "d2e11ca3f710ec75",
-      "shortId": "ec75",
+      "cellId": "2be25fffc3b3c2c1",
+      "shortId": "c2c1",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793439704336,
+      "tFrom": 1793649704368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1428,12 +1454,12 @@
       "accessCount": 2
     },
     {
-      "cellId": "6ded521f53f9302d",
-      "shortId": "302d",
+      "cellId": "11b431d591b3c7aa",
+      "shortId": "c7aa",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793436104336,
+      "tFrom": 1793646104368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1492,16 +1518,16 @@
       "accessCount": 2
     },
     {
-      "cellId": "3abe252a46b6ee70",
-      "shortId": "ee70",
+      "cellId": "8b03b496a1803f07",
+      "shortId": "3f07",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793432504336,
+      "tFrom": 1793642504368,
       "valence": -0.5196850393700787,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.8220187685969329,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.8319066147859923,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1553,15 +1579,15 @@
       ],
       "residualChars": 47,
       "stability": 7,
-      "accessCount": 2
+      "accessCount": 3
     },
     {
-      "cellId": "6f3ed0f53cc37ade",
-      "shortId": "7ade",
+      "cellId": "55db47d7316bc353",
+      "shortId": "c353",
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793428904336,
+      "tFrom": 1793638904368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1616,16 +1642,16 @@
       "accessCount": 2
     },
     {
-      "cellId": "7cb7538d1e8efbe3",
-      "shortId": "fbe3",
+      "cellId": "474a59539d822abc",
+      "shortId": "2abc",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793425304336,
+      "tFrom": 1793635304368,
       "valence": 0.5433070866141733,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.8219729915312428,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.8318608377203022,
       "support": 1,
       "confidence": 0.75825,
       "provenance": 0,
@@ -1673,19 +1699,19 @@
       ],
       "residualChars": 66,
       "stability": 7,
-      "accessCount": 3
+      "accessCount": 4
     },
     {
-      "cellId": "6c930a578fbaaedf",
-      "shortId": "aedf",
+      "cellId": "ec34a98bfef390c7",
+      "shortId": "90c7",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793421704336,
+      "tFrom": 1793631704368,
       "valence": 0.5511811023622047,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.82226291294728,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.832120241092546,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -1731,12 +1757,12 @@
       "accessCount": 2
     },
     {
-      "cellId": "c18debdbd26622cc",
-      "shortId": "22cc",
+      "cellId": "72c7454c0dda50e1",
+      "shortId": "50e1",
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793418104336,
+      "tFrom": 1793628104368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -1783,15 +1809,15 @@
       ],
       "residualChars": 64,
       "stability": 30,
-      "accessCount": 2
+      "accessCount": 6
     },
     {
-      "cellId": "20774485e7df6141",
-      "shortId": "6141",
+      "cellId": "6f4ce05fefde17a2",
+      "shortId": "17a2",
       "kind": 0,
       "kindName": "episodic",
       "tier": 1,
-      "tFrom": 1793414504336,
+      "tFrom": 1793624504368,
       "valence": 0,
       "arousal": 0.5511811023622047,
       "salience": 0.7372549019607844,
@@ -1846,12 +1872,12 @@
       "accessCount": 2
     },
     {
-      "cellId": "b39e4d0297cd6733",
-      "shortId": "6733",
+      "cellId": "e282cc8b5f65b3a6",
+      "shortId": "b3a6",
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793407304336,
+      "tFrom": 1793617304368,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -1898,19 +1924,19 @@
       ],
       "residualChars": 70,
       "stability": 30,
-      "accessCount": 13
+      "accessCount": 11
     },
     {
-      "cellId": "d26e661589d7966a",
-      "shortId": "966a",
+      "cellId": "8908e95d7543295f",
+      "shortId": "295f",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793403704336,
+      "tFrom": 1793613704368,
       "valence": 0.5433070866141733,
-      "arousal": 0.6220472440944882,
-      "salience": 0.8392156862745098,
-      "importance": 0.4930342565041581,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.4989852750438697,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -1919,7 +1945,7 @@
       "pinned": false,
       "disputed": true,
       "invalidated": true,
-      "tInvalid": 1793425304336,
+      "tInvalid": 1793635304368,
       "lens": "feeling",
       "emotional": true,
       "digest": "字体我也偏好等宽，读代码更舒服。",
@@ -1958,21 +1984,21 @@
       ],
       "residualChars": 48,
       "stability": 7,
-      "accessCount": 4
+      "accessCount": 3
     },
     {
-      "cellId": "748f8ef35bb7306c",
-      "shortId": "306c",
+      "cellId": "3c434e6a436968ce",
+      "shortId": "68ce",
       "kind": 3,
       "kindName": "schema",
       "tier": 1,
-      "tFrom": 1793400104336,
-      "valence": 0.2755905511811024,
-      "arousal": 0.6062992125984252,
-      "salience": 0.8431372549019608,
-      "importance": 0.8219729915312428,
-      "support": 4,
-      "confidence": 0.79425,
+      "tFrom": 1793610104368,
+      "valence": 0.36220472440944884,
+      "arousal": 0.6929133858267716,
+      "salience": 0.8823529411764706,
+      "importance": 0.8318608377203022,
+      "support": 3,
+      "confidence": 0.79025,
       "provenance": 4,
       "trust": 160,
       "changed": false,
@@ -1982,7 +2008,7 @@
       "tInvalid": 0,
       "lens": "fact",
       "emotional": false,
-      "digest": "抽象：用户 prefers ×4",
+      "digest": "抽象：用户 prefers ×3",
       "kv": [
         [
           "用户",
@@ -2021,12 +2047,12 @@
       "accessCount": 1
     },
     {
-      "cellId": "5e5f5321d0859eeb",
-      "shortId": "9eeb",
+      "cellId": "985fd648953c71a2",
+      "shortId": "71a2",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793400104336,
+      "tFrom": 1793610104368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -2078,15 +2104,15 @@
       ],
       "residualChars": 54,
       "stability": 7,
-      "accessCount": 15
+      "accessCount": 14
     },
     {
-      "cellId": "e8c01eb3ce97d5cd",
-      "shortId": "d5cd",
+      "cellId": "5fcffa6d6b48488f",
+      "shortId": "488f",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793396504336,
+      "tFrom": 1793606504368,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -2133,15 +2159,75 @@
       ],
       "residualChars": 61,
       "stability": 7,
-      "accessCount": 2
+      "accessCount": 8
     },
     {
-      "cellId": "27c806305bae3f93",
-      "shortId": "3f93",
+      "cellId": "5d076e31af13ef9d",
+      "shortId": "ef9d",
+      "kind": 3,
+      "kindName": "schema",
+      "tier": 1,
+      "tFrom": 1793602904368,
+      "valence": -0.1732283464566929,
+      "arousal": 0.6377952755905512,
+      "salience": 0.8823529411764706,
+      "importance": 0.8315403982604715,
+      "support": 3,
+      "confidence": 0.7854166666666668,
+      "provenance": 4,
+      "trust": 160,
+      "changed": false,
+      "pinned": true,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "fact",
+      "emotional": false,
+      "digest": "抽象：用户 states ×3",
+      "kv": [
+        [
+          "用户",
+          "states"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "states"
+        },
+        {
+          "role": 2,
+          "type": "UNK",
+          "value": ""
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        },
+        {
+          "role": 6,
+          "type": "UNK",
+          "value": ""
+        }
+      ],
+      "residualChars": 39,
+      "stability": 8.4,
+      "accessCount": 0
+    },
+    {
+      "cellId": "a62a08215e63bc4c",
+      "shortId": "bc4c",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793392904336,
+      "tFrom": 1793602904368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -2188,7 +2274,7 @@
       ],
       "residualChars": 69,
       "stability": 7,
-      "accessCount": 10
+      "accessCount": 3
     },
     {
       "cellId": "ff466a57a99b4138",
@@ -2196,7 +2282,7 @@
       "kind": 4,
       "kindName": "persona",
       "tier": 1,
-      "tFrom": 1793389304742,
+      "tFrom": 1793599304606,
       "valence": 0,
       "arousal": 0,
       "salience": 0.4,
@@ -2255,7 +2341,7 @@
       "kind": 5,
       "kindName": "relational",
       "tier": 1,
-      "tFrom": 1793389304742,
+      "tFrom": 1793599304606,
       "valence": 0,
       "arousal": 0,
       "salience": 0.5019607843137255,
@@ -2319,12 +2405,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "e90dd1fe3cc68750",
-      "shortId": "8750",
+      "cellId": "9cdd97c4b37e744a",
+      "shortId": "744a",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1792201304336,
+      "tFrom": 1792411304368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -2352,7 +2438,7 @@
         ],
         [
           "t",
-          "2026-10-17"
+          "2026-10-19"
         ]
       ],
       "slots": [
@@ -2379,7 +2465,7 @@
         {
           "role": 4,
           "type": "LIT",
-          "value": "2026-10-17"
+          "value": "2026-10-19"
         },
         {
           "role": 8,
@@ -2394,124 +2480,54 @@
       ],
       "residualChars": 67,
       "stability": 7,
-      "accessCount": 11
+      "accessCount": 10
     }
   ],
   "edges": [
     {
-      "src": "d26e661589d7966a",
-      "dst": "5e5f5321d0859eeb",
+      "src": "8908e95d7543295f",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 53
+      "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "d26e661589d7966a",
+      "src": "985fd648953c71a2",
+      "dst": "8908e95d7543295f",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 53
+      "weight": 38
     },
     {
-      "src": "d26e661589d7966a",
-      "dst": "27c806305bae3f93",
+      "src": "8908e95d7543295f",
+      "dst": "259fc1225d4d560e",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 46
+      "weight": 38
     },
     {
-      "src": "27c806305bae3f93",
-      "dst": "d26e661589d7966a",
+      "src": "259fc1225d4d560e",
+      "dst": "8908e95d7543295f",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 46
+      "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 99
-    },
-    {
-      "src": "27c806305bae3f93",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 99
-    },
-    {
-      "src": "b39e4d0297cd6733",
-      "dst": "ff466a57a99b4138",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 76
-    },
-    {
-      "src": "ff466a57a99b4138",
-      "dst": "b39e4d0297cd6733",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 76
-    },
-    {
-      "src": "e90dd1fe3cc68750",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 69
-    },
-    {
-      "src": "27c806305bae3f93",
-      "dst": "e90dd1fe3cc68750",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 69
-    },
-    {
-      "src": "e90dd1fe3cc68750",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 107
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "e90dd1fe3cc68750",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 107
-    },
-    {
-      "src": "e90dd1fe3cc68750",
-      "dst": "d26e661589d7966a",
+      "src": "985fd648953c71a2",
+      "dst": "259fc1225d4d560e",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 46
     },
     {
-      "src": "d26e661589d7966a",
-      "dst": "e90dd1fe3cc68750",
+      "src": "259fc1225d4d560e",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 46
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "ff466a57a99b4138",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 61
-    },
-    {
-      "src": "ff466a57a99b4138",
-      "dst": "e90dd1fe3cc68750",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 61
-    },
-    {
-      "src": "27c806305bae3f93",
+      "src": "e282cc8b5f65b3a6",
       "dst": "ff466a57a99b4138",
       "rel": 14,
       "relName": "ASSOC",
@@ -2519,27 +2535,167 @@
     },
     {
       "src": "ff466a57a99b4138",
-      "dst": "27c806305bae3f93",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 68
     },
     {
-      "src": "5e5f5321d0859eeb",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "985fd648953c71a2",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 99
+    },
+    {
+      "src": "985fd648953c71a2",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 99
+    },
+    {
+      "src": "e282cc8b5f65b3a6",
+      "dst": "259fc1225d4d560e",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "259fc1225d4d560e",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "e282cc8b5f65b3a6",
+      "dst": "5fcffa6d6b48488f",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "5fcffa6d6b48488f",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "985fd648953c71a2",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 68
+    },
+    {
+      "src": "985fd648953c71a2",
       "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 68
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "259fc1225d4d560e",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "259fc1225d4d560e",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "5fcffa6d6b48488f",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "5fcffa6d6b48488f",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "985fd648953c71a2",
+      "dst": "5fcffa6d6b48488f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 84
     },
     {
-      "src": "ff466a57a99b4138",
-      "dst": "5e5f5321d0859eeb",
+      "src": "5fcffa6d6b48488f",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 84
     },
     {
-      "src": "d26e661589d7966a",
+      "src": "259fc1225d4d560e",
+      "dst": "5fcffa6d6b48488f",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5fcffa6d6b48488f",
+      "dst": "259fc1225d4d560e",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "9cdd97c4b37e744a",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 76
+    },
+    {
+      "src": "e282cc8b5f65b3a6",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 76
+    },
+    {
+      "src": "9cdd97c4b37e744a",
+      "dst": "985fd648953c71a2",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 92
+    },
+    {
+      "src": "985fd648953c71a2",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 92
+    },
+    {
+      "src": "9cdd97c4b37e744a",
+      "dst": "5fcffa6d6b48488f",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "5fcffa6d6b48488f",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "9cdd97c4b37e744a",
       "dst": "ff466a57a99b4138",
       "rel": 14,
       "relName": "ASSOC",
@@ -2547,55 +2703,41 @@
     },
     {
       "src": "ff466a57a99b4138",
-      "dst": "d26e661589d7966a",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "20774485e7df6141",
-      "dst": "b39e4d0297cd6733",
+      "src": "6f4ce05fefde17a2",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "20774485e7df6141",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "6f4ce05fefde17a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "20774485e7df6141",
-      "dst": "27c806305bae3f93",
+      "src": "6f4ce05fefde17a2",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "27c806305bae3f93",
-      "dst": "20774485e7df6141",
+      "src": "985fd648953c71a2",
+      "dst": "6f4ce05fefde17a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "20774485e7df6141",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "20774485e7df6141",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "20774485e7df6141",
+      "src": "6f4ce05fefde17a2",
       "dst": "ff466a57a99b4138",
       "rel": 14,
       "relName": "ASSOC",
@@ -2603,286 +2745,230 @@
     },
     {
       "src": "ff466a57a99b4138",
-      "dst": "20774485e7df6141",
+      "dst": "6f4ce05fefde17a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 76
-    },
-    {
-      "src": "27c806305bae3f93",
-      "dst": "b39e4d0297cd6733",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 76
-    },
-    {
-      "src": "b39e4d0297cd6733",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 115
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "b39e4d0297cd6733",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 115
-    },
-    {
-      "src": "c18debdbd26622cc",
-      "dst": "b39e4d0297cd6733",
+      "src": "6f4ce05fefde17a2",
+      "dst": "5fcffa6d6b48488f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "c18debdbd26622cc",
+      "src": "5fcffa6d6b48488f",
+      "dst": "6f4ce05fefde17a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "c18debdbd26622cc",
-      "dst": "5e5f5321d0859eeb",
+      "src": "72c7454c0dda50e1",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 68
+    },
+    {
+      "src": "e282cc8b5f65b3a6",
+      "dst": "72c7454c0dda50e1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 68
+    },
+    {
+      "src": "72c7454c0dda50e1",
+      "dst": "985fd648953c71a2",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "985fd648953c71a2",
+      "dst": "72c7454c0dda50e1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 61
+    },
+    {
+      "src": "72c7454c0dda50e1",
+      "dst": "ff466a57a99b4138",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "ff466a57a99b4138",
+      "dst": "72c7454c0dda50e1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "72c7454c0dda50e1",
+      "dst": "5fcffa6d6b48488f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "c18debdbd26622cc",
+      "src": "5fcffa6d6b48488f",
+      "dst": "72c7454c0dda50e1",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "c18debdbd26622cc",
-      "dst": "e8c01eb3ce97d5cd",
+      "src": "ec34a98bfef390c7",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e8c01eb3ce97d5cd",
-      "dst": "c18debdbd26622cc",
+      "src": "9cdd97c4b37e744a",
+      "dst": "ec34a98bfef390c7",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "c18debdbd26622cc",
-      "dst": "e90dd1fe3cc68750",
+      "src": "ec34a98bfef390c7",
+      "dst": "8908e95d7543295f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "c18debdbd26622cc",
+      "src": "8908e95d7543295f",
+      "dst": "ec34a98bfef390c7",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "e8c01eb3ce97d5cd",
+      "src": "ec34a98bfef390c7",
+      "dst": "72c7454c0dda50e1",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e8c01eb3ce97d5cd",
-      "dst": "b39e4d0297cd6733",
+      "src": "72c7454c0dda50e1",
+      "dst": "ec34a98bfef390c7",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "e90dd1fe3cc68750",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 92
-    },
-    {
-      "src": "e90dd1fe3cc68750",
-      "dst": "b39e4d0297cd6733",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 92
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "e8c01eb3ce97d5cd",
+      "src": "ec34a98bfef390c7",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e8c01eb3ce97d5cd",
-      "dst": "5e5f5321d0859eeb",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "ec34a98bfef390c7",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e8c01eb3ce97d5cd",
-      "dst": "e90dd1fe3cc68750",
+      "src": "9cdd97c4b37e744a",
+      "dst": "8908e95d7543295f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "e8c01eb3ce97d5cd",
+      "src": "8908e95d7543295f",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "6c930a578fbaaedf",
-      "dst": "d26e661589d7966a",
+      "src": "9cdd97c4b37e744a",
+      "dst": "72c7454c0dda50e1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 53
+    },
+    {
+      "src": "72c7454c0dda50e1",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 53
+    },
+    {
+      "src": "8908e95d7543295f",
+      "dst": "72c7454c0dda50e1",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "d26e661589d7966a",
-      "dst": "6c930a578fbaaedf",
+      "src": "72c7454c0dda50e1",
+      "dst": "8908e95d7543295f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "6c930a578fbaaedf",
-      "dst": "e90dd1fe3cc68750",
+      "src": "8908e95d7543295f",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "6c930a578fbaaedf",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "8908e95d7543295f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "6c930a578fbaaedf",
-      "dst": "5e5f5321d0859eeb",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "5e5f5321d0859eeb",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "6c930a578fbaaedf",
-      "dst": "b39e4d0297cd6733",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "b39e4d0297cd6733",
-      "dst": "6c930a578fbaaedf",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "d26e661589d7966a",
-      "dst": "b39e4d0297cd6733",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "b39e4d0297cd6733",
-      "dst": "d26e661589d7966a",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "d26e661589d7966a",
+      "src": "474a59539d822abc",
+      "dst": "8908e95d7543295f",
       "rel": 6,
       "relName": "CONTRADICTS",
       "weight": 91
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "d26e661589d7966a",
+      "src": "474a59539d822abc",
+      "dst": "8908e95d7543295f",
       "rel": 7,
       "relName": "SUPERSEDES",
       "weight": 91
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "d26e661589d7966a",
+      "src": "474a59539d822abc",
+      "dst": "8908e95d7543295f",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "5e5f5321d0859eeb",
+      "src": "474a59539d822abc",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 46
+      "weight": 54
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "7cb7538d1e8efbe3",
+      "src": "985fd648953c71a2",
+      "dst": "474a59539d822abc",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 46
+      "weight": 54
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "e90dd1fe3cc68750",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 46
-    },
-    {
-      "src": "e90dd1fe3cc68750",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 46
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "27c806305bae3f93",
-      "dst": "7cb7538d1e8efbe3",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "7cb7538d1e8efbe3",
+      "src": "474a59539d822abc",
       "dst": "ff466a57a99b4138",
       "rel": 14,
       "relName": "ASSOC",
@@ -2890,655 +2976,795 @@
     },
     {
       "src": "ff466a57a99b4138",
-      "dst": "7cb7538d1e8efbe3",
+      "dst": "474a59539d822abc",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "3abe252a46b6ee70",
-      "dst": "5e5f5321d0859eeb",
+      "src": "474a59539d822abc",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "e282cc8b5f65b3a6",
+      "dst": "474a59539d822abc",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 46
+    },
+    {
+      "src": "474a59539d822abc",
+      "dst": "72c7454c0dda50e1",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "3abe252a46b6ee70",
+      "src": "72c7454c0dda50e1",
+      "dst": "474a59539d822abc",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "3abe252a46b6ee70",
-      "dst": "e90dd1fe3cc68750",
+      "src": "55db47d7316bc353",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "3abe252a46b6ee70",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "55db47d7316bc353",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "3abe252a46b6ee70",
-      "dst": "b39e4d0297cd6733",
+      "src": "55db47d7316bc353",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "3abe252a46b6ee70",
+      "src": "985fd648953c71a2",
+      "dst": "55db47d7316bc353",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "3abe252a46b6ee70",
-      "dst": "ff466a57a99b4138",
+      "src": "55db47d7316bc353",
+      "dst": "72c7454c0dda50e1",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "ff466a57a99b4138",
-      "dst": "3abe252a46b6ee70",
+      "src": "72c7454c0dda50e1",
+      "dst": "55db47d7316bc353",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "6ded521f53f9302d",
-      "dst": "e90dd1fe3cc68750",
+      "src": "55db47d7316bc353",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "9cdd97c4b37e744a",
+      "dst": "55db47d7316bc353",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "11b431d591b3c7aa",
+      "dst": "9cdd97c4b37e744a",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "6ded521f53f9302d",
-      "dst": "5e5f5321d0859eeb",
+      "src": "11b431d591b3c7aa",
+      "dst": "8b03b496a1803f07",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "6ded521f53f9302d",
+      "src": "8b03b496a1803f07",
+      "dst": "11b431d591b3c7aa",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "6ded521f53f9302d",
-      "dst": "e90dd1fe3cc68750",
+      "src": "11b431d591b3c7aa",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "6ded521f53f9302d",
+      "src": "9cdd97c4b37e744a",
+      "dst": "11b431d591b3c7aa",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "6ded521f53f9302d",
-      "dst": "b39e4d0297cd6733",
+      "src": "11b431d591b3c7aa",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "6ded521f53f9302d",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "11b431d591b3c7aa",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "6ded521f53f9302d",
-      "dst": "27c806305bae3f93",
+      "src": "11b431d591b3c7aa",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "27c806305bae3f93",
-      "dst": "6ded521f53f9302d",
+      "src": "985fd648953c71a2",
+      "dst": "11b431d591b3c7aa",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "d2e11ca3f710ec75",
-      "dst": "5e5f5321d0859eeb",
+      "src": "8b03b496a1803f07",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "d2e11ca3f710ec75",
+      "src": "9cdd97c4b37e744a",
+      "dst": "8b03b496a1803f07",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "d2e11ca3f710ec75",
-      "dst": "b39e4d0297cd6733",
+      "src": "8b03b496a1803f07",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "d2e11ca3f710ec75",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "8b03b496a1803f07",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "d2e11ca3f710ec75",
-      "dst": "e90dd1fe3cc68750",
+      "src": "8b03b496a1803f07",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "d2e11ca3f710ec75",
+      "src": "985fd648953c71a2",
+      "dst": "8b03b496a1803f07",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "d2e11ca3f710ec75",
-      "dst": "27c806305bae3f93",
+      "src": "2be25fffc3b3c2c1",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "27c806305bae3f93",
-      "dst": "d2e11ca3f710ec75",
+      "src": "985fd648953c71a2",
+      "dst": "2be25fffc3b3c2c1",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "cb9b31a87cea4e40",
-      "dst": "27c806305bae3f93",
+      "src": "2be25fffc3b3c2c1",
+      "dst": "72c7454c0dda50e1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "72c7454c0dda50e1",
+      "dst": "2be25fffc3b3c2c1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "2be25fffc3b3c2c1",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "e282cc8b5f65b3a6",
+      "dst": "2be25fffc3b3c2c1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "2be25fffc3b3c2c1",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "9cdd97c4b37e744a",
+      "dst": "2be25fffc3b3c2c1",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "37beaf15470ff877",
+      "dst": "a62a08215e63bc4c",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "cb9b31a87cea4e40",
-      "dst": "b39e4d0297cd6733",
+      "src": "37beaf15470ff877",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "cb9b31a87cea4e40",
+      "src": "9cdd97c4b37e744a",
+      "dst": "37beaf15470ff877",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "cb9b31a87cea4e40",
-      "dst": "5e5f5321d0859eeb",
+      "src": "37beaf15470ff877",
+      "dst": "5fcffa6d6b48488f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "cb9b31a87cea4e40",
+      "src": "5fcffa6d6b48488f",
+      "dst": "37beaf15470ff877",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "cb9b31a87cea4e40",
-      "dst": "ff466a57a99b4138",
+      "src": "37beaf15470ff877",
+      "dst": "a62a08215e63bc4c",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "ff466a57a99b4138",
-      "dst": "cb9b31a87cea4e40",
+      "src": "a62a08215e63bc4c",
+      "dst": "37beaf15470ff877",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "cb9b31a87cea4e40",
-      "dst": "27c806305bae3f93",
+      "src": "37beaf15470ff877",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "27c806305bae3f93",
-      "dst": "cb9b31a87cea4e40",
+      "src": "985fd648953c71a2",
+      "dst": "37beaf15470ff877",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "7000acec82c34504",
-      "dst": "27c806305bae3f93",
+      "src": "9cdd97c4b37e744a",
+      "dst": "a62a08215e63bc4c",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 38
+      "weight": 46
     },
     {
-      "src": "27c806305bae3f93",
-      "dst": "7000acec82c34504",
+      "src": "a62a08215e63bc4c",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 38
+      "weight": 46
     },
     {
-      "src": "7000acec82c34504",
-      "dst": "5e5f5321d0859eeb",
+      "src": "5fcffa6d6b48488f",
+      "dst": "a62a08215e63bc4c",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 38
+      "weight": 46
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "7000acec82c34504",
+      "src": "a62a08215e63bc4c",
+      "dst": "5fcffa6d6b48488f",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 38
+      "weight": 46
     },
     {
-      "src": "7000acec82c34504",
-      "dst": "b39e4d0297cd6733",
+      "src": "a62a08215e63bc4c",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 38
+      "weight": 46
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "7000acec82c34504",
+      "src": "985fd648953c71a2",
+      "dst": "a62a08215e63bc4c",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 38
+      "weight": 46
     },
     {
-      "src": "7000acec82c34504",
-      "dst": "ff466a57a99b4138",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "ff466a57a99b4138",
-      "dst": "7000acec82c34504",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 38
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "5e5f5321d0859eeb",
+      "src": "da8df37deb09c51a",
+      "dst": "37beaf15470ff877",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "72c7706e804e6264",
-      "dst": "b39e4d0297cd6733",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 46
-    },
-    {
-      "src": "b39e4d0297cd6733",
-      "dst": "72c7706e804e6264",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 46
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "e90dd1fe3cc68750",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 46
-    },
-    {
-      "src": "e90dd1fe3cc68750",
-      "dst": "72c7706e804e6264",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 46
-    },
-    {
-      "src": "72c7706e804e6264",
-      "dst": "ff466a57a99b4138",
+      "src": "da8df37deb09c51a",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "ff466a57a99b4138",
-      "dst": "72c7706e804e6264",
+      "src": "985fd648953c71a2",
+      "dst": "da8df37deb09c51a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 38
     },
     {
-      "src": "72c7706e804e6264",
-      "dst": "5e5f5321d0859eeb",
+      "src": "da8df37deb09c51a",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 46
+      "weight": 38
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "72c7706e804e6264",
+      "src": "9cdd97c4b37e744a",
+      "dst": "da8df37deb09c51a",
       "rel": 14,
       "relName": "ASSOC",
-      "weight": 46
+      "weight": 38
     },
     {
-      "src": "75f94bd2642d3e8d",
-      "dst": "27c806305bae3f93",
+      "src": "da8df37deb09c51a",
+      "dst": "a62a08215e63bc4c",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "a62a08215e63bc4c",
+      "dst": "da8df37deb09c51a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "da8df37deb09c51a",
+      "dst": "5fcffa6d6b48488f",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "5fcffa6d6b48488f",
+      "dst": "da8df37deb09c51a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 38
+    },
+    {
+      "src": "269a077ef07a9f10",
+      "dst": "985fd648953c71a2",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "93f56cd4e2fc05cf",
-      "dst": "3abe252a46b6ee70",
+      "src": "4a765aa1435a41ba",
+      "dst": "a62a08215e63bc4c",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "7c0e2bdc42d37048",
-      "dst": "b39e4d0297cd6733",
+      "src": "ba2b773b0ef8342f",
+      "dst": "8b03b496a1803f07",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "a83a33c2aaaf8c66",
-      "dst": "27c806305bae3f93",
+      "src": "86502a1089531265",
+      "dst": "985fd648953c71a2",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 46
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "748f8ef35bb7306c",
+      "src": "925f37c9240ef7c1",
+      "dst": "e282cc8b5f65b3a6",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 46
+    },
+    {
+      "src": "d94b30bee64637e2",
+      "dst": "a62a08215e63bc4c",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 46
+    },
+    {
+      "src": "a62a08215e63bc4c",
+      "dst": "5d076e31af13ef9d",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 61
     },
     {
-      "src": "d26e661589d7966a",
-      "dst": "748f8ef35bb7306c",
+      "src": "2be25fffc3b3c2c1",
+      "dst": "5d076e31af13ef9d",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 61
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "748f8ef35bb7306c",
+      "src": "37beaf15470ff877",
+      "dst": "5d076e31af13ef9d",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 61
     },
     {
-      "src": "72c7706e804e6264",
-      "dst": "748f8ef35bb7306c",
+      "src": "985fd648953c71a2",
+      "dst": "3c434e6a436968ce",
       "rel": 2,
       "relName": "PART_OF",
       "weight": 61
     },
     {
-      "src": "5e5f5321d0859eeb",
-      "dst": "748f8ef35bb7306c",
+      "src": "8908e95d7543295f",
+      "dst": "3c434e6a436968ce",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 61
+    },
+    {
+      "src": "474a59539d822abc",
+      "dst": "3c434e6a436968ce",
+      "rel": 2,
+      "relName": "PART_OF",
+      "weight": 61
+    },
+    {
+      "src": "985fd648953c71a2",
+      "dst": "3c434e6a436968ce",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 44
     },
     {
-      "src": "d26e661589d7966a",
-      "dst": "748f8ef35bb7306c",
+      "src": "a62a08215e63bc4c",
+      "dst": "5d076e31af13ef9d",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 36
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "748f8ef35bb7306c",
+      "src": "8908e95d7543295f",
+      "dst": "3c434e6a436968ce",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 36
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "d26e661589d7966a",
+      "src": "474a59539d822abc",
+      "dst": "3c434e6a436968ce",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "474a59539d822abc",
+      "dst": "8908e95d7543295f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 36
     },
     {
-      "src": "72c7706e804e6264",
-      "dst": "748f8ef35bb7306c",
+      "src": "da8df37deb09c51a",
+      "dst": "37beaf15470ff877",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 36
     },
     {
-      "src": "77149780856d86ac",
-      "dst": "6c930a578fbaaedf",
+      "src": "48d660ec2aa7505b",
+      "dst": "ec34a98bfef390c7",
       "rel": 13,
       "relName": "EVIDENCE",
       "weight": 68
     },
     {
-      "src": "6c930a578fbaaedf",
-      "dst": "77149780856d86ac",
+      "src": "ec34a98bfef390c7",
+      "dst": "48d660ec2aa7505b",
       "rel": 15,
       "relName": "EVOKES",
       "weight": 61
     },
     {
-      "src": "77149780856d86ac",
-      "dst": "7cb7538d1e8efbe3",
+      "src": "48d660ec2aa7505b",
+      "dst": "474a59539d822abc",
       "rel": 13,
       "relName": "EVIDENCE",
       "weight": 68
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "77149780856d86ac",
+      "src": "474a59539d822abc",
+      "dst": "48d660ec2aa7505b",
       "rel": 15,
       "relName": "EVOKES",
       "weight": 61
     },
     {
-      "src": "77149780856d86ac",
-      "dst": "53a2906ef6d65999",
+      "src": "48d660ec2aa7505b",
+      "dst": "86502a1089531265",
       "rel": 13,
       "relName": "EVIDENCE",
       "weight": 68
     },
     {
-      "src": "53a2906ef6d65999",
-      "dst": "77149780856d86ac",
+      "src": "86502a1089531265",
+      "dst": "48d660ec2aa7505b",
       "rel": 15,
       "relName": "EVOKES",
       "weight": 61
     },
     {
-      "src": "77149780856d86ac",
-      "dst": "3abe252a46b6ee70",
+      "src": "48d660ec2aa7505b",
+      "dst": "8b03b496a1803f07",
       "rel": 13,
       "relName": "EVIDENCE",
       "weight": 68
     },
     {
-      "src": "3abe252a46b6ee70",
-      "dst": "77149780856d86ac",
+      "src": "8b03b496a1803f07",
+      "dst": "48d660ec2aa7505b",
       "rel": 15,
       "relName": "EVOKES",
       "weight": 61
     },
     {
-      "src": "77149780856d86ac",
-      "dst": "cb9b31a87cea4e40",
+      "src": "48d660ec2aa7505b",
+      "dst": "37beaf15470ff877",
       "rel": 13,
       "relName": "EVIDENCE",
       "weight": 68
     },
     {
-      "src": "cb9b31a87cea4e40",
-      "dst": "77149780856d86ac",
+      "src": "37beaf15470ff877",
+      "dst": "48d660ec2aa7505b",
       "rel": 15,
       "relName": "EVOKES",
       "weight": 61
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "72c7706e804e6264",
+      "src": "474a59539d822abc",
+      "dst": "269a077ef07a9f10",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "72c7706e804e6264",
-      "dst": "7cb7538d1e8efbe3",
+      "src": "269a077ef07a9f10",
+      "dst": "474a59539d822abc",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "7cb7538d1e8efbe3",
-      "dst": "b39e4d0297cd6733",
+      "src": "474a59539d822abc",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "9cdd97c4b37e744a",
+      "dst": "474a59539d822abc",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 48
+    },
+    {
+      "src": "474a59539d822abc",
+      "dst": "5fcffa6d6b48488f",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "7cb7538d1e8efbe3",
+      "src": "5fcffa6d6b48488f",
+      "dst": "474a59539d822abc",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "748f8ef35bb7306c",
-      "dst": "5e5f5321d0859eeb",
+      "src": "269a077ef07a9f10",
+      "dst": "985fd648953c71a2",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "985fd648953c71a2",
+      "dst": "269a077ef07a9f10",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "269a077ef07a9f10",
+      "dst": "9cdd97c4b37e744a",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "9cdd97c4b37e744a",
+      "dst": "269a077ef07a9f10",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "269a077ef07a9f10",
+      "dst": "5fcffa6d6b48488f",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "5fcffa6d6b48488f",
+      "dst": "269a077ef07a9f10",
+      "rel": 14,
+      "relName": "ASSOC",
+      "weight": 40
+    },
+    {
+      "src": "3c434e6a436968ce",
+      "dst": "985fd648953c71a2",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 44
     },
     {
-      "src": "748f8ef35bb7306c",
-      "dst": "b39e4d0297cd6733",
+      "src": "3c434e6a436968ce",
+      "dst": "474a59539d822abc",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "b39e4d0297cd6733",
-      "dst": "748f8ef35bb7306c",
+      "src": "3c434e6a436968ce",
+      "dst": "e282cc8b5f65b3a6",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "748f8ef35bb7306c",
-      "dst": "e90dd1fe3cc68750",
+      "src": "e282cc8b5f65b3a6",
+      "dst": "3c434e6a436968ce",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "e90dd1fe3cc68750",
-      "dst": "748f8ef35bb7306c",
+      "src": "3c434e6a436968ce",
+      "dst": "9cdd97c4b37e744a",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     },
     {
-      "src": "748f8ef35bb7306c",
-      "dst": "27c806305bae3f93",
-      "rel": 14,
-      "relName": "ASSOC",
-      "weight": 40
-    },
-    {
-      "src": "27c806305bae3f93",
-      "dst": "748f8ef35bb7306c",
+      "src": "9cdd97c4b37e744a",
+      "dst": "3c434e6a436968ce",
       "rel": 14,
       "relName": "ASSOC",
       "weight": 40
     }
   ],
   "lastRecall": {
-    "queryId": "qmvvdorubcig",
-    "at": 1793389304822,
-    "tokens": 112,
+    "queryId": "qmvyupsr0iz7",
+    "at": 1793599304654,
+    "tokens": 116,
     "hits": [
       {
-        "cellId": "5e5f5321d0859eeb",
-        "shortId": "9eeb",
-        "score": 0.6954298993086568,
+        "cellId": "985fd648953c71a2",
+        "shortId": "71a2",
+        "score": 0.6967536419419326,
         "slot": 0,
         "channel": "semantic"
       },
       {
-        "cellId": "748f8ef35bb7306c",
-        "shortId": "306c",
-        "score": 0.6367504527908635,
+        "cellId": "3c434e6a436968ce",
+        "shortId": "68ce",
+        "score": 0.6298777514314734,
         "slot": 0,
         "channel": "semantic"
       },
       {
-        "cellId": "b39e4d0297cd6733",
-        "shortId": "6733",
-        "score": 0.48236904732430275,
+        "cellId": "474a59539d822abc",
+        "shortId": "2abc",
+        "score": 0.403192577285559,
         "slot": 1,
-        "channel": "graph"
+        "channel": "semantic"
       },
       {
-        "cellId": "e90dd1fe3cc68750",
-        "shortId": "8750",
-        "score": 0.45286993569431017,
+        "cellId": "e282cc8b5f65b3a6",
+        "shortId": "b3a6",
+        "score": 0.44149869031566563,
         "slot": 2,
         "channel": "graph"
       },
       {
-        "cellId": "27c806305bae3f93",
-        "shortId": "3f93",
-        "score": 0.4037231623638817,
+        "cellId": "9cdd97c4b37e744a",
+        "shortId": "744a",
+        "score": 0.42965933155955094,
         "slot": 3,
         "channel": "graph"
       }
     ],
     "breakdowns": [
       {
-        "cellId": "5e5f5321d0859eeb",
+        "cellId": "985fd648953c71a2",
         "parts": {
           "sim": 1,
-          "recency": 0.3499999991855281,
-          "freq": 0.11811773901697975,
+          "recency": 0.34999999952489136,
+          "freq": 0.12155946952413321,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
@@ -3546,8 +3772,8 @@
         },
         "raw": {
           "sim": 1,
-          "recency": 0.9999999976729375,
-          "freq": 0.5905886950848988,
+          "recency": 0.9999999986425469,
+          "freq": 0.6077973476206661,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
@@ -3562,32 +3788,32 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 1.808117738202508,
+        "rawSum": 1.8115594690490247,
         "activeW": 2.6,
-        "score": 0.6954298993086568,
+        "score": 0.6967536419419326,
         "slot": 0,
         "channel": "semantic",
         "notes": []
       },
       {
-        "cellId": "748f8ef35bb7306c",
+        "cellId": "3c434e6a436968ce",
         "parts": {
           "sim": 1,
-          "recency": 0.34999999615388283,
+          "recency": 0.34999999779413865,
           "freq": 0,
-          "affect": 0.2155511811023622,
+          "affect": 0.2047244094488189,
           "goal": 0,
           "cue": 0.09,
-          "interf": 0
+          "interf": -0.007042253521126761
         },
         "raw": {
           "sim": 1,
-          "recency": 0.9999999890110939,
+          "recency": 0.9999999936975391,
           "freq": 0,
-          "affect": 0.8622047244094488,
+          "affect": 0.8188976377952756,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0
+          "interf": 0.014084507042253521
         },
         "weights": {
           "sim": 1,
@@ -3598,70 +3824,34 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 1.6555511772562452,
+        "rawSum": 1.637682153721831,
         "activeW": 2.6,
-        "score": 0.6367504527908635,
+        "score": 0.6298777514314734,
         "slot": 0,
         "channel": "semantic",
-        "notes": []
-      },
-      {
-        "cellId": "b39e4d0297cd6733",
-        "parts": {
-          "sim": 0.5,
-          "recency": 0.34999999980995655,
-          "freq": 0.12765158672529414,
-          "affect": 0.25,
-          "goal": 0,
-          "cue": 0.09,
-          "interf": -0.06349206349206349
-        },
-        "raw": {
-          "sim": 0.5,
-          "recency": 0.9999999994570188,
-          "freq": 0.6382579336264707,
-          "affect": 1,
-          "goal": 0,
-          "cue": 0.3,
-          "interf": 0.12698412698412698
-        },
-        "weights": {
-          "sim": 1,
-          "recency": 0.35,
-          "freq": 0.2,
-          "affect": 0.25,
-          "goal": 0,
-          "cue": 0.3,
-          "interf": 0.5
-        },
-        "rawSum": 1.2541595230431872,
-        "activeW": 2.6,
-        "score": 0.48236904732430275,
-        "slot": 1,
-        "channel": "graph",
         "notes": [
-          "与 9eeb 冗余 0.13"
+          "与 71a2 冗余 0.01"
         ]
       },
       {
-        "cellId": "e90dd1fe3cc68750",
+        "cellId": "474a59539d822abc",
         "parts": {
-          "sim": 0.4640625,
-          "recency": 0.3499999991855281,
-          "freq": 0.12466515640448857,
-          "affect": 0.25,
+          "sim": 0.47439590542615184,
+          "recency": 0.34999999952489136,
+          "freq": 0.17,
+          "affect": 0.18208661417322836,
           "goal": 0,
           "cue": 0.09,
-          "interf": -0.10126582278481013
+          "interf": -0.21818181818181817
         },
         "raw": {
-          "sim": 0.4640625,
-          "recency": 0.9999999976729375,
-          "freq": 0.6233257820224428,
-          "affect": 1,
+          "sim": 0.47439590542615184,
+          "recency": 0.9999999986425469,
+          "freq": 0.85,
+          "affect": 0.7283464566929134,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0.20253164556962025
+          "interf": 0.43636363636363634
         },
         "weights": {
           "sim": 1,
@@ -3672,34 +3862,72 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 1.1774618328052064,
+        "rawSum": 1.0483007009424534,
         "activeW": 2.6,
-        "score": 0.45286993569431017,
+        "score": 0.403192577285559,
+        "slot": 1,
+        "channel": "semantic",
+        "notes": [
+          "与 71a2 冗余 0.44"
+        ]
+      },
+      {
+        "cellId": "e282cc8b5f65b3a6",
+        "parts": {
+          "sim": 0.4265625,
+          "recency": 0.34999999868553283,
+          "freq": 0.10391474129648814,
+          "affect": 0.25,
+          "goal": 0,
+          "cue": 0.09,
+          "interf": -0.07258064516129033
+        },
+        "raw": {
+          "sim": 0.4265625,
+          "recency": 0.9999999962443796,
+          "freq": 0.5195737064824407,
+          "affect": 1,
+          "goal": 0,
+          "cue": 0.3,
+          "interf": 0.14516129032258066
+        },
+        "weights": {
+          "sim": 1,
+          "recency": 0.35,
+          "freq": 0.2,
+          "affect": 0.25,
+          "goal": 0,
+          "cue": 0.3,
+          "interf": 0.5
+        },
+        "rawSum": 1.1478965948207307,
+        "activeW": 2.6,
+        "score": 0.44149869031566563,
         "slot": 2,
         "channel": "graph",
         "notes": [
-          "与 9eeb 冗余 0.20"
+          "与 2abc 冗余 0.15"
         ]
       },
       {
-        "cellId": "27c806305bae3f93",
+        "cellId": "9cdd97c4b37e744a",
         "parts": {
-          "sim": 0.4265625,
-          "recency": 0.3499999916516635,
-          "freq": 0.09978439716109563,
+          "sim": 0.39375,
+          "recency": 0.34999999952489136,
+          "freq": 0.13592836509404368,
           "affect": 0.25,
           "goal": 0,
           "cue": 0.09,
-          "interf": -0.16666666666666666
+          "interf": -0.10256410256410256
         },
         "raw": {
-          "sim": 0.4265625,
-          "recency": 0.9999999761476102,
-          "freq": 0.49892198580547814,
+          "sim": 0.39375,
+          "recency": 0.9999999986425469,
+          "freq": 0.6796418254702185,
           "affect": 1,
           "goal": 0,
           "cue": 0.3,
-          "interf": 0.3333333333333333
+          "interf": 0.20512820512820512
         },
         "weights": {
           "sim": 1,
@@ -3710,17 +3938,17 @@
           "cue": 0.3,
           "interf": 0.5
         },
-        "rawSum": 1.0496802221460926,
+        "rawSum": 1.1171142620548324,
         "activeW": 2.6,
-        "score": 0.4037231623638817,
+        "score": 0.42965933155955094,
         "slot": 3,
         "channel": "graph",
         "notes": [
-          "与 6733 冗余 0.33"
+          "与 2abc 冗余 0.21"
         ]
       }
     ],
-    "rendered": "M:9eeb|T:1031|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.81\nM:306c|T:1031|P:i|F:pref|K:用户=prefers|V:+0.28|S:0.84|C:0.79\nM:6733|T:1031|P:u|F:proc|K:credentials.json=states|V:0|S:0.77|C:0.78\nM:8750|T:1017|P:u|F:fact|K:v2=decides,qty=2,t=2026-10-17|V:0|S:0.77|C:0.92\nM:3f93|T:1031|P:u|F:fact|K:叫阿哲=states|V:0|S:0.77|C:0.78"
+    "rendered": "M:71a2|T:1102|P:u|F:pref|K:主题=深色主题|V:0|S:0.77|C:0.81\nM:68ce|T:1102|P:i|F:pref|K:用户=prefers|V:+0.36|S:0.88|C:0.79\nM:2abc|T:1103|P:u|F:pref|K:字体=无衬线字体|V:+0.54|S:0.88|C:0.76\nM:b3a6|T:1102|P:u|F:proc|K:credentials.json=states|V:0|S:0.77|C:0.78\nM:744a|T:1019|P:u|F:fact|K:v2=decides,qty=2,t=2026-10-19|V:0|S:0.77|C:0.92"
   },
   "evictions": [],
   "proactive": {
@@ -3736,10 +3964,10 @@
     "nextEligibleAt": 2700000,
     "lastCandidate": {
       "text": "（主动）他上次聊得很起劲（约 28 小时前：「另外我喜欢把日志放在 stderr，stdout 留给数据。」）。可以顺着那件事问一句进展，语气轻松些。",
-      "reason": "未平复的情绪事件（强度 0.80）",
+      "reason": "未平复的情绪事件（强度 0.92）",
       "kind": "emotion",
       "cellIds": [],
-      "urgency": 0.8783849976270657
+      "urgency": 0.9510306013467106
     },
     "skipped": []
   },
@@ -3751,13 +3979,13 @@
     "surfaceMode": "rows",
     "ignition": 0.42,
     "embDim": 256,
-    "embStoreDim": 128,
+    "embStoreDim": 64,
     "layoutVersion": 3,
     "ann": {
       "enabled": true,
       "mode": "exact",
       "size": 0,
-      "threshold": 2000
+      "threshold": 20000
     },
     "l1": {
       "enabled": false,
@@ -3793,10 +4021,10 @@
     ]
   },
   "index": {
-    "builtAt": 1793389304923,
+    "builtAt": 1793599304726,
     "status": "ok",
     "path": ":memory:",
-    "entries": 28,
+    "entries": 29,
     "lastRebuildAt": 0
   },
   "tags": [
@@ -3926,7 +4154,7 @@
     {
       "key": "knowledge",
       "label": "知识",
-      "count": 24
+      "count": 25
     },
     {
       "key": "lesson",
@@ -3941,12 +4169,12 @@
   ],
   "recentNew": [
     {
-      "cellId": "a83a33c2aaaf8c66",
-      "shortId": "8c66",
+      "cellId": "d94b30bee64637e2",
+      "shortId": "37e2",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793482904336,
+      "tFrom": 1793692904368,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -3991,12 +4219,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "02304549114b1fa6",
-      "shortId": "1fa6",
+      "cellId": "b10543ef87dbeae9",
+      "shortId": "eae9",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793475704336,
+      "tFrom": 1793685704368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -4051,12 +4279,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "7c0e2bdc42d37048",
-      "shortId": "7048",
+      "cellId": "925f37c9240ef7c1",
+      "shortId": "f7c1",
       "kind": 2,
       "kindName": "procedure",
       "tier": 4,
-      "tFrom": 1793472104336,
+      "tFrom": 1793682104368,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -4106,16 +4334,16 @@
       "accessCount": 0
     },
     {
-      "cellId": "53a2906ef6d65999",
-      "shortId": "5999",
+      "cellId": "86502a1089531265",
+      "shortId": "1265",
       "kind": 1,
       "kindName": "semantic",
-      "tier": 3,
-      "tFrom": 1793468504336,
+      "tier": 1,
+      "tFrom": 1793678504368,
       "valence": 0.5354330708661418,
-      "arousal": 0.6299212598425197,
-      "salience": 0.8431372549019608,
-      "importance": 0.8223086900129701,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.8321660181582361,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -4166,12 +4394,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "93f56cd4e2fc05cf",
-      "shortId": "05cf",
+      "cellId": "ba2b773b0ef8342f",
+      "shortId": "342f",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793464904336,
+      "tFrom": 1793674904368,
       "valence": 0,
       "arousal": 0.5748031496062992,
       "salience": 0.7686274509803922,
@@ -4216,12 +4444,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "75f94bd2642d3e8d",
-      "shortId": "3e8d",
+      "cellId": "4a765aa1435a41ba",
+      "shortId": "41ba",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793457704336,
+      "tFrom": 1793667704368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -4282,12 +4510,12 @@
   ],
   "recentUpdated": [
     {
-      "cellId": "5e5f5321d0859eeb",
-      "shortId": "9eeb",
+      "cellId": "985fd648953c71a2",
+      "shortId": "71a2",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793400104336,
+      "tFrom": 1793610104368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -4339,15 +4567,15 @@
       ],
       "residualChars": 54,
       "stability": 7,
-      "accessCount": 15
+      "accessCount": 14
     },
     {
-      "cellId": "b39e4d0297cd6733",
-      "shortId": "6733",
+      "cellId": "e282cc8b5f65b3a6",
+      "shortId": "b3a6",
       "kind": 2,
       "kindName": "procedure",
       "tier": 1,
-      "tFrom": 1793407304336,
+      "tFrom": 1793617304368,
       "valence": 0,
       "arousal": 0.5905511811023622,
       "salience": 0.7725490196078432,
@@ -4394,15 +4622,15 @@
       ],
       "residualChars": 70,
       "stability": 30,
-      "accessCount": 13
+      "accessCount": 11
     },
     {
-      "cellId": "e90dd1fe3cc68750",
-      "shortId": "8750",
+      "cellId": "9cdd97c4b37e744a",
+      "shortId": "744a",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1792201304336,
+      "tFrom": 1792411304368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -4430,7 +4658,7 @@
         ],
         [
           "t",
-          "2026-10-17"
+          "2026-10-19"
         ]
       ],
       "slots": [
@@ -4457,7 +4685,7 @@
         {
           "role": 4,
           "type": "LIT",
-          "value": "2026-10-17"
+          "value": "2026-10-19"
         },
         {
           "role": 8,
@@ -4472,19 +4700,74 @@
       ],
       "residualChars": 67,
       "stability": 7,
-      "accessCount": 11
+      "accessCount": 10
     },
     {
-      "cellId": "27c806305bae3f93",
-      "shortId": "3f93",
+      "cellId": "5fcffa6d6b48488f",
+      "shortId": "488f",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793392904336,
+      "tFrom": 1793606504368,
+      "valence": 0,
+      "arousal": 0.5905511811023622,
+      "salience": 0.7725490196078432,
+      "importance": 0.6426794842450599,
+      "support": 1,
+      "confidence": 0.775,
+      "provenance": 0,
+      "trust": 240,
+      "changed": false,
+      "pinned": false,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
+      "lens": "bond",
+      "emotional": false,
+      "digest": "我们的仓库叫 dsh-ui，主要用 TypeScript 和 React。",
+      "kv": [
+        [
+          "TypeScript",
+          "uses"
+        ]
+      ],
+      "slots": [
+        {
+          "role": 1,
+          "type": "LIT",
+          "value": "用户"
+        },
+        {
+          "role": 3,
+          "type": "LIT",
+          "value": "uses"
+        },
+        {
+          "role": 2,
+          "type": "LIT",
+          "value": "TypeScript"
+        },
+        {
+          "role": 9,
+          "type": "LIT",
+          "value": "pos"
+        }
+      ],
+      "residualChars": 61,
+      "stability": 7,
+      "accessCount": 8
+    },
+    {
+      "cellId": "72c7454c0dda50e1",
+      "shortId": "50e1",
+      "kind": 2,
+      "kindName": "procedure",
+      "tier": 1,
+      "tFrom": 1793628104368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
-      "importance": 0.6422980086976425,
+      "importance": 0.6424811169604029,
       "support": 1,
       "confidence": 0.775,
       "provenance": 0,
@@ -4496,11 +4779,11 @@
       "tInvalid": 0,
       "lens": "fact",
       "emotional": false,
-      "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
+      "digest": "以后不要在我没确认的情况下直接改 package.json。",
       "kv": [
         [
-          "叫阿哲",
-          "states"
+          "package.json",
+          "changes"
         ]
       ],
       "slots": [
@@ -4512,50 +4795,50 @@
         {
           "role": 3,
           "type": "LIT",
-          "value": "states"
+          "value": "changes"
         },
         {
           "role": 2,
           "type": "LIT",
-          "value": "叫阿哲"
+          "value": "package.json"
         },
         {
           "role": 9,
           "type": "LIT",
-          "value": "pos"
+          "value": "neg"
         }
       ],
-      "residualChars": 69,
-      "stability": 7,
-      "accessCount": 10
+      "residualChars": 64,
+      "stability": 30,
+      "accessCount": 6
     },
     {
-      "cellId": "d26e661589d7966a",
-      "shortId": "966a",
+      "cellId": "474a59539d822abc",
+      "shortId": "2abc",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793403704336,
+      "tFrom": 1793635304368,
       "valence": 0.5433070866141733,
-      "arousal": 0.6220472440944882,
-      "salience": 0.8392156862745098,
-      "importance": 0.4930342565041581,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.8318608377203022,
       "support": 1,
-      "confidence": 0.80625,
+      "confidence": 0.75825,
       "provenance": 0,
       "trust": 240,
-      "changed": true,
+      "changed": false,
       "pinned": false,
-      "disputed": true,
-      "invalidated": true,
-      "tInvalid": 1793425304336,
+      "disputed": false,
+      "invalidated": false,
+      "tInvalid": 0,
       "lens": "feeling",
       "emotional": true,
-      "digest": "字体我也偏好等宽，读代码更舒服。",
+      "digest": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
       "kv": [
         [
           "字体",
-          "等宽"
+          "无衬线字体"
         ]
       ],
       "slots": [
@@ -4577,67 +4860,7 @@
         {
           "role": 2,
           "type": "LIT",
-          "value": "等宽"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "pos"
-        }
-      ],
-      "residualChars": 48,
-      "stability": 7,
-      "accessCount": 4
-    },
-    {
-      "cellId": "72c7706e804e6264",
-      "shortId": "6264",
-      "kind": 1,
-      "kindName": "semantic",
-      "tier": 1,
-      "tFrom": 1793450504336,
-      "valence": 0,
-      "arousal": 0.5826771653543307,
-      "salience": 0.7686274509803922,
-      "importance": 0.6422674906538491,
-      "support": 1,
-      "confidence": 0.80625,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "团队里小王负责设计系统，他偏好更克制的配色。",
-      "kv": [
-        [
-          "配色",
-          "更克制的配色"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "prefers"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "配色"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "更克制的配色"
+          "value": "无衬线字体"
         },
         {
           "role": 9,
@@ -4647,21 +4870,21 @@
       ],
       "residualChars": 66,
       "stability": 7,
-      "accessCount": 3
+      "accessCount": 4
     }
   ],
   "pending": [
     {
-      "cellId": "d26e661589d7966a",
-      "shortId": "966a",
+      "cellId": "8908e95d7543295f",
+      "shortId": "295f",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793403704336,
+      "tFrom": 1793613704368,
       "valence": 0.5433070866141733,
-      "arousal": 0.6220472440944882,
-      "salience": 0.8392156862745098,
-      "importance": 0.4930342565041581,
+      "arousal": 0.7480314960629921,
+      "salience": 0.8823529411764706,
+      "importance": 0.4989852750438697,
       "support": 1,
       "confidence": 0.80625,
       "provenance": 0,
@@ -4670,7 +4893,7 @@
       "pinned": false,
       "disputed": true,
       "invalidated": true,
-      "tInvalid": 1793425304336,
+      "tInvalid": 1793635304368,
       "lens": "feeling",
       "emotional": true,
       "digest": "字体我也偏好等宽，读代码更舒服。",
@@ -4709,15 +4932,15 @@
       ],
       "residualChars": 48,
       "stability": 7,
-      "accessCount": 4
+      "accessCount": 3
     },
     {
-      "cellId": "02304549114b1fa6",
-      "shortId": "1fa6",
+      "cellId": "b10543ef87dbeae9",
+      "shortId": "eae9",
       "kind": 1,
       "kindName": "semantic",
       "tier": 4,
-      "tFrom": 1793475704336,
+      "tFrom": 1793685704368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -4772,12 +4995,12 @@
       "accessCount": 0
     },
     {
-      "cellId": "881d3c67f7740454",
-      "shortId": "0454",
+      "cellId": "b01e933bc20bba19",
+      "shortId": "ba19",
       "kind": 1,
       "kindName": "semantic",
       "tier": 1,
-      "tFrom": 1793454104336,
+      "tFrom": 1793664104368,
       "valence": 0,
       "arousal": 0.5826771653543307,
       "salience": 0.7686274509803922,
@@ -4834,82 +5057,22 @@
       "residualChars": 59,
       "stability": 7,
       "accessCount": 0
-    },
-    {
-      "cellId": "6f3ed0f53cc37ade",
-      "shortId": "7ade",
-      "kind": 2,
-      "kindName": "procedure",
-      "tier": 1,
-      "tFrom": 1793428904336,
-      "valence": 0,
-      "arousal": 0.5826771653543307,
-      "salience": 0.7686274509803922,
-      "importance": 0.6422980086976425,
-      "support": 1,
-      "confidence": 0.80625,
-      "provenance": 0,
-      "trust": 240,
-      "changed": false,
-      "pinned": false,
-      "disputed": false,
-      "invalidated": false,
-      "tInvalid": 0,
-      "lens": "fact",
-      "emotional": false,
-      "digest": "记住：部署脚本要用 pnpm，不要用 npm。",
-      "kv": [
-        [
-          "部署",
-          "pnpm"
-        ]
-      ],
-      "slots": [
-        {
-          "role": 1,
-          "type": "LIT",
-          "value": "用户"
-        },
-        {
-          "role": 3,
-          "type": "LIT",
-          "value": "uses"
-        },
-        {
-          "role": 6,
-          "type": "LIT",
-          "value": "部署"
-        },
-        {
-          "role": 2,
-          "type": "LIT",
-          "value": "pnpm"
-        },
-        {
-          "role": 9,
-          "type": "LIT",
-          "value": "neg"
-        }
-      ],
-      "residualChars": 51,
-      "stability": 30,
-      "accessCount": 2
     }
   ],
   "consolidation": {
-    "at": 1793389304782,
-    "merged": 1,
+    "at": 1793599304632,
+    "merged": 2,
     "abstracted": 1,
     "pruned": 0,
     "decayed": 1,
-    "elapsedMs": 34
+    "elapsedMs": 22
   },
   "retention": {
     "byDisposition": {
-      "P5": 22,
+      "P5": 24,
       "P4": 0,
       "P3": 0,
-      "P2": 1,
+      "P2": 0,
       "P1": 5
     },
     "floors": {
@@ -4920,8 +5083,8 @@
     },
     "entries": [
       {
-        "cellId": "77149780856d86ac",
-        "shortId": "86ac",
+        "cellId": "48d660ec2aa7505b",
+        "shortId": "505b",
         "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「自动生成的 commit mes」",
         "kind": 6,
         "tier": 1,
@@ -4933,7 +5096,7 @@
         "parts": {
           "activation": 1,
           "importance": 0.8500038147554742,
-          "affectIntensity": 0.6299212598425197,
+          "affectIntensity": 0.7480314960629921,
           "connectivity": 1,
           "narrativeRole": 1,
           "userAffinity": 1,
@@ -4943,7 +5106,7 @@
         "contributions": {
           "activation": 0.3,
           "importance": 0.2210009918364233,
-          "affectIntensity": 0.15118110236220472,
+          "affectIntensity": 0.1795275590551181,
           "connectivity": 0.1,
           "narrativeRole": 0.12,
           "userAffinity": 0.2,
@@ -4954,20 +5117,20 @@
         "why": "用户 pin：不参与自动清理"
       },
       {
-        "cellId": "748f8ef35bb7306c",
-        "shortId": "306c",
-        "digest": "抽象：用户 prefers ×4",
+        "cellId": "3c434e6a436968ce",
+        "shortId": "68ce",
+        "digest": "抽象：用户 prefers ×3",
         "kind": 3,
         "tier": 1,
-        "score": 0.946,
+        "score": 0.96,
         "disposition": "P5",
         "protectedBy": "用户 pin",
         "invalid": false,
         "stale": 1,
         "parts": {
           "activation": 1,
-          "importance": 0.8219729915312428,
-          "affectIntensity": 0.6062992125984252,
+          "importance": 0.8318608377203022,
+          "affectIntensity": 0.6929133858267716,
           "connectivity": 1,
           "narrativeRole": 0,
           "userAffinity": 1,
@@ -4976,8 +5139,8 @@
         },
         "contributions": {
           "activation": 0.3,
-          "importance": 0.21371297779812315,
-          "affectIntensity": 0.14551181102362204,
+          "importance": 0.21628381780727857,
+          "affectIntensity": 0.1662992125984252,
           "connectivity": 0.1,
           "narrativeRole": 0,
           "userAffinity": 0.2,
@@ -4986,6 +5149,40 @@
         },
         "anniversary": 0,
         "why": "用户 pin：不参与自动清理"
+      },
+      {
+        "cellId": "474a59539d822abc",
+        "shortId": "2abc",
+        "digest": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.944,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "invalid": false,
+        "stale": 1,
+        "parts": {
+          "activation": 1,
+          "importance": 0.8318608377203022,
+          "affectIntensity": 0.7480314960629921,
+          "connectivity": 1,
+          "narrativeRole": 0,
+          "userAffinity": 0.7,
+          "spacing": 0.2563703661256372,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.21628381780727857,
+          "affectIntensity": 0.1795275590551181,
+          "connectivity": 0.1,
+          "narrativeRole": 0,
+          "userAffinity": 0.13999999999999999,
+          "spacing": 0.020509629290050974,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
       },
       {
         "cellId": "ff466a57a99b4138",
@@ -5022,20 +5219,20 @@
         "why": "用户 pin：不参与自动清理"
       },
       {
-        "cellId": "7cb7538d1e8efbe3",
-        "shortId": "fbe3",
-        "digest": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
+        "cellId": "8b03b496a1803f07",
+        "shortId": "3f07",
+        "digest": "CI 现在跑 6 分钟，主要是 e2e 太慢。",
         "kind": 1,
         "tier": 1,
-        "score": 0.923,
+        "score": 0.942,
         "disposition": "P5",
         "protectedBy": "情感记忆（闪光灯）",
         "invalid": false,
         "stale": 1,
         "parts": {
           "activation": 1,
-          "importance": 0.8219729915312428,
-          "affectIntensity": 0.6299212598425197,
+          "importance": 0.8319066147859923,
+          "affectIntensity": 0.7480314960629921,
           "connectivity": 1,
           "narrativeRole": 0,
           "userAffinity": 0.7,
@@ -5044,8 +5241,8 @@
         },
         "contributions": {
           "activation": 0.3,
-          "importance": 0.21371297779812315,
-          "affectIntensity": 0.15118110236220472,
+          "importance": 0.216295719844358,
+          "affectIntensity": 0.1795275590551181,
           "connectivity": 0.1,
           "narrativeRole": 0,
           "userAffinity": 0.13999999999999999,
@@ -5056,88 +5253,20 @@
         "why": "情感记忆（闪光灯）：不参与自动清理"
       },
       {
-        "cellId": "3abe252a46b6ee70",
-        "shortId": "ee70",
-        "digest": "CI 现在跑 6 分钟，主要是 e2e 太慢。",
-        "kind": 1,
-        "tier": 1,
-        "score": 0.921,
-        "disposition": "P5",
-        "protectedBy": "情感记忆（闪光灯）",
-        "invalid": false,
-        "stale": 1,
-        "parts": {
-          "activation": 1,
-          "importance": 0.8220187685969329,
-          "affectIntensity": 0.6299212598425197,
-          "connectivity": 1,
-          "narrativeRole": 0,
-          "userAffinity": 0.7,
-          "spacing": 0.17499999999999996,
-          "redundancy": 0
-        },
-        "contributions": {
-          "activation": 0.3,
-          "importance": 0.21372487983520255,
-          "affectIntensity": 0.15118110236220472,
-          "connectivity": 0.1,
-          "narrativeRole": 0,
-          "userAffinity": 0.13999999999999999,
-          "spacing": 0.013999999999999997,
-          "redundancy": 0
-        },
-        "anniversary": 0,
-        "why": "情感记忆（闪光灯）：不参与自动清理"
-      },
-      {
-        "cellId": "6c930a578fbaaedf",
-        "shortId": "aedf",
-        "digest": "我不喜欢自动生成的 commit message，太啰嗦。",
-        "kind": 1,
-        "tier": 1,
-        "score": 0.921,
-        "disposition": "P5",
-        "protectedBy": "情感记忆（闪光灯）",
-        "invalid": false,
-        "stale": 1,
-        "parts": {
-          "activation": 1,
-          "importance": 0.82226291294728,
-          "affectIntensity": 0.6299212598425197,
-          "connectivity": 1,
-          "narrativeRole": 0,
-          "userAffinity": 0.7,
-          "spacing": 0.17499999999999996,
-          "redundancy": 0
-        },
-        "contributions": {
-          "activation": 0.3,
-          "importance": 0.2137883573662928,
-          "affectIntensity": 0.15118110236220472,
-          "connectivity": 0.1,
-          "narrativeRole": 0,
-          "userAffinity": 0.13999999999999999,
-          "spacing": 0.013999999999999997,
-          "redundancy": 0
-        },
-        "anniversary": 0,
-        "why": "情感记忆（闪光灯）：不参与自动清理"
-      },
-      {
-        "cellId": "cb9b31a87cea4e40",
-        "shortId": "4e40",
+        "cellId": "37beaf15470ff877",
+        "shortId": "f877",
         "digest": "我现在有点烦，构建又挂了。",
         "kind": 1,
         "tier": 1,
-        "score": 0.92,
+        "score": 0.94,
         "disposition": "P5",
         "protectedBy": "情感记忆（闪光灯）",
         "invalid": false,
         "stale": 1,
         "parts": {
           "activation": 1,
-          "importance": 0.8216067750057221,
-          "affectIntensity": 0.6220472440944882,
+          "importance": 0.8315403982604715,
+          "affectIntensity": 0.7480314960629921,
           "connectivity": 1,
           "narrativeRole": 0,
           "userAffinity": 0.7,
@@ -5146,8 +5275,8 @@
         },
         "contributions": {
           "activation": 0.3,
-          "importance": 0.21361776150148776,
-          "affectIntensity": 0.14929133858267715,
+          "importance": 0.2162005035477226,
+          "affectIntensity": 0.1795275590551181,
           "connectivity": 0.1,
           "narrativeRole": 0,
           "userAffinity": 0.13999999999999999,
@@ -5158,8 +5287,110 @@
         "why": "情感记忆（闪光灯）：不参与自动清理"
       },
       {
-        "cellId": "b39e4d0297cd6733",
-        "shortId": "6733",
+        "cellId": "ec34a98bfef390c7",
+        "shortId": "90c7",
+        "digest": "我不喜欢自动生成的 commit message，太啰嗦。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.94,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "invalid": false,
+        "stale": 1,
+        "parts": {
+          "activation": 1,
+          "importance": 0.832120241092546,
+          "affectIntensity": 0.7480314960629921,
+          "connectivity": 1,
+          "narrativeRole": 0,
+          "userAffinity": 0.7,
+          "spacing": 0.17499999999999996,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.21635126268406196,
+          "affectIntensity": 0.1795275590551181,
+          "connectivity": 0.1,
+          "narrativeRole": 0,
+          "userAffinity": 0.13999999999999999,
+          "spacing": 0.013999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      },
+      {
+        "cellId": "5d076e31af13ef9d",
+        "shortId": "ef9d",
+        "digest": "抽象：用户 states ×3",
+        "kind": 3,
+        "tier": 1,
+        "score": 0.936,
+        "disposition": "P5",
+        "protectedBy": "用户 pin",
+        "invalid": false,
+        "stale": 1,
+        "parts": {
+          "activation": 1,
+          "importance": 0.8315403982604715,
+          "affectIntensity": 0.6377952755905512,
+          "connectivity": 0.7324867603589634,
+          "narrativeRole": 0,
+          "userAffinity": 1,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.2162005035477226,
+          "affectIntensity": 0.15307086614173226,
+          "connectivity": 0.07324867603589634,
+          "narrativeRole": 0,
+          "userAffinity": 0.2,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户 pin：不参与自动清理"
+      },
+      {
+        "cellId": "259fc1225d4d560e",
+        "shortId": "560e",
+        "digest": "关系模型 trust=0.00 attune=0.65 turns=26",
+        "kind": 5,
+        "tier": 1,
+        "score": 0.898,
+        "disposition": "P5",
+        "protectedBy": "用户 pin",
+        "invalid": false,
+        "stale": 1,
+        "parts": {
+          "activation": 1,
+          "importance": 0.9000076295109484,
+          "affectIntensity": 0,
+          "connectivity": 1,
+          "narrativeRole": 0.4,
+          "userAffinity": 1,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.23400198367284658,
+          "affectIntensity": 0,
+          "connectivity": 0.1,
+          "narrativeRole": 0.048,
+          "userAffinity": 0.2,
+          "spacing": 0,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户 pin：不参与自动清理"
+      },
+      {
+        "cellId": "e282cc8b5f65b3a6",
+        "shortId": "b3a6",
         "digest": "API key 存在 ~/.config/dsh/credentials.json 里，别写进代码。",
         "kind": 2,
         "tier": 1,
@@ -5192,8 +5423,42 @@
         "why": "用户亲口确认过的一手事实：不参与自动清理"
       },
       {
-        "cellId": "5e5f5321d0859eeb",
-        "shortId": "9eeb",
+        "cellId": "5fcffa6d6b48488f",
+        "shortId": "488f",
+        "digest": "我们的仓库叫 dsh-ui，主要用 TypeScript 和 React。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.895,
+        "disposition": "P5",
+        "protectedBy": "用户亲口确认过的一手事实",
+        "invalid": false,
+        "stale": 1,
+        "parts": {
+          "activation": 1,
+          "importance": 0.6426794842450599,
+          "affectIntensity": 0.5905511811023622,
+          "connectivity": 1,
+          "narrativeRole": 0,
+          "userAffinity": 0.7,
+          "spacing": 0.35,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16709666590371558,
+          "affectIntensity": 0.1417322834645669,
+          "connectivity": 0.1,
+          "narrativeRole": 0,
+          "userAffinity": 0.13999999999999999,
+          "spacing": 0.027999999999999997,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口确认过的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "985fd648953c71a2",
+        "shortId": "71a2",
         "digest": "我习惯用深色主题，浅色看久了眼睛疼。",
         "kind": 1,
         "tier": 1,
@@ -5226,42 +5491,8 @@
         "why": "用户亲口确认过的一手事实：不参与自动清理"
       },
       {
-        "cellId": "27c806305bae3f93",
-        "shortId": "3f93",
-        "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
-        "kind": 1,
-        "tier": 1,
-        "score": 0.894,
-        "disposition": "P5",
-        "protectedBy": "用户亲口确认过的一手事实",
-        "invalid": false,
-        "stale": 1,
-        "parts": {
-          "activation": 1,
-          "importance": 0.6422980086976425,
-          "affectIntensity": 0.5826771653543307,
-          "connectivity": 1,
-          "narrativeRole": 0,
-          "userAffinity": 0.7,
-          "spacing": 0.35,
-          "redundancy": 0
-        },
-        "contributions": {
-          "activation": 0.3,
-          "importance": 0.16699748226138705,
-          "affectIntensity": 0.13984251968503936,
-          "connectivity": 0.1,
-          "narrativeRole": 0,
-          "userAffinity": 0.13999999999999999,
-          "spacing": 0.027999999999999997,
-          "redundancy": 0
-        },
-        "anniversary": 0,
-        "why": "用户亲口确认过的一手事实：不参与自动清理"
-      },
-      {
-        "cellId": "e90dd1fe3cc68750",
-        "shortId": "8750",
+        "cellId": "9cdd97c4b37e744a",
+        "shortId": "744a",
         "digest": "上周三我们在评审会上决定 V2 的缓存方案先回滚。",
         "kind": 1,
         "tier": 1,
@@ -5294,9 +5525,77 @@
         "why": "用户亲口确认过的一手事实：不参与自动清理"
       },
       {
-        "cellId": "72c7706e804e6264",
-        "shortId": "6264",
-        "digest": "团队里小王负责设计系统，他偏好更克制的配色。",
+        "cellId": "72c7454c0dda50e1",
+        "shortId": "50e1",
+        "digest": "以后不要在我没确认的情况下直接改 package.json。",
+        "kind": 2,
+        "tier": 1,
+        "score": 0.892,
+        "disposition": "P5",
+        "protectedBy": "用户亲口确认过的一手事实",
+        "invalid": false,
+        "stale": 1,
+        "parts": {
+          "activation": 1,
+          "importance": 0.6424811169604029,
+          "affectIntensity": 0.5826771653543307,
+          "connectivity": 1,
+          "narrativeRole": 0,
+          "userAffinity": 0.7,
+          "spacing": 0.30996765610324883,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.16704509040970475,
+          "affectIntensity": 0.13984251968503936,
+          "connectivity": 0.1,
+          "narrativeRole": 0,
+          "userAffinity": 0.13999999999999999,
+          "spacing": 0.024797412488259906,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "用户亲口确认过的一手事实：不参与自动清理"
+      },
+      {
+        "cellId": "8908e95d7543295f",
+        "shortId": "295f",
+        "digest": "字体我也偏好等宽，读代码更舒服。",
+        "kind": 1,
+        "tier": 1,
+        "score": 0.889,
+        "disposition": "P5",
+        "protectedBy": "情感记忆（闪光灯）",
+        "invalid": false,
+        "stale": 1,
+        "parts": {
+          "activation": 1,
+          "importance": 0.4989852750438697,
+          "affectIntensity": 0.7480314960629921,
+          "connectivity": 1,
+          "narrativeRole": 0,
+          "userAffinity": 0.7,
+          "spacing": 0.22082541375001008,
+          "redundancy": 0
+        },
+        "contributions": {
+          "activation": 0.3,
+          "importance": 0.12973617151140612,
+          "affectIntensity": 0.1795275590551181,
+          "connectivity": 0.1,
+          "narrativeRole": 0,
+          "userAffinity": 0.13999999999999999,
+          "spacing": 0.017666033100000807,
+          "redundancy": 0
+        },
+        "anniversary": 0,
+        "why": "情感记忆（闪光灯）：不参与自动清理"
+      },
+      {
+        "cellId": "a62a08215e63bc4c",
+        "shortId": "bc4c",
+        "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
         "kind": 1,
         "tier": 1,
         "score": 0.887,
@@ -5306,7 +5605,7 @@
         "stale": 1,
         "parts": {
           "activation": 1,
-          "importance": 0.6422674906538491,
+          "importance": 0.6422980086976425,
           "affectIntensity": 0.5826771653543307,
           "connectivity": 1,
           "narrativeRole": 0,
@@ -5316,7 +5615,7 @@
         },
         "contributions": {
           "activation": 0.3,
-          "importance": 0.16698954757000078,
+          "importance": 0.16699748226138705,
           "affectIntensity": 0.13984251968503936,
           "connectivity": 0.1,
           "narrativeRole": 0,
@@ -5328,42 +5627,8 @@
         "why": "用户亲口确认过的一手事实：不参与自动清理"
       },
       {
-        "cellId": "e8c01eb3ce97d5cd",
-        "shortId": "d5cd",
-        "digest": "我们的仓库叫 dsh-ui，主要用 TypeScript 和 React。",
-        "kind": 1,
-        "tier": 1,
-        "score": 0.886,
-        "disposition": "P5",
-        "protectedBy": null,
-        "invalid": false,
-        "stale": 1,
-        "parts": {
-          "activation": 1,
-          "importance": 0.6426794842450599,
-          "affectIntensity": 0.5905511811023622,
-          "connectivity": 1,
-          "narrativeRole": 0,
-          "userAffinity": 0.7,
-          "spacing": 0.17499999999999996,
-          "redundancy": 0
-        },
-        "contributions": {
-          "activation": 0.3,
-          "importance": 0.16709666590371558,
-          "affectIntensity": 0.1417322834645669,
-          "connectivity": 0.1,
-          "narrativeRole": 0,
-          "userAffinity": 0.13999999999999999,
-          "spacing": 0.013999999999999997,
-          "redundancy": 0
-        },
-        "anniversary": 0,
-        "why": "保留度 0.89：主要靠频率与近因"
-      },
-      {
-        "cellId": "7000acec82c34504",
-        "shortId": "4504",
+        "cellId": "da8df37deb09c51a",
+        "shortId": "c51a",
         "digest": "构建挂是因为 lockfile 冲突，删掉重装就好。",
         "kind": 1,
         "tier": 1,
@@ -5396,8 +5661,8 @@
         "why": "保留度 0.89：主要靠频率与近因"
       },
       {
-        "cellId": "d2e11ca3f710ec75",
-        "shortId": "ec75",
+        "cellId": "2be25fffc3b3c2c1",
+        "shortId": "c2c1",
         "digest": "三周前讨论过的那个虚拟滚动方案，最后没做。",
         "kind": 1,
         "tier": 1,
@@ -5430,8 +5695,8 @@
         "why": "保留度 0.89：主要靠频率与近因"
       },
       {
-        "cellId": "6ded521f53f9302d",
-        "shortId": "302d",
+        "cellId": "11b431d591b3c7aa",
+        "shortId": "c7aa",
         "digest": "我们决定把 e2e 拆成 smoke 和 full 两档。",
         "kind": 1,
         "tier": 1,
@@ -5464,9 +5729,9 @@
         "why": "保留度 0.89：主要靠频率与近因"
       },
       {
-        "cellId": "c18debdbd26622cc",
-        "shortId": "22cc",
-        "digest": "以后不要在我没确认的情况下直接改 package.json。",
+        "cellId": "55db47d7316bc353",
+        "shortId": "c353",
+        "digest": "记住：部署脚本要用 pnpm，不要用 npm。",
         "kind": 2,
         "tier": 1,
         "score": 0.885,
@@ -5476,7 +5741,7 @@
         "stale": 1,
         "parts": {
           "activation": 1,
-          "importance": 0.6424811169604029,
+          "importance": 0.6422980086976425,
           "affectIntensity": 0.5826771653543307,
           "connectivity": 1,
           "narrativeRole": 0,
@@ -5486,7 +5751,7 @@
         },
         "contributions": {
           "activation": 0.3,
-          "importance": 0.16704509040970475,
+          "importance": 0.16699748226138705,
           "affectIntensity": 0.13984251968503936,
           "connectivity": 0.1,
           "narrativeRole": 0,
@@ -5498,8 +5763,8 @@
         "why": "保留度 0.89：主要靠频率与近因"
       },
       {
-        "cellId": "20774485e7df6141",
-        "shortId": "6141",
+        "cellId": "6f4ce05fefde17a2",
+        "shortId": "17a2",
         "digest": "那个缓存 bug 是李工提的，跟并发写有关。",
         "kind": 0,
         "tier": 1,
@@ -5532,110 +5797,42 @@
         "why": "保留度 0.88：主要靠频率与近因"
       },
       {
-        "cellId": "d26e661589d7966a",
-        "shortId": "966a",
-        "digest": "字体我也偏好等宽，读代码更舒服。",
+        "cellId": "269a077ef07a9f10",
+        "shortId": "9f10",
+        "digest": "团队里小王负责设计系统，他偏好更克制的配色。",
         "kind": 1,
         "tier": 1,
-        "score": 0.871,
-        "disposition": "P5",
-        "protectedBy": "情感记忆（闪光灯）",
-        "invalid": false,
-        "stale": 1,
-        "parts": {
-          "activation": 1,
-          "importance": 0.4930342565041581,
-          "affectIntensity": 0.6220472440944882,
-          "connectivity": 1,
-          "narrativeRole": 0,
-          "userAffinity": 0.7,
-          "spacing": 0.2563703661256372,
-          "redundancy": 0
-        },
-        "contributions": {
-          "activation": 0.3,
-          "importance": 0.1281889066910811,
-          "affectIntensity": 0.14929133858267715,
-          "connectivity": 0.1,
-          "narrativeRole": 0,
-          "userAffinity": 0.13999999999999999,
-          "spacing": 0.020509629290050974,
-          "redundancy": 0
-        },
-        "anniversary": 0,
-        "why": "情感记忆（闪光灯）：不参与自动清理"
-      },
-      {
-        "cellId": "259fc1225d4d560e",
-        "shortId": "560e",
-        "digest": "关系模型 trust=0.00 attune=0.65 turns=26",
-        "kind": 5,
-        "tier": 1,
-        "score": 0.836,
-        "disposition": "P5",
-        "protectedBy": "用户 pin",
-        "invalid": false,
-        "stale": 1,
-        "parts": {
-          "activation": 1,
-          "importance": 0.9000076295109484,
-          "affectIntensity": 0,
-          "connectivity": 0,
-          "narrativeRole": 0.4,
-          "userAffinity": 1,
-          "spacing": 0,
-          "redundancy": 0
-        },
-        "contributions": {
-          "activation": 0.3,
-          "importance": 0.23400198367284658,
-          "affectIntensity": 0,
-          "connectivity": 0,
-          "narrativeRole": 0.048,
-          "userAffinity": 0.2,
-          "spacing": 0,
-          "redundancy": 0
-        },
-        "anniversary": 0,
-        "why": "用户 pin：不参与自动清理"
-      },
-      {
-        "cellId": "6f3ed0f53cc37ade",
-        "shortId": "7ade",
-        "digest": "记住：部署脚本要用 pnpm，不要用 npm。",
-        "kind": 2,
-        "tier": 1,
-        "score": 0.823,
+        "score": 0.876,
         "disposition": "P5",
         "protectedBy": null,
         "invalid": false,
         "stale": 1,
         "parts": {
           "activation": 1,
-          "importance": 0.6422980086976425,
+          "importance": 0.6422674906538491,
           "affectIntensity": 0.5826771653543307,
-          "connectivity": 0,
+          "connectivity": 1,
           "narrativeRole": 0,
           "userAffinity": 0.7,
-          "spacing": 0.17499999999999996,
+          "spacing": 0,
           "redundancy": 0
         },
         "contributions": {
           "activation": 0.3,
-          "importance": 0.16699748226138705,
+          "importance": 0.16698954757000078,
           "affectIntensity": 0.13984251968503936,
-          "connectivity": 0,
+          "connectivity": 0.1,
           "narrativeRole": 0,
           "userAffinity": 0.13999999999999999,
-          "spacing": 0.013999999999999997,
+          "spacing": 0,
           "redundancy": 0
         },
         "anniversary": 0,
-        "why": "保留度 0.82：主要靠频率与近因"
+        "why": "保留度 0.88：主要靠频率与近因"
       },
       {
-        "cellId": "881d3c67f7740454",
-        "shortId": "0454",
+        "cellId": "b01e933bc20bba19",
+        "shortId": "ba19",
         "digest": "我们下周要交付 0.3 版本，重点是记忆面板。",
         "kind": 1,
         "tier": 1,
@@ -5668,42 +5865,42 @@
         "why": "保留度 0.81：主要靠频率与近因"
       },
       {
-        "cellId": "53a2906ef6d65999",
-        "shortId": "5999",
+        "cellId": "86502a1089531265",
+        "shortId": "1265",
         "digest": "我喜欢把日志放在 stderr，stdout 留给数据。",
         "kind": 1,
-        "tier": 3,
-        "score": 0.107,
-        "disposition": "P2",
+        "tier": 1,
+        "score": 0.78,
+        "disposition": "P5",
         "protectedBy": "情感记忆（闪光灯）",
         "invalid": false,
         "stale": 0.15,
         "parts": {
-          "activation": 0.10178148350275468,
-          "importance": 0.8223086900129701,
-          "affectIntensity": 0.6299212598425197,
-          "connectivity": 0.4999999999999999,
+          "activation": 0.10178148366727591,
+          "importance": 0.8321660181582361,
+          "affectIntensity": 0.7480314960629921,
+          "connectivity": 0.6309297535714574,
           "narrativeRole": 0,
           "userAffinity": 0.7,
           "spacing": 0,
           "redundancy": 0
         },
         "contributions": {
-          "activation": 0.030534445050826402,
-          "importance": 0.21380025940337224,
-          "affectIntensity": 0.15118110236220472,
-          "connectivity": 0.04999999999999999,
+          "activation": 0.030534445100182772,
+          "importance": 0.2163631647211414,
+          "affectIntensity": 0.1795275590551181,
+          "connectivity": 0.06309297535714574,
           "narrativeRole": 0,
           "userAffinity": 0.13999999999999999,
           "spacing": 0,
           "redundancy": 0
         },
         "anniversary": 0,
-        "why": "保留度 0.11 已低于墓碑线，但「情感记忆（闪光灯）」：降为归档而不进墓碑"
+        "why": "情感记忆（闪光灯）：不参与自动清理"
       },
       {
-        "cellId": "a83a33c2aaaf8c66",
-        "shortId": "8c66",
+        "cellId": "d94b30bee64637e2",
+        "shortId": "37e2",
         "digest": "好，先这样。",
         "kind": 1,
         "tier": 4,
@@ -5713,7 +5910,7 @@
         "invalid": false,
         "stale": 0.15,
         "parts": {
-          "activation": 0.10178148350275468,
+          "activation": 0.10178148366727591,
           "importance": 0.6418402380407416,
           "affectIntensity": 0.5748031496062992,
           "connectivity": 0.3154648767857287,
@@ -5723,7 +5920,7 @@
           "redundancy": 0
         },
         "contributions": {
-          "activation": 0.030534445050826402,
+          "activation": 0.030534445100182772,
           "importance": 0.16687846189059283,
           "affectIntensity": 0.1379527559055118,
           "connectivity": 0.03154648767857287,
@@ -5736,8 +5933,8 @@
         "why": "保留度 0.10：叙事角色偏低，且长期未被提取（陈旧折损 0.15），已降到墓碑"
       },
       {
-        "cellId": "7c0e2bdc42d37048",
-        "shortId": "7048",
+        "cellId": "925f37c9240ef7c1",
+        "shortId": "f7c1",
         "digest": "那个 API key 在 ~/.config/dsh/credentials.json，记住别外发。",
         "kind": 2,
         "tier": 4,
@@ -5747,7 +5944,7 @@
         "invalid": false,
         "stale": 0.15,
         "parts": {
-          "activation": 0.10178148350275468,
+          "activation": 0.10178148366727591,
           "importance": 0.6430151827267873,
           "affectIntensity": 0.5905511811023622,
           "connectivity": 0.3154648767857287,
@@ -5757,7 +5954,7 @@
           "redundancy": 0
         },
         "contributions": {
-          "activation": 0.030534445050826402,
+          "activation": 0.030534445100182772,
           "importance": 0.1671839475089647,
           "affectIntensity": 0.1417322834645669,
           "connectivity": 0.03154648767857287,
@@ -5770,8 +5967,8 @@
         "why": "保留度 0.10：叙事角色偏低，且长期未被提取（陈旧折损 0.15），已降到墓碑"
       },
       {
-        "cellId": "93f56cd4e2fc05cf",
-        "shortId": "05cf",
+        "cellId": "ba2b773b0ef8342f",
+        "shortId": "342f",
         "digest": "对，就是这样。",
         "kind": 1,
         "tier": 4,
@@ -5781,7 +5978,7 @@
         "invalid": false,
         "stale": 0.15,
         "parts": {
-          "activation": 0.10178148350275468,
+          "activation": 0.10178148366727591,
           "importance": 0.641870756084535,
           "affectIntensity": 0.5748031496062992,
           "connectivity": 0.3154648767857287,
@@ -5791,7 +5988,7 @@
           "redundancy": 0
         },
         "contributions": {
-          "activation": 0.030534445050826402,
+          "activation": 0.030534445100182772,
           "importance": 0.16688639658197912,
           "affectIntensity": 0.1379527559055118,
           "connectivity": 0.03154648767857287,
@@ -5804,8 +6001,8 @@
         "why": "保留度 0.10：叙事角色偏低，且长期未被提取（陈旧折损 0.15），已降到墓碑"
       },
       {
-        "cellId": "75f94bd2642d3e8d",
-        "shortId": "3e8d",
+        "cellId": "4a765aa1435a41ba",
+        "shortId": "41ba",
         "digest": "面板首屏要控制在 200 毫秒以内。",
         "kind": 1,
         "tier": 4,
@@ -5815,7 +6012,7 @@
         "invalid": false,
         "stale": 0.15,
         "parts": {
-          "activation": 0.10178148350275468,
+          "activation": 0.10178148366727591,
           "importance": 0.6421606775005723,
           "affectIntensity": 0.5826771653543307,
           "connectivity": 0.3154648767857287,
@@ -5825,7 +6022,7 @@
           "redundancy": 0
         },
         "contributions": {
-          "activation": 0.030534445050826402,
+          "activation": 0.030534445100182772,
           "importance": 0.1669617761501488,
           "affectIntensity": 0.13984251968503936,
           "connectivity": 0.03154648767857287,
@@ -5838,8 +6035,8 @@
         "why": "保留度 0.10：叙事角色偏低，且长期未被提取（陈旧折损 0.15），已降到墓碑"
       },
       {
-        "cellId": "02304549114b1fa6",
-        "shortId": "1fa6",
+        "cellId": "b10543ef87dbeae9",
+        "shortId": "eae9",
         "digest": "我们决定不用 Redux，状态全放 URL 和本地缓存。",
         "kind": 1,
         "tier": 4,
@@ -5849,7 +6046,7 @@
         "invalid": false,
         "stale": 0.15,
         "parts": {
-          "activation": 0.10178148350275468,
+          "activation": 0.10178148366727591,
           "importance": 0.6424353398947128,
           "affectIntensity": 0.5826771653543307,
           "connectivity": 0,
@@ -5859,7 +6056,7 @@
           "redundancy": 0
         },
         "contributions": {
-          "activation": 0.030534445050826402,
+          "activation": 0.030534445100182772,
           "importance": 0.16703318837262535,
           "affectIntensity": 0.13984251968503936,
           "connectivity": 0,
@@ -5894,45 +6091,1420 @@
     },
     "reconsolidation": [
       {
-        "at": 1793389304681,
-        "cellId": "cb9b31a87cea4e40",
+        "at": 1793599304574,
+        "cellId": "37beaf15470ff877",
         "dStability": 0,
         "dConfidence": 0,
         "dValence": 0.0067,
         "plastic": false
       },
       {
-        "at": 1793389304645,
-        "cellId": "3abe252a46b6ee70",
+        "at": 1793599304552,
+        "cellId": "8b03b496a1803f07",
         "dStability": 0,
         "dConfidence": 0,
         "dValence": 0.0067,
         "plastic": false
       },
       {
-        "at": 1793389304612,
-        "cellId": "7cb7538d1e8efbe3",
+        "at": 1793599304535,
+        "cellId": "474a59539d822abc",
         "dStability": 0,
         "dConfidence": -0.048,
         "dValence": 0.0067,
         "plastic": true
       },
       {
-        "at": 1793389304597,
-        "cellId": "6c930a578fbaaedf",
+        "at": 1793599304525,
+        "cellId": "ec34a98bfef390c7",
         "dStability": 0,
         "dConfidence": 0,
         "dValence": 0.0067,
         "plastic": false
       },
       {
-        "at": 1793389304495,
-        "cellId": "d26e661589d7966a",
+        "at": 1793599304466,
+        "cellId": "8908e95d7543295f",
         "dStability": 0,
         "dConfidence": 0,
         "dValence": 0.0067,
         "plastic": false
       }
     ]
+  },
+  "starmap": {
+    "nodes": [
+      {
+        "id": "3c434e6a436968ce",
+        "shortId": "68ce",
+        "x": 0.04530327268138049,
+        "y": -0.3369284980810969,
+        "z": 0.026687700310986263,
+        "kind": 3,
+        "tier": 1,
+        "valence": 0.36220472440944884,
+        "arousal": 0.6929133858267716,
+        "salience": 0.8823529411764706,
+        "importance": 0.8318608377203022,
+        "digest": "抽象：用户 prefers ×3",
+        "pinned": true,
+        "invalidated": false
+      },
+      {
+        "id": "48d660ec2aa7505b",
+        "shortId": "505b",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "kind": 6,
+        "tier": 1,
+        "valence": 0.11811023622047244,
+        "arousal": 0.7480314960629921,
+        "salience": 0.8823529411764706,
+        "importance": 0.8500038147554742,
+        "digest": "亲近期：1 天内 5 件有情绪的事，主题偏「自动生成的 commit mes」",
+        "pinned": true,
+        "invalidated": false
+      },
+      {
+        "id": "5d076e31af13ef9d",
+        "shortId": "ef9d",
+        "x": 0.19230477089246692,
+        "y": -0.1720715978566733,
+        "z": -0.35015910659306576,
+        "kind": 3,
+        "tier": 1,
+        "valence": -0.1732283464566929,
+        "arousal": 0.6377952755905512,
+        "salience": 0.8823529411764706,
+        "importance": 0.8315403982604715,
+        "digest": "抽象：用户 states ×3",
+        "pinned": true,
+        "invalidated": false
+      },
+      {
+        "id": "ff466a57a99b4138",
+        "shortId": "4138",
+        "x": -0.42656454146043216,
+        "y": 0.006449022916966674,
+        "z": 0.054633552149843397,
+        "kind": 4,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0,
+        "salience": 0.4,
+        "importance": 1,
+        "digest": "人格锚 rev=6",
+        "pinned": true,
+        "invalidated": false
+      },
+      {
+        "id": "259fc1225d4d560e",
+        "shortId": "560e",
+        "x": 0.06582340562031626,
+        "y": 0.4890622838914858,
+        "z": 0.08161583519652826,
+        "kind": 5,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0,
+        "salience": 0.5019607843137255,
+        "importance": 0.9000076295109484,
+        "digest": "关系模型 trust=0.00 attune=0.65 turns=26",
+        "pinned": true,
+        "invalidated": false
+      },
+      {
+        "id": "474a59539d822abc",
+        "shortId": "2abc",
+        "x": -0.06734063516178244,
+        "y": -0.19535944359688048,
+        "z": -0.049991727938661044,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0.5433070866141733,
+        "arousal": 0.7480314960629921,
+        "salience": 0.8823529411764706,
+        "importance": 0.8318608377203022,
+        "digest": "其实我更喜欢无衬线字体，等宽只用在代码块里。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "8b03b496a1803f07",
+        "shortId": "3f07",
+        "x": -0.38855669416914773,
+        "y": 0.22597978603040808,
+        "z": -0.19089055042436506,
+        "kind": 1,
+        "tier": 1,
+        "valence": -0.5196850393700787,
+        "arousal": 0.7480314960629921,
+        "salience": 0.8823529411764706,
+        "importance": 0.8319066147859923,
+        "digest": "CI 现在跑 6 分钟，主要是 e2e 太慢。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "ec34a98bfef390c7",
+        "shortId": "90c7",
+        "x": 0.2760262878496382,
+        "y": -0.18771620663347754,
+        "z": 0.29392707752766783,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0.5511811023622047,
+        "arousal": 0.7480314960629921,
+        "salience": 0.8823529411764706,
+        "importance": 0.832120241092546,
+        "digest": "我不喜欢自动生成的 commit message，太啰嗦。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "37beaf15470ff877",
+        "shortId": "f877",
+        "x": 0.36318180769358893,
+        "y": -0.440901414415049,
+        "z": 0.0552707887552432,
+        "kind": 1,
+        "tier": 1,
+        "valence": -0.5196850393700787,
+        "arousal": 0.7480314960629921,
+        "salience": 0.8823529411764706,
+        "importance": 0.8315403982604715,
+        "digest": "我现在有点烦，构建又挂了。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "86502a1089531265",
+        "shortId": "1265",
+        "x": 0.1485506312561203,
+        "y": -0.49537430571987773,
+        "z": 0.11211763514229472,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0.5354330708661418,
+        "arousal": 0.7480314960629921,
+        "salience": 0.8823529411764706,
+        "importance": 0.8321660181582361,
+        "digest": "我喜欢把日志放在 stderr，stdout 留给数据。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "e282cc8b5f65b3a6",
+        "shortId": "b3a6",
+        "x": -0.2081138122822965,
+        "y": 0.2533466438266375,
+        "z": 0.26161732168764973,
+        "kind": 2,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5905511811023622,
+        "salience": 0.7725490196078432,
+        "importance": 0.6430151827267873,
+        "digest": "API key 存在 ~/.config/dsh/credentials.jso",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "5fcffa6d6b48488f",
+        "shortId": "488f",
+        "x": 0.13931451286414379,
+        "y": -0.13718124293052372,
+        "z": -0.07777929864883891,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5905511811023622,
+        "salience": 0.7725490196078432,
+        "importance": 0.6426794842450599,
+        "digest": "我们的仓库叫 dsh-ui，主要用 TypeScript 和 React。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "9cdd97c4b37e744a",
+        "shortId": "744a",
+        "x": 0.49685895158470617,
+        "y": -0.10647124965780995,
+        "z": -0.11040749478716104,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6423590447852293,
+        "digest": "上周三我们在评审会上决定 V2 的缓存方案先回滚。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "985fd648953c71a2",
+        "shortId": "71a2",
+        "x": 0.04530327268138049,
+        "y": -0.3369284980810969,
+        "z": 0.026687700310986263,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6421606775005723,
+        "digest": "我习惯用深色主题，浅色看久了眼睛疼。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "72c7454c0dda50e1",
+        "shortId": "50e1",
+        "x": -0.05411707249442324,
+        "y": -0.1335808516146732,
+        "z": 0.20336696747635974,
+        "kind": 2,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6424811169604029,
+        "digest": "以后不要在我没确认的情况下直接改 package.json。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "8908e95d7543295f",
+        "shortId": "295f",
+        "x": 0.1824261273672326,
+        "y": -0.3503881649989202,
+        "z": 0.010327222357403945,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0.5433070866141733,
+        "arousal": 0.7480314960629921,
+        "salience": 0.8823529411764706,
+        "importance": 0.4989852750438697,
+        "digest": "字体我也偏好等宽，读代码更舒服。",
+        "pinned": false,
+        "invalidated": true
+      },
+      {
+        "id": "a62a08215e63bc4c",
+        "shortId": "bc4c",
+        "x": 0.19230477089246692,
+        "y": -0.1720715978566733,
+        "z": -0.35015910659306576,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6422980086976425,
+        "digest": "我叫阿哲，在一家做开发者工具的小公司负责前端。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "11b431d591b3c7aa",
+        "shortId": "c7aa",
+        "x": 0.35514762587035215,
+        "y": -0.27827943567084323,
+        "z": -0.09327114996279076,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6424658579385062,
+        "digest": "我们决定把 e2e 拆成 smoke 和 full 两档。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "da8df37deb09c51a",
+        "shortId": "c51a",
+        "x": 0.08633837953420766,
+        "y": -0.42635570886573165,
+        "z": -0.2895618730455588,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.642374303807126,
+        "digest": "构建挂是因为 lockfile 冲突，删掉重装就好。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "55db47d7316bc353",
+        "shortId": "c353",
+        "x": 0.12869350593199919,
+        "y": -0.36270845395478923,
+        "z": -0.003647980995312644,
+        "kind": 2,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6422980086976425,
+        "digest": "记住：部署脚本要用 pnpm，不要用 npm。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "2be25fffc3b3c2c1",
+        "shortId": "c2c1",
+        "x": -0.28501410354705514,
+        "y": 0.1909196668404182,
+        "z": 0.3595291321075849,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6422522316319524,
+        "digest": "三周前讨论过的那个虚拟滚动方案，最后没做。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "6f4ce05fefde17a2",
+        "shortId": "17a2",
+        "x": 0.16927174969858017,
+        "y": -0.26483871916709,
+        "z": 0.21665948601246002,
+        "kind": 0,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5511811023622047,
+        "salience": 0.7372549019607844,
+        "importance": 0.6422674906538491,
+        "digest": "那个缓存 bug 是李工提的，跟并发写有关。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "269a077ef07a9f10",
+        "shortId": "9f10",
+        "x": -0.09913941867965084,
+        "y": 0.007393589022539158,
+        "z": 0.07173766572972354,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6422674906538491,
+        "digest": "团队里小王负责设计系统，他偏好更克制的配色。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "b01e933bc20bba19",
+        "shortId": "ba19",
+        "x": -0.09801037778883367,
+        "y": -0.4271306133171679,
+        "z": 0.19215801679363656,
+        "kind": 1,
+        "tier": 1,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6422980086976425,
+        "digest": "我们下周要交付 0.3 版本，重点是记忆面板。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "925f37c9240ef7c1",
+        "shortId": "f7c1",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "kind": 2,
+        "tier": 4,
+        "valence": 0,
+        "arousal": 0.5905511811023622,
+        "salience": 0.7725490196078432,
+        "importance": 0.6430151827267873,
+        "digest": "那个 API key 在 ~/.config/dsh/credentials.j",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "b10543ef87dbeae9",
+        "shortId": "eae9",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "kind": 1,
+        "tier": 4,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6424353398947128,
+        "digest": "我们决定不用 Redux，状态全放 URL 和本地缓存。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "4a765aa1435a41ba",
+        "shortId": "41ba",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "kind": 1,
+        "tier": 4,
+        "valence": 0,
+        "arousal": 0.5826771653543307,
+        "salience": 0.7686274509803922,
+        "importance": 0.6421606775005723,
+        "digest": "面板首屏要控制在 200 毫秒以内。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "ba2b773b0ef8342f",
+        "shortId": "342f",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "kind": 1,
+        "tier": 4,
+        "valence": 0,
+        "arousal": 0.5748031496062992,
+        "salience": 0.7686274509803922,
+        "importance": 0.641870756084535,
+        "digest": "对，就是这样。",
+        "pinned": false,
+        "invalidated": false
+      },
+      {
+        "id": "d94b30bee64637e2",
+        "shortId": "37e2",
+        "x": 0,
+        "y": 0,
+        "z": 0,
+        "kind": 1,
+        "tier": 4,
+        "valence": 0,
+        "arousal": 0.5748031496062992,
+        "salience": 0.7686274509803922,
+        "importance": 0.6418402380407416,
+        "digest": "好，先这样。",
+        "pinned": false,
+        "invalidated": false
+      }
+    ],
+    "edges": [
+      [
+        "8908e95d7543295f",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "8908e95d7543295f",
+        38
+      ],
+      [
+        "8908e95d7543295f",
+        "259fc1225d4d560e",
+        38
+      ],
+      [
+        "259fc1225d4d560e",
+        "8908e95d7543295f",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "259fc1225d4d560e",
+        46
+      ],
+      [
+        "259fc1225d4d560e",
+        "985fd648953c71a2",
+        46
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "ff466a57a99b4138",
+        68
+      ],
+      [
+        "ff466a57a99b4138",
+        "e282cc8b5f65b3a6",
+        68
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "985fd648953c71a2",
+        99
+      ],
+      [
+        "985fd648953c71a2",
+        "e282cc8b5f65b3a6",
+        99
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "259fc1225d4d560e",
+        38
+      ],
+      [
+        "259fc1225d4d560e",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "5fcffa6d6b48488f",
+        61
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "e282cc8b5f65b3a6",
+        61
+      ],
+      [
+        "ff466a57a99b4138",
+        "985fd648953c71a2",
+        68
+      ],
+      [
+        "985fd648953c71a2",
+        "ff466a57a99b4138",
+        68
+      ],
+      [
+        "ff466a57a99b4138",
+        "259fc1225d4d560e",
+        38
+      ],
+      [
+        "259fc1225d4d560e",
+        "ff466a57a99b4138",
+        38
+      ],
+      [
+        "ff466a57a99b4138",
+        "5fcffa6d6b48488f",
+        61
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "ff466a57a99b4138",
+        61
+      ],
+      [
+        "985fd648953c71a2",
+        "5fcffa6d6b48488f",
+        84
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "985fd648953c71a2",
+        84
+      ],
+      [
+        "259fc1225d4d560e",
+        "5fcffa6d6b48488f",
+        38
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "259fc1225d4d560e",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "e282cc8b5f65b3a6",
+        76
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "9cdd97c4b37e744a",
+        76
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "985fd648953c71a2",
+        92
+      ],
+      [
+        "985fd648953c71a2",
+        "9cdd97c4b37e744a",
+        92
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "5fcffa6d6b48488f",
+        61
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "9cdd97c4b37e744a",
+        61
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "ff466a57a99b4138",
+        38
+      ],
+      [
+        "ff466a57a99b4138",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "6f4ce05fefde17a2",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "6f4ce05fefde17a2",
+        38
+      ],
+      [
+        "6f4ce05fefde17a2",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "6f4ce05fefde17a2",
+        38
+      ],
+      [
+        "6f4ce05fefde17a2",
+        "ff466a57a99b4138",
+        38
+      ],
+      [
+        "ff466a57a99b4138",
+        "6f4ce05fefde17a2",
+        38
+      ],
+      [
+        "6f4ce05fefde17a2",
+        "5fcffa6d6b48488f",
+        38
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "6f4ce05fefde17a2",
+        38
+      ],
+      [
+        "72c7454c0dda50e1",
+        "e282cc8b5f65b3a6",
+        68
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "72c7454c0dda50e1",
+        68
+      ],
+      [
+        "72c7454c0dda50e1",
+        "985fd648953c71a2",
+        61
+      ],
+      [
+        "985fd648953c71a2",
+        "72c7454c0dda50e1",
+        61
+      ],
+      [
+        "72c7454c0dda50e1",
+        "ff466a57a99b4138",
+        46
+      ],
+      [
+        "ff466a57a99b4138",
+        "72c7454c0dda50e1",
+        46
+      ],
+      [
+        "72c7454c0dda50e1",
+        "5fcffa6d6b48488f",
+        38
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "72c7454c0dda50e1",
+        38
+      ],
+      [
+        "ec34a98bfef390c7",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "ec34a98bfef390c7",
+        38
+      ],
+      [
+        "ec34a98bfef390c7",
+        "8908e95d7543295f",
+        38
+      ],
+      [
+        "8908e95d7543295f",
+        "ec34a98bfef390c7",
+        38
+      ],
+      [
+        "ec34a98bfef390c7",
+        "72c7454c0dda50e1",
+        38
+      ],
+      [
+        "72c7454c0dda50e1",
+        "ec34a98bfef390c7",
+        38
+      ],
+      [
+        "ec34a98bfef390c7",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "ec34a98bfef390c7",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "8908e95d7543295f",
+        38
+      ],
+      [
+        "8908e95d7543295f",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "72c7454c0dda50e1",
+        53
+      ],
+      [
+        "72c7454c0dda50e1",
+        "9cdd97c4b37e744a",
+        53
+      ],
+      [
+        "8908e95d7543295f",
+        "72c7454c0dda50e1",
+        38
+      ],
+      [
+        "72c7454c0dda50e1",
+        "8908e95d7543295f",
+        38
+      ],
+      [
+        "8908e95d7543295f",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "8908e95d7543295f",
+        38
+      ],
+      [
+        "474a59539d822abc",
+        "8908e95d7543295f",
+        91
+      ],
+      [
+        "474a59539d822abc",
+        "8908e95d7543295f",
+        91
+      ],
+      [
+        "474a59539d822abc",
+        "8908e95d7543295f",
+        46
+      ],
+      [
+        "474a59539d822abc",
+        "985fd648953c71a2",
+        54
+      ],
+      [
+        "985fd648953c71a2",
+        "474a59539d822abc",
+        54
+      ],
+      [
+        "474a59539d822abc",
+        "ff466a57a99b4138",
+        38
+      ],
+      [
+        "ff466a57a99b4138",
+        "474a59539d822abc",
+        38
+      ],
+      [
+        "474a59539d822abc",
+        "e282cc8b5f65b3a6",
+        46
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "474a59539d822abc",
+        46
+      ],
+      [
+        "474a59539d822abc",
+        "72c7454c0dda50e1",
+        38
+      ],
+      [
+        "72c7454c0dda50e1",
+        "474a59539d822abc",
+        38
+      ],
+      [
+        "55db47d7316bc353",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "55db47d7316bc353",
+        38
+      ],
+      [
+        "55db47d7316bc353",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "55db47d7316bc353",
+        38
+      ],
+      [
+        "55db47d7316bc353",
+        "72c7454c0dda50e1",
+        38
+      ],
+      [
+        "72c7454c0dda50e1",
+        "55db47d7316bc353",
+        38
+      ],
+      [
+        "55db47d7316bc353",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "55db47d7316bc353",
+        38
+      ],
+      [
+        "11b431d591b3c7aa",
+        "9cdd97c4b37e744a",
+        46
+      ],
+      [
+        "11b431d591b3c7aa",
+        "8b03b496a1803f07",
+        38
+      ],
+      [
+        "8b03b496a1803f07",
+        "11b431d591b3c7aa",
+        38
+      ],
+      [
+        "11b431d591b3c7aa",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "11b431d591b3c7aa",
+        38
+      ],
+      [
+        "11b431d591b3c7aa",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "11b431d591b3c7aa",
+        38
+      ],
+      [
+        "11b431d591b3c7aa",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "11b431d591b3c7aa",
+        38
+      ],
+      [
+        "8b03b496a1803f07",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "8b03b496a1803f07",
+        38
+      ],
+      [
+        "8b03b496a1803f07",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "8b03b496a1803f07",
+        38
+      ],
+      [
+        "8b03b496a1803f07",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "8b03b496a1803f07",
+        38
+      ],
+      [
+        "2be25fffc3b3c2c1",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "2be25fffc3b3c2c1",
+        38
+      ],
+      [
+        "2be25fffc3b3c2c1",
+        "72c7454c0dda50e1",
+        38
+      ],
+      [
+        "72c7454c0dda50e1",
+        "2be25fffc3b3c2c1",
+        38
+      ],
+      [
+        "2be25fffc3b3c2c1",
+        "e282cc8b5f65b3a6",
+        38
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "2be25fffc3b3c2c1",
+        38
+      ],
+      [
+        "2be25fffc3b3c2c1",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "2be25fffc3b3c2c1",
+        38
+      ],
+      [
+        "37beaf15470ff877",
+        "a62a08215e63bc4c",
+        46
+      ],
+      [
+        "37beaf15470ff877",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "37beaf15470ff877",
+        38
+      ],
+      [
+        "37beaf15470ff877",
+        "5fcffa6d6b48488f",
+        38
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "37beaf15470ff877",
+        38
+      ],
+      [
+        "37beaf15470ff877",
+        "a62a08215e63bc4c",
+        38
+      ],
+      [
+        "a62a08215e63bc4c",
+        "37beaf15470ff877",
+        38
+      ],
+      [
+        "37beaf15470ff877",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "37beaf15470ff877",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "a62a08215e63bc4c",
+        46
+      ],
+      [
+        "a62a08215e63bc4c",
+        "9cdd97c4b37e744a",
+        46
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "a62a08215e63bc4c",
+        46
+      ],
+      [
+        "a62a08215e63bc4c",
+        "5fcffa6d6b48488f",
+        46
+      ],
+      [
+        "a62a08215e63bc4c",
+        "985fd648953c71a2",
+        46
+      ],
+      [
+        "985fd648953c71a2",
+        "a62a08215e63bc4c",
+        46
+      ],
+      [
+        "da8df37deb09c51a",
+        "37beaf15470ff877",
+        46
+      ],
+      [
+        "da8df37deb09c51a",
+        "985fd648953c71a2",
+        38
+      ],
+      [
+        "985fd648953c71a2",
+        "da8df37deb09c51a",
+        38
+      ],
+      [
+        "da8df37deb09c51a",
+        "9cdd97c4b37e744a",
+        38
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "da8df37deb09c51a",
+        38
+      ],
+      [
+        "da8df37deb09c51a",
+        "a62a08215e63bc4c",
+        38
+      ],
+      [
+        "a62a08215e63bc4c",
+        "da8df37deb09c51a",
+        38
+      ],
+      [
+        "da8df37deb09c51a",
+        "5fcffa6d6b48488f",
+        38
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "da8df37deb09c51a",
+        38
+      ],
+      [
+        "269a077ef07a9f10",
+        "985fd648953c71a2",
+        46
+      ],
+      [
+        "4a765aa1435a41ba",
+        "a62a08215e63bc4c",
+        46
+      ],
+      [
+        "ba2b773b0ef8342f",
+        "8b03b496a1803f07",
+        46
+      ],
+      [
+        "86502a1089531265",
+        "985fd648953c71a2",
+        46
+      ],
+      [
+        "925f37c9240ef7c1",
+        "e282cc8b5f65b3a6",
+        46
+      ],
+      [
+        "d94b30bee64637e2",
+        "a62a08215e63bc4c",
+        46
+      ],
+      [
+        "a62a08215e63bc4c",
+        "5d076e31af13ef9d",
+        61
+      ],
+      [
+        "2be25fffc3b3c2c1",
+        "5d076e31af13ef9d",
+        61
+      ],
+      [
+        "37beaf15470ff877",
+        "5d076e31af13ef9d",
+        61
+      ],
+      [
+        "985fd648953c71a2",
+        "3c434e6a436968ce",
+        61
+      ],
+      [
+        "8908e95d7543295f",
+        "3c434e6a436968ce",
+        61
+      ],
+      [
+        "474a59539d822abc",
+        "3c434e6a436968ce",
+        61
+      ],
+      [
+        "985fd648953c71a2",
+        "3c434e6a436968ce",
+        44
+      ],
+      [
+        "a62a08215e63bc4c",
+        "5d076e31af13ef9d",
+        36
+      ],
+      [
+        "8908e95d7543295f",
+        "3c434e6a436968ce",
+        36
+      ],
+      [
+        "474a59539d822abc",
+        "3c434e6a436968ce",
+        40
+      ],
+      [
+        "474a59539d822abc",
+        "8908e95d7543295f",
+        36
+      ],
+      [
+        "da8df37deb09c51a",
+        "37beaf15470ff877",
+        36
+      ],
+      [
+        "48d660ec2aa7505b",
+        "ec34a98bfef390c7",
+        68
+      ],
+      [
+        "ec34a98bfef390c7",
+        "48d660ec2aa7505b",
+        61
+      ],
+      [
+        "48d660ec2aa7505b",
+        "474a59539d822abc",
+        68
+      ],
+      [
+        "474a59539d822abc",
+        "48d660ec2aa7505b",
+        61
+      ],
+      [
+        "48d660ec2aa7505b",
+        "86502a1089531265",
+        68
+      ],
+      [
+        "86502a1089531265",
+        "48d660ec2aa7505b",
+        61
+      ],
+      [
+        "48d660ec2aa7505b",
+        "8b03b496a1803f07",
+        68
+      ],
+      [
+        "8b03b496a1803f07",
+        "48d660ec2aa7505b",
+        61
+      ],
+      [
+        "48d660ec2aa7505b",
+        "37beaf15470ff877",
+        68
+      ],
+      [
+        "37beaf15470ff877",
+        "48d660ec2aa7505b",
+        61
+      ],
+      [
+        "474a59539d822abc",
+        "269a077ef07a9f10",
+        40
+      ],
+      [
+        "269a077ef07a9f10",
+        "474a59539d822abc",
+        40
+      ],
+      [
+        "474a59539d822abc",
+        "9cdd97c4b37e744a",
+        48
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "474a59539d822abc",
+        48
+      ],
+      [
+        "474a59539d822abc",
+        "5fcffa6d6b48488f",
+        40
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "474a59539d822abc",
+        40
+      ],
+      [
+        "269a077ef07a9f10",
+        "985fd648953c71a2",
+        40
+      ],
+      [
+        "985fd648953c71a2",
+        "269a077ef07a9f10",
+        40
+      ],
+      [
+        "269a077ef07a9f10",
+        "9cdd97c4b37e744a",
+        40
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "269a077ef07a9f10",
+        40
+      ],
+      [
+        "269a077ef07a9f10",
+        "5fcffa6d6b48488f",
+        40
+      ],
+      [
+        "5fcffa6d6b48488f",
+        "269a077ef07a9f10",
+        40
+      ],
+      [
+        "3c434e6a436968ce",
+        "985fd648953c71a2",
+        44
+      ],
+      [
+        "3c434e6a436968ce",
+        "474a59539d822abc",
+        40
+      ],
+      [
+        "3c434e6a436968ce",
+        "e282cc8b5f65b3a6",
+        40
+      ],
+      [
+        "e282cc8b5f65b3a6",
+        "3c434e6a436968ce",
+        40
+      ],
+      [
+        "3c434e6a436968ce",
+        "9cdd97c4b37e744a",
+        40
+      ],
+      [
+        "9cdd97c4b37e744a",
+        "3c434e6a436968ce",
+        40
+      ]
+    ],
+    "projected": "random3",
+    "sampled": 29,
+    "total": 29
+  },
+  "engine": null,
+  "tuning": {
+    "values": {
+      "maxSlots": 4,
+      "maxEntriesPerTurn": 8,
+      "maxSurfaceTokens": 320,
+      "surfaceMode": "rows",
+      "affectEnabled": true,
+      "recall.ignition": 0.42,
+      "recall.wSim": 1,
+      "recall.wRecency": 0.35,
+      "recall.wFreq": 0.2,
+      "recall.wAffect": 0.25,
+      "recall.wGoal": 0.4,
+      "recall.wCue": 0.3,
+      "recall.wInterf": 0.5,
+      "recall.graphHops": 2,
+      "consolidation.everyTurns": 20,
+      "llm.maxPricePerTurn": 0
+    },
+    "preset": "balanced"
   }
 }

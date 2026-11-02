@@ -38,6 +38,18 @@ export interface Appraisal {
    * 哪怕它和当前任务毫无关系。这是对六维的**增量**，不是替换。
    */
   charge?: number
+  /**
+   * v0.6.2：情感**总强度**（0..1），= 正向与负向两条轴之和的饱和值。
+   *
+   * 与 `charge` 的区别是这条修复的核心：
+   *   · `charge` 是**净方向**（pos − neg），混合情感时接近 0——这是对的，
+   *     "又好气又好笑"在效价上确实接近中性；
+   *   · 但它**不能**同时表达"很带电"。旧实现只把 charge 喂给效价，
+   *     于是混合情感的唤起度也一起归零，复合状态（高唤起 + 近零效价）无法表示。
+   *
+   * 现在 `intensity` 独立进 arousal 项，两条轴各管一件事。
+   */
+  intensity?: number
 }
 
 /** 核心情感 PAD + 显著度。v/a/d ∈ [−1,1]，s ∈ [0,1]。 */
@@ -235,6 +247,30 @@ export interface IndexConfig {
   demoteBatch: number
   /** 保留度缓存的有效期（ms）。超过就重算，防止缓存把"变旧"这件事冻住 */
   retentionTtlMs: number
+  /**
+   * 查询侧 IDF 剪枝（v0.6.2）。
+   *
+   * `containment(q,c) = |q∩c| / |q|` 里，**每个 token 等权**。
+   * 于是"我的""是""这个"这类几乎每条记忆都含的虚词，会既抬高分母、
+   * 又只在恰好含它的 cell 上加分——净效果是稀释真正有区分力的实体。
+   * 实测单跳查询失败的案例里，一半是这种稀释造成的。
+   *
+   * 实现上只做**查询侧**剪枝，**不改落盘向量**：
+   * `hashEmbedding` 必须保持纯函数（cell 幂等与重放依赖"同文本同向量"），
+   * 把语料统计塞进去会直接破坏这条硬约束。所以 IDF 只作用在
+   * "哪些 token 参与符号路查询"这一件事上，落盘侧一个字节都不动。
+   */
+  idfEnabled: boolean
+  /**
+   * 低于这么多条文档时不做剪枝——统计量不够，df 的抖动比信号大。
+   * 小库上"每个词都出现 1 次"会让剪枝随机砍掉有用实体。
+   */
+  idfMinDocs: number
+  /**
+   * df / docs 超过这个比例的 token 视为"无区分力"，从查询里剔除。
+   * 0.6 = 出现在六成以上记忆里的词，对定位没有帮助。
+   */
+  idfMaxDfRatio: number
 }
 
 // ── 检索 ────────────────────────────────────────────────────────────
@@ -344,6 +380,17 @@ export interface RecallResult {
   elapsedMs: number
   slotsUsed: number
   emptySlots: number
+  /**
+   * v0.6.2（§3.3 修复）：弃权判定。
+   *
+   * 检索系统的输出空间里必须有"我不知道"这一项——否则陷阱题会照常注入
+   * 那些勉强过阈值的记忆，用户得到的不是"没记过"而是"记错了"。
+   *
+   *   'hit'   —— 有记忆命中且分数高于 ignition（正常注入）
+   *   'weak'  —— 有候选但全部低于 ignition（注入一条声明性"没有清晰记忆"）
+   *   'none'  —— 零候选（注入"没有相关记忆"）
+   */
+  verdict?: 'hit' | 'weak' | 'none'
 }
 
 export interface ExpandResult {
@@ -390,6 +437,17 @@ export interface DoctorReport {
   tombstoneBytes?: number
   /** v0.5.2：本次体检扫描了多少条 cell（体检是全库遍历，大库上这是它的成本口径） */
   scanned?: number
+  /**
+   * v0.6.2：身份码碰撞对数（同一 SDR 但摘要不同）。
+   *
+   * `identity()` 的熵在 v0.6.2 从 32 位升到 64 位，理论上已经不可能撞；
+   * 这项存在的意义是**让"理论上"变成可观测**：真撞了会表现为
+   * "两条不同的记忆共用一个身份码"，进而被去重误合并——
+   * 而这种错误不报错，只在召回质量上慢慢显形。
+   */
+  identityCollisions?: number
+  /** v0.6.2：碰撞审计是否因库太大而跳过（诚实上报，不假装查过） */
+  identityAuditSkipped?: boolean
   staleLocks: number
   indexConsistent: boolean
   layoutVersion: number

@@ -189,6 +189,21 @@ export interface Store {
    */
   clearLattice(preserveKinds?: number[]): void
 
+  /**
+   * 语料词频（v0.6.2 · IDF）。
+   *
+   * 只记"出现过该 token 的 cell 数"（document frequency），不记每条的词频——
+   * 查询侧只需要 df 来判断"这个词有没有区分力"。
+   *
+   * **只在新建 cell 时累加**：更新（降档、改效价）不重复计数，
+   * 否则 df 会随巩固次数膨胀，"高频"变成"被访问过"的同义词。
+   */
+  bumpTokenDf(tokens: Iterable<string>): void
+  /** 批量取 df + 总文档数。一次召回只查一遍，不做逐 token 往返。 */
+  tokenDf(tokens: readonly string[]): { df: Map<string, number>; docs: number }
+  /** 清空词频表（rebuild / 换库时用）。 */
+  clearTokenDf(): void
+
   /** BEGIN IMMEDIATE 语义的单写事务。读侧不进事务（WAL 快照）。 */
   write<T>(fn: () => T): T
   stats(): { cells: number; edges: number; residuals: number; bytes: number; rawBytes?: number; residualBytes?: number }
@@ -276,6 +291,9 @@ export class MemoryStore implements Store {
   private evicts: EvictRecord[] = []
   private kv = new Map<string, string>()
   private retention = new Map<string, { score: number; band: number; at: number }>()
+  /** v0.6.2：token → document frequency，与 docs 一起构成 IDF 的原料。 */
+  private tokenDfMap = new Map<string, number>()
+  private tokenDocs = 0
 
   constructor(private readonly space: SdrSpace) {}
 
@@ -528,6 +546,32 @@ export class MemoryStore implements Store {
     this.edgeList = []
     this.sources.clear()
     for (const k of [...this.retention.keys()]) if (!this.cells.has(k)) this.retention.delete(k)
+    // 全量清空时词频表一起清（与 SqliteStore 同口径）
+    if (preserveKinds.length === 0) this.clearTokenDf()
+  }
+
+  bumpTokenDf(tokens: Iterable<string>): void {
+    let n = 0
+    for (const t of tokens) {
+      if (!t) continue
+      this.tokenDfMap.set(t, (this.tokenDfMap.get(t) ?? 0) + 1)
+      n++
+    }
+    if (n > 0) this.tokenDocs++
+  }
+
+  tokenDf(tokens: readonly string[]): { df: Map<string, number>; docs: number } {
+    const df = new Map<string, number>()
+    for (const t of tokens) {
+      const v = this.tokenDfMap.get(t)
+      if (v !== undefined) df.set(t, v)
+    }
+    return { df, docs: this.tokenDocs }
+  }
+
+  clearTokenDf(): void {
+    this.tokenDfMap.clear()
+    this.tokenDocs = 0
   }
 
   write<T>(fn: () => T): T {
@@ -653,6 +697,14 @@ CREATE TABLE IF NOT EXISTS session_log (
   session TEXT NOT NULL, seq INTEGER NOT NULL, turn INTEGER NOT NULL,
   role TEXT NOT NULL, text TEXT NOT NULL, at INTEGER NOT NULL,
   PRIMARY KEY (session, seq)
+);
+
+-- 语料词频（v0.6.2 · IDF）。df = 出现过该 token 的 cell 数。
+-- 独立表而不是塞进 cells：它只服务**查询侧剪枝**，与 cell 的生命周期无关，
+-- 所以不需要跟着 rebuild 走，也不能进 MC03 布局（那要动 HEADER_SIZE）。
+CREATE TABLE IF NOT EXISTS token_df (
+  token TEXT PRIMARY KEY,
+  df    INTEGER NOT NULL
 );
 `
 
@@ -1098,7 +1150,9 @@ export class SqliteStore implements Store {
   }
   clearLattice(preserveKinds: number[] = []): void {
     if (preserveKinds.length === 0) {
-      this.conn.exec('DELETE FROM cells; DELETE FROM edges; DELETE FROM cell_sources; DELETE FROM retention;')
+      // 全量清空时词频表一起清：文档没了，df 就是脏数据。
+      this.conn.exec('DELETE FROM cells; DELETE FROM edges; DELETE FROM cell_sources; DELETE FROM retention; DELETE FROM token_df;')
+      this.setMeta('token_df.docs', '0')
       return
     }
     const list = preserveKinds.map((k) => Math.floor(k)).join(',')
@@ -1106,6 +1160,43 @@ export class SqliteStore implements Store {
       `DELETE FROM cells WHERE kind NOT IN (${list}); DELETE FROM edges; DELETE FROM cell_sources;
        DELETE FROM retention WHERE cell_id NOT IN (SELECT cell_id FROM cells);`,
     )
+  }
+
+  /**
+   * 累加词频（v0.6.2 · IDF）。
+   *
+   * 走 upsert：`ON CONFLICT DO UPDATE SET df = df + 1`。
+   * 用一条 prepared statement 在循环里跑，而不是拼一条多值 INSERT——
+   * 查询侧只有 24 个 token，往返开销可以忽略，而多值 SQL 要处理参数上限。
+   */
+  bumpTokenDf(tokens: Iterable<string>): void {
+    const stmt = this.prep('INSERT INTO token_df(token, df) VALUES(?, 1) ON CONFLICT(token) DO UPDATE SET df = df + 1')
+    let n = 0
+    for (const t of tokens) {
+      if (!t) continue
+      stmt.run(t)
+      n++
+    }
+    if (n > 0) this.setMeta('token_df.docs', String(this.tokenDocs() + 1))
+  }
+
+  tokenDf(tokens: readonly string[]): { df: Map<string, number>; docs: number } {
+    const stmt = this.prep('SELECT df FROM token_df WHERE token = ?')
+    const df = new Map<string, number>()
+    for (const t of tokens) {
+      const row = stmt.get(t) as { df?: number } | undefined
+      if (row && row.df !== undefined) df.set(t, Number(row.df))
+    }
+    return { df, docs: this.tokenDocs() }
+  }
+
+  clearTokenDf(): void {
+    this.conn.exec('DELETE FROM token_df;')
+    this.setMeta('token_df.docs', '0')
+  }
+
+  private tokenDocs(): number {
+    return Number(this.meta('token_df.docs') ?? 0) || 0
   }
 
   /** 单写事务（§8.5）。嵌套调用退化为最外层事务，避免巩固 pass 里再包一层。 */

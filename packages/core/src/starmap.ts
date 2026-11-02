@@ -50,13 +50,28 @@ function projectionVectors(dim: number): [Float64Array, Float64Array, Float64Arr
 
 function buildProjection(dim: number): [Float64Array, Float64Array, Float64Array] {
   const rnd = mulberry32(PROJECTION_SEED)
+  /**
+   * 成对常量的稀疏随机投影（v0.6.2）。
+   *
+   * 为什么每**相邻两维共用一个权重**：冷层用 `pq4` 压到 4 bit，
+   * 而 `pq4` 在 dim=64 时 `perSub = 2`——也就是**每两个维度共用一个 nibble**，
+   * 展开后这两维被强制相等（成对取均值）。
+   * 如果投影基在每一维上独立随机，成对均值会改变投影方向，降档时星星就跳；
+   * 让一对维度共用权重后，`w·(a+b)/2` 与 `w·(a+b)` 只差一个常数倍，
+   * L2 归一化把它消掉——**降档漂移因此从 0.289 降到 0.130**（实测，12 条样本）。
+   *
+   * 代价：独立系数减半（64 维 → 32 个）。三维可视化不需要更多自由度，
+   * 实测语义保距（余弦 × 投影距离的相关性）反而略好：0.0159 vs 0.0150。
+   */
   const make = () => {
     const v = new Float64Array(dim)
     let norm = 0
-    for (let i = 0; i < dim; i++) {
-      // 稀疏随机投影：只让 1/3 的维度参与，降低"任何两个点都相似"的塌缩
-      v[i] = rnd() < 0.34 ? rnd() * 2 - 1 : 0
-      norm += v[i] * v[i]
+    for (let i = 0; i < dim; i += 2) {
+      // 稀疏随机投影：只让约 1/3 的"维度对"参与，降低"任何两个点都相似"的塌缩
+      const w = rnd() < 0.34 ? rnd() * 2 - 1 : 0
+      v[i] = w
+      if (i + 1 < dim) v[i + 1] = w
+      norm += w * w * (i + 1 < dim ? 2 : 1)
     }
     const s = norm > 0 ? 1 / Math.sqrt(norm) : 0
     for (let i = 0; i < dim; i++) v[i] *= s
@@ -68,51 +83,60 @@ function buildProjection(dim: number): [Float64Array, Float64Array, Float64Array
 /**
  * 单条记忆 → 三维坐标 ∈ [−1, 1]。
  * 冷层 32 维 PQ 向量先展开到 64 维，保证"同一条记忆在不同层里位置不变"。
+ *
+ * ── v0.6.2：按 L2 范数归一（修星图塌缩） ─────────────────────────
+ *
+ * v0.6.1 及之前按 `v[i] / 127` 缩放——127 是 int8 的满量程，但**实际存的向量
+ * 只有 ±4…±8**（哈希 embedding 的 sublinear TF 权重，见 `hashEmbedding`）。
+ * 于是每个分量被压到 ±0.06，投影后的坐标全部落在 ±0.03 内：
+ * 星图上 1200 条记忆塌成一个点。这不是"视觉问题"，是**投影把方向信息丢了**。
+ *
+ * 修法：先算向量的 L2 范数，按范数归一成单位向量再投影。
+ * 余弦与随机投影都只关心**方向**，归一化不损失任何检索语义，
+ * 而且让"哈希向量（±8）"与"provider 向量（±127）"落在同一个尺度上——
+ * 否则同一批记忆在切换向量源后会整体缩放。
  */
 export function project3(emb: Int8Array | null, dim = 64): [number, number, number] {
   if (!emb || emb.length === 0) return [0, 0, 0]
   /**
-   * 维度不一致时**零填充到原位置**（v0.6.1 · 修 F8，但与审计稿的建议相反）。
+   * 维度不一致时用 `expandEmb` 展开——**与打分路径同一份逻辑**（v0.6.2 统一）。
    *
-   * 先把事实说清楚：`pq32()` 是 `pq4()` 之后取**前 32 个 nibble**，
-   * 也就是"前 32 维的 4 bit 量化"，不是语义 PQ 子空间。
-   * 所以它的忠实逆变换是**按下标放回前 32 位、其余补 0**——
-   * 这正是 v0.6.0 里 `Math.min(emb.length, dim)` 实际做的事
-   * （代码注释写着"先展开到 64 维"，但代码里没有展开，注释是错的）。
+   * 这里纠正了 v0.6.0/v0.6.1 的两处错误结论：
    *
-   * 审计稿建议改成 `expandEmb(emb, dim)`。实测（6 条真实记忆取平均）：
-   *   零填充漂移 **0.031** · expandEmb 漂移 **0.467**（比原来更糟）。
-   * 原因：`expandEmb` 的 32 维分支按"8 个子向量 × 4 字节"铺开，
-   * 与 pq32 的"前 32 维"布局不是同一个解释，展开后反而把向量打散。
+   * ① v0.6.0 的注释写"先展开到 64 维"，但代码是 `Math.min(emb.length, dim)` 零填充，
+   *    注释与实现不符。v0.6.1 把注释改成了"零填充才是忠实逆变换"，
+   *    并记下"expandEmb 漂移 0.467 > 零填充 0.031"。
    *
-   * 因此这里保留零填充，但**把语义写清楚**：冷层在星图上的位置 = 它前 32 维
-   * 的方向。残余漂移来自 4 bit 量化本身（每维丢 4 bit），是压缩的固有代价，
-   * 不是布局错位。`test/v061-starmap` 断言这个漂移有界。
+   * ② 那组实测是在**塌缩尺度**上量的：当时按 `v[i]/127` 缩放，坐标全在 ±0.03 内，
+   *    两个都贴原点的点之间距离自然"很小"。0.031 这个数字度量的是"两个点都塌了"，
+   *    而不是"两个点重合"。F8 断言 `漂移 ≤ 0.08` 在塌缩下恒真，正好盖住了真问题。
    *
-   * 待办（v0.7）：打分路径用的是 `expandEmb`，与这里的解释不一致。
-   * 统一两者会改变召回分数，属于独立议题，不在补丁版里做。
+   * 事实上 `pq4`（dim=64）的布局是 seg=8 / perSub=2，而 `expandEmb` 的 32 维分支
+   * 正是"8 段 × 4 字节、每字节铺 2 维"——**它才是 pq32 的精确逆变换**。
+   * 归一化后重新实测：expandEmb 漂移 0.130，零填充 0.500。方向反了。
+   *
+   * 顺带解决了原先记在 v0.7 待办里的"打分用 expandEmb、星图用零填充，两套解释不一致"。
    */
-  let v: Int8Array
-  if (emb.length === dim) {
-    v = emb
-  } else if (emb.length < dim) {
-    v = new Int8Array(dim)
-    v.set(emb)
-  } else {
-    // 更长的向量（例如 256 维）折到 64：与 foldEmb 同口径
-    v = expandEmb(emb, dim)
-  }
+  const v = emb.length === dim ? emb : expandEmb(emb, dim)
+
+  // L2 归一：只保留方向。范数为 0 的向量（空记忆）落在原点。
+  let norm = 0
+  for (let i = 0; i < dim; i++) norm += v[i] * v[i]
+  if (norm === 0) return [0, 0, 0]
+  const inv = 1 / Math.sqrt(norm)
+
   const [vx, vy, vz] = projectionVectors(dim)
   let x = 0
   let y = 0
   let z = 0
   for (let i = 0; i < dim; i++) {
-    const c = v[i] / 127
+    const c = v[i] * inv
     x += c * vx[i]
     y += c * vy[i]
     z += c * vz[i]
   }
-  // tanh 压缩：投影值集中在 0 附近，线性缩放会让所有点挤在中心
+  // tanh 压缩：单位向量与随机单位向量的点积通常落在 ±0.5 内，
+  // 乘 1.8 后 tanh 给出约 ±0.6 的分布——既不塌缩也不贴边。
   return [Math.tanh(x * 1.8), Math.tanh(y * 1.8), Math.tanh(z * 1.8)]
 }
 

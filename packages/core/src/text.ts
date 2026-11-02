@@ -194,11 +194,34 @@ export function parseTimeExpr(text: string, now = Date.now()): TimeRange | undef
     d.setHours(0, 0, 0, 0)
     return mk(d.getTime(), d.getTime() + DAY)
   }
+  // v0.6.2（A8 修复）：补漏的高频表达
+  // "上月" 与 "上个月" 是两个不同的词，分开匹配（旧版只匹配"上个月"）
+  if (/上月(?!份)/.test(t) || /上个月|last month/i.test(t)) {
+    const d = new Date(now)
+    d.setMonth(d.getMonth() - 1, 1)
+    d.setHours(0, 0, 0, 0)
+    const from = d.getTime()
+    const to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
+    return mk(from, to)
+  }
+  // "本月" / "这个月"
+  if (/本月|这个月|this month/i.test(t)) {
+    const d = new Date(now)
+    d.setDate(1)
+    d.setHours(0, 0, 0, 0)
+    const from = d.getTime()
+    const to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
+    return mk(from, to)
+  }
+  // "近几个月" / "最近几个月"
+  if (/近几个月|最近几个月/.test(t)) return mk(now - 90 * DAY, now)
   if (/上周|last week/i.test(t)) return mk(now - 14 * DAY, now - 7 * DAY)
   if (/本周|这周|this week/i.test(t)) return mk(now - 7 * DAY, now)
   if (/上个月|last month/i.test(t)) return mk(now - 60 * DAY, now - 30 * DAY)
   if (/最近|近来|recently/i.test(t)) return mk(now - 7 * DAY, now)
   if (/去年/.test(t)) return mk(now - 730 * DAY, now - 365 * DAY)
+  // v0.6.2：补 "前年"
+  if (/前年/.test(t)) return mk(now - 1095 * DAY, now - 730 * DAY)
 
   const nMention = t.match(/(\d+)\s*(天|日|周|个?星期|个月)\s*(前|以前|之前)/)
   if (nMention) {
@@ -211,6 +234,18 @@ export function parseTimeExpr(text: string, now = Date.now()): TimeRange | undef
   if (ago) {
     const days = Number(ago[1])
     return mk(now - days * DAY - DAY, now - days * DAY + DAY)
+  }
+  // v0.6.2：补 "几个月前"
+  const monthsAgo = t.match(/(\d+)\s*个?月\s*(前|以前|之前)/)
+  if (monthsAgo) {
+    const n = Number(monthsAgo[1])
+    return mk(now - n * 30 * DAY - DAY, now - n * 30 * DAY + DAY)
+  }
+  // v0.6.2：补 "几周前"
+  const weeksAgo = t.match(/(\d+)\s*周\s*(前|以前|之前)/)
+  if (weeksAgo) {
+    const n = Number(weeksAgo[1])
+    return mk(now - n * 7 * DAY - DAY, now - n * 7 * DAY + DAY)
   }
   const md = t.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]/)
   if (md) {

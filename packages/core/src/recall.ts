@@ -62,6 +62,13 @@ export interface RecallDeps {
    * 返回的是**超集**（由门限反推的最小重叠位），不是近似，所以接进来不会掉 Recall。
    */
   sdrCandidates?: (sdr: Sdr, minOverlap: number) => bigint[] | null
+  /**
+   * 语料词频查询（v0.6.2 · IDF）。缺席时不做剪枝，行为与 v0.6.1 完全一致。
+   *
+   * 注意它**只影响查询侧**：`hashEmbedding` 仍然是纯函数，
+   * 落盘向量与 cellId 一个字节都不变。
+   */
+  tokenDf?: (tokens: readonly string[]) => { df: Map<string, number>; docs: number }
 }
 
 interface Candidate {
@@ -300,10 +307,51 @@ export function quantize(v: Float32Array | number[], dim: number): Int8Array {
 }
 
 /** 查询 SDR：实体身份码的并集 + 话题码。稀疏、可解释、跨进程稳定。 */
-export function buildQuerySdr(space: SdrSpace, text: string, extraEntities: string[] = []): Sdr {
-  const ents = [...extractEntities(text), ...extraEntities]
+export function buildQuerySdr(space: SdrSpace, text: string, extraEntities: string[] = [], entities?: readonly string[]): Sdr {
+  const ents = entities ?? [...extractEntities(text), ...extraEntities]
   const items: Sdr[] = ents.slice(0, 24).map((e) => space.identity('E:' + e))
   return space.bundle(items)
+}
+
+/**
+ * 查询侧 IDF 剪枝（v0.6.2）。
+ *
+ * `containment(q,c) = |q∩c| / |q|` 对每个 token 等权，于是"我的""这个""是"
+ * 这类几乎每条记忆都含的词，既抬高分母、又只在恰好含它的 cell 上加分——
+ * 净效果是把真正有区分力的实体稀释掉。
+ *
+ * 三条保守约束（宁可不剪，不可剪错）：
+ *   1. 文档数不足 `idfMinDocs` 时完全不剪（小库上 df 抖动比信号大）；
+ *   2. 剪枝只剔除 `df/docs ≥ idfMaxDfRatio` 的 token，不做软加权——
+ *      软加权需要改 `containment` 的返回值口径，会牵动所有既有断言；
+ *   3. **绝不剪空**：全被剔除时保留 df 最小的那一个，
+ *      否则查询 SDR 变成零向量，符号路直接失效（比不剪更糟）。
+ */
+export function pruneQueryEntities(
+  ents: readonly string[],
+  deps: Pick<RecallDeps, 'tokenDf'>,
+  cfg: { idfEnabled: boolean; idfMinDocs: number; idfMaxDfRatio: number },
+): string[] {
+  if (!cfg.idfEnabled || !deps.tokenDf || ents.length <= 1) return [...ents]
+  let stats: { df: Map<string, number>; docs: number }
+  try {
+    stats = deps.tokenDf(ents)
+  } catch {
+    // 词频表不可用（旧库未建表、只读快照）时安静退回不剪
+    return [...ents]
+  }
+  if (stats.docs < cfg.idfMinDocs) return [...ents]
+  const kept: string[] = []
+  const scored: Array<{ e: string; ratio: number }> = []
+  for (const e of ents) {
+    const ratio = (stats.df.get(e) ?? 0) / stats.docs
+    scored.push({ e, ratio })
+    if (ratio < cfg.idfMaxDfRatio) kept.push(e)
+  }
+  if (kept.length > 0) return kept
+  // 全被剔除：留最稀有的那个（df 最小；并列取原顺序第一个）
+  scored.sort((a, b) => a.ratio - b.ratio)
+  return scored.length > 0 ? [scored[0].e] : [...ents]
 }
 
 export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
@@ -312,7 +360,11 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   const now = deps.now ?? t0
   const weights = config.recall
 
-  const qSdr = buildQuerySdr(space, q.text, q.goal?.entities ?? [])
+  // v0.6.2：查询实体先过 IDF 剪枝，再建查询 SDR。
+  // 只剪"哪些实体参与符号路"，不动向量通道（hashEmbedding 必须保持纯函数）。
+  const queryEnts = [...extractEntities(q.text), ...(q.goal?.entities ?? [])]
+  const keptEnts = pruneQueryEntities(queryEnts, deps, config.index)
+  const qSdr = buildQuerySdr(space, q.text, [], keptEnts)
   // 查询向量与落盘向量必须走**同一条变换链**：先在 embDim 的哈希空间里算，
   // 再折叠到 embStoreDim。直接在 embStoreDim 上哈希会得到另一个向量空间
   // （折叠是"分组求和"，不是"换桶数"），两者不可比——实测会把 Recall@8 打到 0.23。
@@ -663,6 +715,30 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
 
   const strategy = dominantStrategy(selected.map((s) => s.cand))
 
+  /**
+   * v0.6.2（§3.3 修复）：弃权判定。
+   *
+   * 有候选但没有一条过 ignition 阈值时，注入一行显式声明"没有清晰记忆"，
+   * 而不是沉默地什么都不注入。这让模型可以回答"我不记得你提过这件事"，
+   * 而不是对陷阱题照常编造。
+   */
+  const verdict: 'hit' | 'weak' | 'none' =
+    selected.length > 0 ? 'hit' : pool.length > 0 ? 'weak' : 'none'
+  // 手动检索（工具调用）同样需要弃权声明：模型主动问"我们上次定了什么"时，
+  // "没找到"比"什么都不给"有用得多——后者会让模型直接开始编。
+  if (verdict !== 'hit') {
+    // 在渲染结果里追加一行弃权声明——模型看到它就知道"这条不该编"
+    const abstainLine = verdict === 'none'
+      ? '〔记忆系统：未找到相关记忆〕'
+      : '〔记忆系统：有模糊候选但未达置信阈值，可能未记录过此事〕'
+    if (rendered.text.length > 0) {
+      rendered.text = abstainLine + '\n' + rendered.text
+    } else {
+      rendered.text = abstainLine
+    }
+    rendered.tokens += estimateTokens(abstainLine)
+  }
+
   return {
     // queryId 必须可复现：随机后缀会让"同一 query 两次调用"得到不同 id，
     // 而 recall_snapshots 是按 id 取内容的，重放审计会对不上。
@@ -679,6 +755,7 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
     elapsedMs: Date.now() - t0,
     slotsUsed: slots.filter((s) => s.count > 0).length,
     emptySlots: slots.filter((s) => s.count === 0).length,
+    verdict,
   }
 }
 

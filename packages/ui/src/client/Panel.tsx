@@ -358,7 +358,8 @@ export function MnemoPanel(props: PanelProps): ReactNode {
             ? h(StarMap, {
                 snapshot,
                 onOpen: (id) => openCell(id, 'search'),
-                height: 380,
+                // v0.6.2：不再写死 380px——大屏上那是把星图压成一条缝。
+                // 交给 StarMap 自己的 `clamp(360px, 62vh, 920px)` 随视口伸缩。
               })
             : null,
           tab === 'console'

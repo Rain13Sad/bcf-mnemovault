@@ -64,12 +64,14 @@ export const Config: z<Config> = z.object({
     a1: z.number().default(DEFAULT_COEFF.a1),
     a2: z.number().default(DEFAULT_COEFF.a2),
     a3: z.number().default(DEFAULT_COEFF.a3),
+    a4: z.number().default(DEFAULT_COEFF.a4),
     d1: z.number().default(DEFAULT_COEFF.d1),
     d2: z.number().default(DEFAULT_COEFF.d2),
     d3: z.number().default(DEFAULT_COEFF.d3),
     s1: z.number().default(DEFAULT_COEFF.s1),
     s2: z.number().default(DEFAULT_COEFF.s2),
     s3: z.number().default(DEFAULT_COEFF.s3),
+    s4: z.number().default(DEFAULT_COEFF.s4),
   }),
 })
 
@@ -664,7 +666,7 @@ export function apply(ctx: Context, config: Config) {
   return affect
 }
 
-export { appraise, coreAffect, integrateMood, label, clampPersona } from './appraisal.js'
+export { appraise, coreAffect, integrateMood, label, clampPersona, neutralPad, neutralIntero, DEFAULT_COEFF } from './appraisal.js'
 export { deriveUserSchema, readPersisted, relationalCell, personaCell, schemaCell } from './persist.js'
 export type { PersonaState, SchemaPattern } from './persist.js'
 export { derivePolicy, interocept } from './policy.js'

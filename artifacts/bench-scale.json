@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T11:04:09.942Z",
+  "generatedAt": "2026-11-02T06:44:39.163Z",
   "node": "v22.22.2",
   "platform": "win32-x64",
   "mode": "synthetic-corpus",
@@ -9,17 +9,17 @@
       "mode": "corpus",
       "corpus": 10000,
       "corpusEdges": 40000,
-      "corpusBuildMs": 1794,
+      "corpusBuildMs": 1538,
       "sdrIndex": true,
       "indexCells": 10000,
-      "indexBytes": 1671272,
-      "indexBuildMs": 265,
+      "indexBytes": 1668484,
+      "indexBuildMs": 230,
       "cells": 10022,
-      "recallP50Ms": 17.17,
-      "recallP95Ms": 37.69,
-      "ingestP50Ms": 5.16,
-      "demoteMs": 688,
-      "panelMs": 679,
+      "recallP50Ms": 34.24,
+      "recallP95Ms": 47.2,
+      "ingestP50Ms": 12.46,
+      "demoteMs": 1467,
+      "panelMs": 2559,
       "caveat": "synthetic: batch putCell + synthetic edges; no residuals, uniform access history — latency only, not Recall"
     }
   ]

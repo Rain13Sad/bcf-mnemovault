@@ -116,11 +116,13 @@ export default { jsx, jsxs, Fragment }
 <style>
   html, body { margin: 0; height: 100%; background: #0f1115; overflow: hidden; }
   body { display: grid; place-items: center; font: 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  [data-tall="1"] .frame { height: 100vh !important; border-radius: 0 !important; }
-  /* v0.4：横屏预览。容器宽度就是面板宽度，@container 判据才会命中左侧栏布局 */
-  [data-wide="1"] .frame { width: min(1280px, 100vw) !important; height: 100vh !important; border-radius: 0 !important; }
-  .frame { width: min(420px, 100vw); min-width: 0; max-width: 100vw; height: min(780px, 100vh); background: #fff; border-radius: 12px; overflow: hidden;
-           box-shadow: 0 20px 60px rgba(0,0,0,.45); display: flex; flex-direction: column; position: relative; }
+  /* v0.6.2：默认**铺满视口**。420×780 的竖屏卡片改成 #<tab>,narrow 才触发。
+     旧模板默认窄卡片，于是每次预览都像"面板是竖的"——而真实宿主里它是整宽侧栏，
+     截图与实机长期不一致。容器宽度就是面板宽度，@container 判据才会命中左侧栏布局。 */
+  .frame { width: 100vw; height: 100vh; min-width: 0; max-width: 100vw; background: #fff; overflow: hidden;
+           display: flex; flex-direction: column; position: relative; }
+  [data-narrow="1"] .frame { width: min(420px, 100vw) !important; height: min(780px, 100vh) !important;
+           border-radius: 12px !important; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
   #root { flex: 1; min-height: 0; display: flex; }
   #root > .mnv-root { flex: 1; }
   @media (prefers-color-scheme: dark) { .frame { background: #14171c; } }
@@ -136,10 +138,9 @@ export default { jsx, jsxs, Fragment }
     const hash = (location.hash || '#overview').slice(1)
     const parts = hash.split(',')
     if (parts.includes('dark')) document.documentElement.dataset.theme = 'dark'
-    // #tab,tall —— 预览时让容器撑满视口，便于整页截图（默认 780px 是真实侧栏高度）
-    if (parts.includes('tall')) document.documentElement.dataset.tall = '1'
-    // #tab,wide —— 让容器变成桌面宽度，用来验证横屏（左侧栏）布局
-    if (parts.includes('wide')) document.documentElement.dataset.wide = '1'
+    // v0.6.2：#tab,narrow —— 退回 420×780 竖屏卡片（验证窄容器布局用）。
+    // #tab,wide / #tab,tall 已废弃：默认就是铺满视口，这两个标记不再有副作用。
+    if (parts.includes('narrow')) document.documentElement.dataset.narrow = '1'
     window.__MNV_TAB__ = parts[0] || 'overview'
   </script>
   <script type="module">
