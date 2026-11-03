@@ -25,13 +25,23 @@
 
 import { FLAG, KIND, type MemCell } from './cell.js'
 import type { PresetName } from './preset.js'
+import { actrActivation, activationNorm, decayState, staleFactor } from './decay.js'
+
+/**
+ * 三套衰减量统一由 `decay.ts` 提供（v0.7.1）。
+ * 这里保留 re-export 是为了不破坏既有导入路径（core 的公开 API 面）。
+ */
+export {
+  ACTR_D,
+  actrActivation,
+  activationNorm,
+  staleFactor,
+  STALE_ONSET_DAYS,
+  STALE_SPAN_DAYS,
+  STALE_FLOOR,
+} from './decay.js'
 
 const DAY = 86_400_000
-/** ACT-R 衰减指数。0.5 是 Anderson 的经典取值。 */
-export const ACTR_D = 0.5
-/** 归一化上下界：B 的实测范围约 −9（一年未访问）… −1（刚访问且高频）。 */
-const B_FLOOR = -10
-const B_CEIL = -1
 
 export interface RetentionInputs {
   /** ACT-R 激活归一化到 0..1 */
@@ -97,39 +107,6 @@ export const DISPOSITION_LABEL: Record<Disposition, string> = {
 export const DISPOSITION_FLOOR: Record<Disposition, number> = { P5: 0.75, P4: 0.55, P3: 0.35, P2: 0.18, P1: 0 }
 
 /**
- * ACT-R 激活。
- *
- * 库里只存 `accessCount / tAccess / tIngest`，没有每一次提取的时间戳，
- * 因此把 n 次提取视为在 [tIngest, tAccess] 上**均匀分布**逐项求和：
- *   · n = 1 时退化为单项，与定义完全一致；
- *   · n > 1 时对近期项有系统性低估，再用 tAccess 单独补一项（权重 0.5）修正。
- * 这是可解释的近似，而不是"拍一个数字"。
- */
-export function actrActivation(accessCount: number, tAccessMs: number, tIngestMs: number, nowMs: number, d = ACTR_D): number {
-  const now = nowMs
-  const n = Math.max(1, Math.floor(accessCount || 1))
-  const last = Math.max(0, now - (tAccessMs || tIngestMs || now)) / 1000
-  const span = Math.max(0, (tAccessMs || now) - (tIngestMs || tAccessMs || now)) / 1000
-  let sum = 0
-  if (n === 1) {
-    sum = Math.pow(Math.max(1, last), -d)
-  } else {
-    for (let j = 0; j < n; j++) {
-      // j=0 是最早的一次，j=n−1 是最近的一次
-      const t = span * (j / (n - 1))
-      sum += Math.pow(Math.max(1, last + (span - t)), -d)
-    }
-    sum += 0.5 * Math.pow(Math.max(1, last), -d)
-  }
-  return Math.log(Math.max(1e-12, sum))
-}
-
-/** B → 0..1。线性映射而不是 sigmoid：档位阈值需要可预测，不能挤在 0.5 附近。 */
-export function activationNorm(b: number): number {
-  return clamp01((b - B_FLOOR) / (B_CEIL - B_FLOOR))
-}
-
-/**
  * 间隔效应：分散复习优于集中突击。
  * 用"平均间隔"与"提取次数"两个量，都有上限，防止刷次数把分数顶满。
  */
@@ -141,28 +118,6 @@ export function spacingScore(accessCount: number, tIngestMs: number, tAccessMs: 
   const spread = clamp01(meanInterval / 3)
   const reps = clamp01(Math.log1p(n) / Math.log1p(8))
   return clamp01(0.35 + 0.65 * spread) * reps
-}
-
-/**
- * 陈旧包络（v0.5 新增）。
- *
- * v0.4 的一个致命偏差：七因子里六个是**静态**的（重要度、情绪、关联、叙事、锚定、间隔），
- * 只有 activation 随时间变化，于是 400 天没被碰过的用户陈述仍然拿 0.73（P4）——
- * 「库只进不出」的真正原因不是闸，是**价值项不随时间贬值**。
- *
- * 这里加一个乘性包络：30 天内不折损，之后线性下降，730 天到地板 0.15。
- * 它不是"遗忘曲线回来了"——它不决定档位，只是把"你早就想不起它了"这件事
- * 折算进价值判断：想不起来的记忆，谈不上多重要。
- */
-export const STALE_ONSET_DAYS = 30
-export const STALE_SPAN_DAYS = 700
-export const STALE_FLOOR = 0.15
-
-export function staleFactor(tAccessMs: number, nowMs: number): number {
-  const days = Math.max(0, nowMs - (tAccessMs || nowMs)) / DAY
-  const over = Math.max(0, days - STALE_ONSET_DAYS)
-  const env = clamp01(1 - over / STALE_SPAN_DAYS)
-  return clamp01(STALE_FLOOR + (1 - STALE_FLOOR) * env)
 }
 
 /** 周年效应：|now − tFrom| mod 365 落在 ±3 天内，保留度临时 +0.25。 */
@@ -350,9 +305,17 @@ export function protectedFromDeletion(cell: MemCell): string | null {
 export function evaluateRetention(cell: MemCell, ctx: RetentionContext): RetentionResult {
   const degree = Math.max(0, ctx.degree ?? 0)
   const maxDegree = Math.max(1, ctx.maxDegree ?? 1)
-  const activationRaw = actrActivation(cell.accessCount, Number(cell.tAccess), Number(cell.tIngest), ctx.nowMs)
+  /**
+   * 单一衰减入口（v0.7.1）。
+   *
+   * 这里此前分别调用 `actrActivation` + `activationNorm` + `staleFactor`，
+   * 三者各自用自己的时间尺度——同一条记忆在检索与保留度里会得出矛盾的结论。
+   * 现在全部来自 `decayState(cell, now)`：一个入口、一条时间尺度。
+   */
+  const dec = decayState(cell, ctx.nowMs)
+  const activationRaw = dec.activationRaw
   const parts: RetentionInputs = {
-    activation: activationNorm(activationRaw),
+    activation: dec.activation,
     importance: clamp01(cell.importance),
     affectIntensity: affectIntensityOf(cell),
     connectivity: clamp01(Math.log1p(degree) / Math.log1p(maxDegree)),
@@ -373,7 +336,7 @@ export function evaluateRetention(cell: MemCell, ctx: RetentionContext): Retenti
     redundancy: -w.redundancy * parts.redundancy,
   }
 
-  const stale = staleFactor(Number(cell.tAccess), ctx.nowMs)
+  const stale = dec.stale
   const tInvalid = Number(cell.tInvalid ?? 0)
   const invalid = tInvalid !== 0 && ctx.nowMs - tInvalid > INVALID_GRACE_MS
 

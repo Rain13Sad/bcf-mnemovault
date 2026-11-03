@@ -141,6 +141,8 @@ export default { jsx, jsxs, Fragment }
     // v0.6.2：#tab,narrow —— 退回 420×780 竖屏卡片（验证窄容器布局用）。
     // #tab,wide / #tab,tall 已废弃：默认就是铺满视口，这两个标记不再有副作用。
     if (parts.includes('narrow')) document.documentElement.dataset.narrow = '1'
+    // v0.7.1：#tab,palette —— 直接展开命令面板（截图与实机核对用）
+    if (parts.includes('palette')) window.__MNV_PALETTE__ = true
     window.__MNV_TAB__ = parts[0] || 'overview'
   </script>
   <script type="module">
@@ -153,6 +155,7 @@ export default { jsx, jsxs, Fragment }
       pageSize: 50,
       graphMaxNodes: 200,
       initialTab: window.__MNV_TAB__,
+      initialPaletteOpen: window.__MNV_PALETTE__ === true,
       affectEnabled: true,
       ignition: 0.42,
       runCommand: (line) => '（预览模式）已执行 /mnemo ' + line + '；真实命令面在宿主内生效。',

@@ -216,6 +216,14 @@ export interface SecurityConfig {
    * 多租户部署若无法保证 per-user scopeKey，把它设为 true 可退化为会话级隔离。
    */
   sessionIsolateSemantic: boolean
+  /**
+   * 作用域推导模式（v0.7.1）。
+   *
+   * `auto` 是默认：有 userId 就按用户推导，否则共享域 + 告警。
+   * 多租户但暂时没有身份层时，把它设成 `per-session` 就得到
+   * "至少不跨会话泄漏"的一键档——不需要改任何调用方代码。
+   */
+  scopeMode: 'auto' | 'shared' | 'per-user' | 'per-session'
   /** 指令形态文本默认不进 MRS 渲染（仍可检索、可在面板查看） */
   blockInstructionRendering: boolean
   /** 危机识别与转介总开关。默认 **true**——关掉它需要写进部署文档 */

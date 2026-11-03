@@ -505,4 +505,109 @@ export const CSS = `
   .mnv-console-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
   .mnv-console-grid > section:last-child { grid-column: 1 / -1; }
 }
+
+/* ── 命令面板（⌘K）────────────────────────────────────────────── */
+/* 参考 cmdk / Raycast 的视觉语言：居中浮层、轻遮罩、单行输入 + 分组列表 */
+.mnv-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(12, 16, 22, 0.42);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 12vh 16px 16px;
+}
+.mnv-palette {
+  width: min(560px, 100%);
+  max-height: 66vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--mnv-bg);
+  border: 1px solid var(--mnv-border-strong);
+  border-radius: var(--mnv-radius);
+  box-shadow: 0 18px 48px rgba(8, 12, 20, 0.28), 0 2px 6px rgba(8, 12, 20, 0.12);
+  overflow: hidden;
+}
+.mnv-palette-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--mnv-border);
+  min-width: 0;
+}
+.mnv-palette-icon { color: var(--mnv-fg-faint); font-size: 12px; }
+.mnv-palette-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--mnv-fg);
+  font-size: 13px;
+  font-family: inherit;
+}
+.mnv-palette-input::placeholder { color: var(--mnv-fg-faint); }
+.mnv-palette-list { overflow: auto; padding: 6px; min-height: 0; }
+.mnv-palette-group { padding: 2px 0 4px; }
+.mnv-palette-group-title {
+  font-size: 10px;
+  letter-spacing: .04em;
+  color: var(--mnv-fg-faint);
+  padding: 6px 8px 4px;
+  text-transform: uppercase;
+}
+.mnv-palette-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--mnv-radius-sm);
+  background: transparent;
+  color: var(--mnv-fg);
+  font-size: 12px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.mnv-palette-item[data-active="true"] {
+  background: var(--mnv-accent-soft);
+  color: var(--mnv-accent);
+  box-shadow: inset 0 0 0 1px rgba(47, 111, 235, 0.22);
+}
+.mnv-palette-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mnv-palette-empty { padding: 18px 12px; font-size: 12px; color: var(--mnv-fg-soft); display: flex; flex-direction: column; gap: 6px; }
+.mnv-palette-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--mnv-border);
+  font-size: 10.5px;
+  color: var(--mnv-fg-faint);
+}
+.mnv-kbd {
+  display: inline-block;
+  min-width: 16px;
+  padding: 1px 5px;
+  margin-right: 3px;
+  border: 1px solid var(--mnv-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--mnv-bg-soft);
+  font-family: var(--mnv-mono);
+  font-size: 10px;
+  color: var(--mnv-fg-soft);
+  text-align: center;
+}
+@media (max-width: 560px) {
+  .mnv-palette-backdrop { padding: 8vh 10px 10px; }
+  .mnv-palette { max-height: 72vh; }
+}
 `

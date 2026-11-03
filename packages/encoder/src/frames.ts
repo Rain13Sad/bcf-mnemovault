@@ -106,6 +106,17 @@ const PRED_RULES: Array<{ re: RegExp; pred: string }> = [
   { re: /喜欢|偏好|倾向|习惯|爱用|更愿意/, pred: 'prefers' },
   // 居住 / 出行 / 就医 / 日程
   { re: /住在|搬到|搬家|居住/, pred: 'lives' },
+  /**
+   * 位置（v0.7.1）。
+   *
+   * 审计 R1 的根因之一："办公室在浦东" 里没有 `在` 这个谓词，
+   * 整句落到 `states`，而 `informative` 要求 `pred !== 'states'`——
+   * 于是**第一句就没有 cell**，三阶段改口从起点就断了。
+   *
+   * 中文的"在"既是存在动词也是介词，无法靠单一正则区分，
+   * 所以这里只认明确的定位动词，裸"X在Y"由 `detectLocative()` 用形态判据补。
+   */
+  { re: /位于|坐落于|坐落|定在|设在|落在|安在/, pred: 'located' },
   { re: /住院|做手术|确诊|生病|发烧|去世|离世/, pred: 'hospitalized' },
   { re: /出差|去|前往|到访|飞往|赶到/, pred: 'goes' },
   { re: /开会|面试|复诊|体检|汇报|答辩|截止|到期|交付/, pred: 'scheduled' },
@@ -114,13 +125,21 @@ const PRED_RULES: Array<{ re: RegExp; pred: string }> = [
   // 饮食/忌口：审计实测里"我不吃辣"整句丢值，就是因为没有这一类
   { re: /吃|喝|忌口/, pred: 'eats' },
   // 工程动作
-  { re: /改用|换成|切换到|改成|切换|提前|推迟/, pred: 'changes' },
-  { re: /使用|采用|统一用|一律按|按|(?<![用应费适作利])用(?![户])/, pred: 'uses' },
+  { re: /改用|换成|换到|改到|迁到|切换到|改成|切换|提前|推迟/, pred: 'changes' },
+  { re: /使用|采用|统一用|一律按|按|(?<![用应费适作利])用(?![户来以于])/, pred: 'uses' },
   { re: /决定|定了|选定|敲定/, pred: 'decides' },
   { re: /修好|修复|解决了/, pred: 'fixes' },
   { re: /报错|失败|崩了|挂了|跑不起来|不通过/, pred: 'fails' },
   { re: /部署|上线|发布/, pred: 'deploys' },
   { re: /通信|通讯|调用|对接/, pred: 'communicates' },
+  /**
+   * 讨论/商量（v0.7.1）。
+   *
+   * 这是会议记录类长文本里出现频率最高的谓词。缺了它，
+   * "我们讨论了缓存分片方案" 会落到 `states`，整段被当成空壳丢掉——
+   * 而它恰恰是"该被记住"的那种内容（长文本的存储比测试也依赖这条）。
+   */
+  { re: /讨论|商量|聊了|沟通了|评审了/, pred: 'discusses' },
   /**
    * 耗时/运行必须排在 `uses` / `changes` **之后**。
    *
@@ -238,6 +257,8 @@ function cleanTopic(x?: string): string | undefined {
     .replace(/^(我们的|我们|我的|我|你的|你)/g, '')
     // 谓词/副词残留："我习惯 X 是 Y" 的主语是 X，不是"习惯 X"
     .replace(/^(决定|定了|选定|敲定|以后|一律|统一|继续|一般|通常|习惯|喜欢|偏好|倾向|按|照)/g, '')
+    // 话语标记不是话题："最终定在静安寺" 的主语不是"最终"
+    .replace(/^(其实|最终|最后|后来|结果|反正|总之|然后|所以|另外|顺便)/g, '')
     // 祈使/否定标记不是话题（"别用 npm" 的话题不该是"别"）
     .replace(/^(别|不要|请|务必|记得|千万别|不准|禁止)/g, '')
     // 指示代词做定语时剥掉："那个项目" → "项目"（它不携带信息）
@@ -307,7 +328,7 @@ const VERB_OBJECT: Array<{ pred: string; re: RegExp }> = [
 const SUBJECT_BEFORE_VERB: Array<{ pred: string; re: RegExp }> = [
   { pred: 'uses', re: /^(.{1,12}?)(?:继续|统一|也|都|就)?\s*(?:用|使用|采用)/ },
   { pred: 'communicates', re: /^(.{1,12}?)\s*(?:通信|通讯|调用|对接)/ },
-  { pred: 'changes', re: /^(.{1,12}?)(?:改用|换成|切换到|改成)/ },
+  { pred: 'changes', re: /^(.{1,12}?)(?:改用|换成|换到|改到|切换到|改成)/ },
   { pred: 'deploys', re: /^(.{1,12}?)(?:部署|上线|发布)/ },
   { pred: 'fails', re: /^(.{1,12}?)(?:报错|失败|崩了|挂了)/ },
   { pred: 'runs', re: /^(.{1,12}?)(?:跑|运行|耗时)/ },
@@ -317,8 +338,67 @@ const SUBJECT_BEFORE_VERB: Array<{ pred: string; re: RegExp }> = [
 /** 数量：中文数字与阿拉伯数字都认，单位必须出现（否则"3 月"会被当成数量）。 */
 const QTY_RE = /(\d+(?:\.\d+)?|[一二三四五六七八九十两半几]+)\s*(天|日|周|个星期|个月|年|小时|分钟|次|个|条|行|人|岁|公里|千米|%|ms|kb|mb|gb)/
 
-/** 地点：在/去/到/往 + 地名或机构。`(?!的|了)` 排除"上次提到的那个项目"这类误命中。 */
-const PLACE_RE = /(?:在|去|到|往|从)\s*(?![的了])([\u4e00-\u9fa5A-Za-z]{2,10}?)(?=[出差住在待见开会工作上学读书玩]|$|[，。；,;])/
+/**
+ * 地点：在/去/到/往 + 地名或机构。`(?!的|了)` 排除"上次提到的那个项目"这类误命中。
+ *
+ * v0.7.1：允许吞掉**尾部的语气助词**。
+ * "其实搬到徐汇了" 旧版把地点捕成 `徐汇了`——而冲突判定是**按槽位值比较**的，
+ * "徐汇" 与 "徐汇了" 不相等，于是"同一件事被改了"永远对不上。
+ * 一个助词就能让整条更新链失效，这类"值污染"必须在抽取层清掉。
+ */
+const PLACE_RE = /(?:在|去|到|往|从)\s*(?![的了])([\u4e00-\u9fa5A-Za-z]{2,10}?)(?:了|的|呢|吧|啊|啦)?(?=[出差住在待见开会工作上学读书玩]|$|[，。；,;])/
+
+/**
+ * 裸"X 在 Y"的位置句（v0.7.1）。
+ *
+ * 判据刻意保守：`Y` 必须是**看起来像地点**的短语——
+ * 否则 "我在写代码" 会被抽成 `在=写代码`，比不记更糟。
+ * 形态判据两条：以行政区/建筑后缀结尾，或短且不含动词。
+ */
+const LOCATIVE_RE =
+  /^(.{1,12}?)(?:其实|已经|就|一直|现在|目前|后来|最终|最后)?\s*(?:在|于)\s*([\u4e00-\u9fa5A-Za-z]{2,10})[。！？；!?;，,\s]*$/
+
+const PLACE_SUFFIX = /(区|市|路|街|道|楼|室|园|院|寺|镇|村|县|州|港|站|城|岛|山|湖|湾|中心|大厦|广场|小区|校区|园区|基地|总部|分部|分公司)$/
+
+/**
+ * 允许"跨轮携带话题"的谓词。
+ *
+ * 判据是**这个谓词描述的是不是主体的某个属性**。属性句可以省略主语
+ * （"办公室在浦东" → "搬到徐汇"），事件句不能（"我妈住院" → "买了水果"）。
+ *
+ * 表刻意**极窄**，只留"位置/部署/改动"四类。原因是被污染的话题会**直接
+ * 生成假记忆并触发错误取代**——实测把 24 个配置项连续写入时，
+ * 一句"以后 ui.font 一律按 无衬线字体"如果自身没抽到话题，
+ * 就会继承上一轮的 `i18n.mode`，然后以"同一件事"的身份把真正的 i18n.mode 判成失效。
+ * 一次携带错误 = 丢一条正确记忆 + 多一条错误记忆，比漏记严重得多。
+ */
+const CARRY_PREDS = new Set(['located', 'lives', 'changes', 'deploys'])
+
+/** 动词开头 → 是"在做什么"，不是"在哪里"。 */
+const VERB_TAIL = /^(写|做|看|想|说|改|跑|学|吃|等|开|测|调|处|忙|加|查|读|听|睡|玩|买|卖|搞|弄|试|整|装|修)/
+
+function looksLikePlace(x: string): boolean {
+  if (!x || x.length < 2) return false
+  if (VERB_TAIL.test(x)) return false
+  if (/[，,。；;！？!?]/.test(x)) return false
+  return PLACE_SUFFIX.test(x) || x.length <= 6
+}
+
+/**
+ * 谓词判定 + 位置句补判。
+ *
+ * 只在**规则没能给出实义谓词**（states）时才补，避免抢走 "我在写代码" 之外的正常句子。
+ */
+function detectPredWithLocative(clause: string): { pred: string; loc?: { topic?: string; value?: string } } {
+  const pred = detectPred(clause)
+  if (pred !== 'states') return { pred }
+  const m = clause.match(LOCATIVE_RE)
+  if (!m) return { pred }
+  const topic = cleanTopic(m[1])
+  const value = cleanValue(m[2])
+  if (!value || !looksLikePlace(value)) return { pred }
+  return { pred: 'located', loc: { topic, value } }
+}
 
 /** 命名/等同句的主体：`我的猫叫雪球` 的"我的猫"。 */
 const NAMED_SUBJECT_RE = /^(.{1,14}?)(?:叫做|名叫|名为|取名|叫|是|为)\s*(.+)$/
@@ -335,6 +415,16 @@ export interface ParseOptions {
   now?: number
   /** 上一轮/上一句的实体（指代回填用） */
   prevEntities?: string[]
+  /**
+   * 上一轮的话题（跨轮话题携带，v0.7.1）。
+   *
+   * 中文的改口几乎都不重复主语：
+   *   "办公室在浦东。" → "其实搬到徐汇了。" → "最终定在静安寺。"
+   * 后两句没有主语。不带话题的话，它们会变成两条**无主**的位置记忆，
+   * 冲突检测拿不到 MANNER 键，于是"现在到底在哪"永远答不出来——
+   * 这正是审计 R1（P0）的实测形态。
+   */
+  carryTopic?: string
 }
 
 /**
@@ -365,7 +455,9 @@ export function parseFrames(text: string, opts: ParseOptions = {}): Frame[] {
     // 疑问句不是断言（"我之前说的字体偏好是什么？"不该被记成一条事实）
     if (isQuestion(clause)) continue
 
-    const pred = detectPred(clause)
+    const predInfo = detectPredWithLocative(clause)
+    const pred = predInfo.pred
+    const loc = predInfo.loc
     const polarity: 'pos' | 'neg' = NEG_CUE.test(clause) ? 'neg' : 'pos'
     const time = parseTimeExpr(clause, now)
     const qtyMatch = clause.match(QTY_RE)
@@ -377,6 +469,13 @@ export function parseFrames(text: string, opts: ParseOptions = {}): Frame[] {
     let patient: string | undefined
     let value: string | undefined
     let confidence = 0.5
+
+    // 位置句的直接产物（"办公室在浦东" 的 办公室 / 浦东）
+    if (loc) {
+      topic = loc.topic
+      value = loc.value
+      confidence = 0.8
+    }
 
     /**
      * 指代回填：从句以"它/他/她/那个/这/该"开头，或含"它的/那个的"，
@@ -439,7 +538,7 @@ export function parseFrames(text: string, opts: ParseOptions = {}): Frame[] {
        * 不拆的话，这条 cell 里没有任何"构建"槽位——问"我用什么构建"就匹配不上，
        * 而"构建"恰恰是用户提问时会用的词（实测真实语料里这类查询占多数）。
        */
-      if (value && !topic) {
+      if (value && !topic && !pendingTopic) {
         const v = value
         const tail = TOPIC_NOUNS.find((t) => v.endsWith(t) && v !== t)
         if (tail) {
@@ -473,7 +572,7 @@ export function parseFrames(text: string, opts: ParseOptions = {}): Frame[] {
      */
     if (!topic && !value) {
       const pair = clause.match(
-        /^(.{1,28}?)\s*(?:决定|定了|选定|敲定|以后|一律|统一|都|就|继续|一般|通常)?\s*(?:改用|换成|切换到|改成|使用|采用|一律按|用(?![户])|是|为|按)\s*(.+)$/,
+        /^(.{1,28}?)\s*(?:决定|定了|选定|敲定|以后|一律|统一|都|就|继续|一般|通常)?\s*(?:改用|换成|切换到|改成|使用|采用|一律按|用(?![户来以于])|是|为|按)\s*(.+)$/,
       )
       if (pair) {
         const head = cleanTopic(pair[1])
@@ -560,6 +659,21 @@ export function parseFrames(text: string, opts: ParseOptions = {}): Frame[] {
     }
 
     /**
+     * 位置类谓词：**地点就是取值**（v0.7.1）。
+     *
+     * "最终定在静安寺" 的地点被 `PLACE_RE` 抽到了 PLACE 槽，但取值槽是空的。
+     * 冲突判定按 `PATIENT`（= 取值）比较，取值空 ⇒ `valueDiffers` 判否 ⇒
+     * 第三句明明说了新地址，却没能取代第二句。实测后果是"现在在哪"答中间那一版。
+     *
+     * 所以位置句必须把地点同时写进取值：PLACE 是"在哪儿"的语义角色，
+     * PATIENT 是"这一项被改成了什么"的对照键，两者都要。
+     */
+    if (!value && !patient && (pred === 'located' || pred === 'lives') && placeMatch?.[1]) {
+      value = cleanValue(placeMatch[1])
+      confidence = Math.max(confidence, 0.75)
+    }
+
+    /**
      * 话题与客体相同时只保留话题。
      *
      * "它的 deadline 提前了" 会同时给出 topic=deadline、patient=deadline，
@@ -590,6 +704,19 @@ export function parseFrames(text: string, opts: ParseOptions = {}): Frame[] {
     }
 
     if (backfilled && !topic) topic = backfilled
+
+    /**
+     * 跨轮话题携带（v0.7.1）。
+     *
+     * 只对**属性类谓词**生效：位置、居住、工作、就读、改用、采用、决定、偏好。
+     * 这些句式的共同点是"说的还是上一句那个东西，只是换了取值"。
+     * 对叙事类谓词（住院/去/失败）刻意不携带——"我妈住院了"之后
+     * 紧接一句"买了水果"，不该被记成"我妈买了水果"。
+     */
+    if (!topic && opts.carryTopic && CARRY_PREDS.has(pred)) {
+      topic = opts.carryTopic
+      confidence = Math.max(confidence, 0.65)
+    }
     // 话题携带：上一段只说了"X 这件事上"，本段负责说取值
     if (!topic && pendingTopic) {
       topic = pendingTopic
@@ -675,7 +802,10 @@ export function frameDigest(f: Frame): string {
   }
   if (f.value) bits.push(f.value)
   else if (f.patient) bits.push(f.patient)
-  if (f.place) bits.push(f.pred === 'goes' ? `去${f.place}` : `在${f.place}`)
+  // 位置句里 value 与 place 是同一个东西（"办公室在浦东"），不重复打印
+  if (f.place && f.place !== (f.value ?? f.patient)) {
+    bits.push(f.pred === 'goes' ? `去${f.place}` : `在${f.place}`)
+  }
   if (f.qty) bits.push(f.qty)
   if (f.exception) bits.push(`但${f.exception}除外`)
   if (f.negatedValue) bits.push(`不是${f.negatedValue}`)
@@ -722,6 +852,7 @@ const PRED_ZH: Record<string, string> = {  named: '叫',
   dislikes: '不喜欢',
   eats: '吃',
   lives: '住',
+  located: '在',
   hospitalized: '就医',
   goes: '去',
   scheduled: '有安排',
@@ -734,6 +865,7 @@ const PRED_ZH: Record<string, string> = {  named: '叫',
   fails: '失败',
   deploys: '部署',
   communicates: '通信',
+  discusses: '讨论',
   runs: '跑',
   asserts: '记住',
   has: '有',

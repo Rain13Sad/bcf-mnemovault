@@ -26,6 +26,7 @@ import { StarMap } from './views/StarMap.js'
 import { Console } from './views/Console.js'
 import { Timeline } from './views/Timeline.js'
 import { Status } from './ui.js'
+import { CommandPalette, type PaletteAction } from './CommandPalette.js'
 
 export type TabKey = 'overview' | 'starmap' | 'search' | 'organize' | 'retention' | 'inbox' | 'affect' | 'console' | 'settings'
 
@@ -38,6 +39,8 @@ export interface PanelProps {
   initialCellId?: string
   /** 初始视图 */
   initialTab?: TabKey | 'timeline' | 'graph' | 'diagnostics'
+  /** 初始展开命令面板（预览截图用，`#tab,palette`） */
+  initialPaletteOpen?: boolean
   /** 阈值，用于解释器显示 */
   ignition?: number
   /** 命令桥：无 remote 时，面板上的按钮走这里（host 侧命令面） */
@@ -83,6 +86,7 @@ export function MnemoPanel(props: PanelProps): ReactNode {
   const [toast, setToast] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [paletteOpen, setPaletteOpen] = useState(props.initialPaletteOpen === true)
   const alive = useRef(true)
 
   // 样式注入一次（幂等）
@@ -93,6 +97,33 @@ export function MnemoPanel(props: PanelProps): ReactNode {
     el.id = STYLE_ID
     el.textContent = CSS
     document.head.appendChild(el)
+  }, [])
+
+  /**
+   * 全局快捷键（v0.7.1）。
+   *
+   * ⌘K 是命令面板的事实标准；⌘1–9 直接跳页签（VS Code / Linear 的同一套肌肉记忆）。
+   * 两条都只在**输入框外**生效——否则在检索框里打字会触发导航。
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey
+      if (!mod) return
+      const key = e.key.toLowerCase()
+      if (key === 'k') {
+        e.preventDefault()
+        setPaletteOpen((v) => !v)
+        return
+      }
+      const n = Number(key)
+      if (Number.isInteger(n) && n >= 1 && n <= TABS.length) {
+        e.preventDefault()
+        setTab(TABS[n - 1].key)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const load = useCallback(async () => {
@@ -184,6 +215,47 @@ export function MnemoPanel(props: PanelProps): ReactNode {
     setTab(target)
     if (target === 'search') setQuery('')
   }, [])
+
+  /**
+   * 命令面板的条目集（v0.7.1）。
+   *
+   * 三组：导航（9 个页签）/ 操作（刷新、检索、待确认）/ 诊断（doctor、stats、why）。
+   * 刻意**不放**破坏性命令（purge / forget）："打字即执行"的界面里
+   * 不该出现需要二次确认的动作——那类操作留在页签与命令行里。
+   */
+  const paletteActions = useMemo<PaletteAction[]>(() => {
+    const nav: PaletteAction[] = TABS.map((t, i) => ({
+      id: `tab:${t.key}`,
+      label: `打开「${t.label}」`,
+      group: '导航',
+      keywords: `${t.key} tab 页签`,
+      shortcut: `⌘${i + 1}`,
+      run: () => setTab(t.key),
+    }))
+    const ops: PaletteAction[] = [
+      { id: 'op:refresh', label: '刷新快照', group: '操作', keywords: 'reload load 重新读取', run: () => void load() },
+      {
+        id: 'op:search',
+        label: '检索记忆',
+        group: '操作',
+        keywords: 'find query 搜索 查找',
+        run: () => {
+          setTab('search')
+          setQuery('')
+        },
+      },
+      { id: 'op:inbox', label: '处理待确认记忆', group: '操作', keywords: 'pending 收件箱 确认', run: () => setTab('inbox') },
+      { id: 'op:retention', label: '看哪些记忆快被清掉', group: '操作', keywords: 'retention 保留度 遗忘', run: () => setTab('retention') },
+    ]
+    const diag: PaletteAction[] = props.runCommand
+      ? [
+          { id: 'cmd:doctor', label: '运行诊断 doctor', group: '诊断', keywords: 'doctor 自检 健康 检查', run: () => void command('/mnemo doctor') },
+          { id: 'cmd:stats', label: '查看统计 stats', group: '诊断', keywords: 'stats 指标 统计', run: () => void command('/mnemo stats') },
+          { id: 'cmd:why', label: '解释最近一次召回', group: '诊断', keywords: 'why explain 解释 分数', run: () => void command('/mnemo why') },
+        ]
+      : []
+    return [...nav, ...ops, ...diag]
+  }, [load, command, props.runCommand])
 
   if (error) {
     return h(
@@ -289,6 +361,17 @@ export function MnemoPanel(props: PanelProps): ReactNode {
             h('span', { className: 'mnv-title mnv-h-title' }, '长期记忆'),
             h('span', { className: 'mnv-badge', title: '当前数据源' }, sourceLabel(props.source.kind)),
             h('span', { className: 'mnv-spacer' }),
+            h(
+              'button',
+              {
+                className: 'mnv-btn',
+                'data-tone': 'ghost',
+                title: '命令面板（⌘K / Ctrl+K）',
+                'aria-label': '打开命令面板',
+                onClick: () => setPaletteOpen(true),
+              },
+              '⌘K',
+            ),
             h('button', { className: 'mnv-btn', 'data-tone': 'ghost', disabled: busy, onClick: () => void load() }, '刷新'),
           ),
           h(
@@ -454,6 +537,8 @@ export function MnemoPanel(props: PanelProps): ReactNode {
         ),
       ),
     ),
+
+    h(CommandPalette, { open: paletteOpen, onClose: () => setPaletteOpen(false), actions: paletteActions }),
 
     // role=status + aria-live：屏幕阅读器会念出"已固定 / 已恢复"这类操作结果
     toast ? h('div', { className: 'mnv-toast', style: toastStyle, role: 'status', 'aria-live': 'polite' }, toast) : null,

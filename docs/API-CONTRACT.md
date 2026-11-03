@@ -287,6 +287,28 @@ v0.4 里 P1 与 P2 都落在 3，存储层无法区分——这是 v0.5 修掉�
 
 ---
 
+### 3.3 v0.7 / v0.7.1 变更
+
+**一条总原则：新增字段一律可选。** 旧快照必须还能渲染——`panel-ssr.test.mjs` 里有断言。
+这不是风格问题：面板读的是落盘快照，升级后第一帧读到的就是上一版写的文件。
+
+| 变更 | 形状 | 兼容策略 |
+| :--- | :--- | :--- |
+| `Cell.tags` | `string[]?` | 新增（v0.7.0）。`crisis` / `minor` / `instruction` / `sensitive`。走 `ALTER TABLE ADD COLUMN`，**不进 MC03 blob**（`flags` 只有 1 字节且已占满） |
+| `PanelSnapshot.security` | `{ scopeKey, scopeMode, allowGlobalScope, allowScopeOverride, crisisEnabled, minorGuardEnabled }?` | 新增（v0.7.0）。面板"设置"页与 `doctor` 读 |
+| `DoctorReport.warnings` | `string[]?` | 新增（v0.7.0）。**共享域是部署提示，不是错误**——塞进 `issues` 会造成告警疲劳 |
+| `SecurityConfig.scopeMode` | `'auto' \| 'shared' \| 'per-user' \| 'per-session'` | 新增（v0.7.1），默认 `auto`。`per-session` 是"没有身份层也不跨会话泄漏"的一键档 |
+| `RecallResult.verdict` | `'hit' \| 'weak' \| 'none'` | v0.6.2 引入。v0.7.1 起 `weak` **只注入 1 条**（此前 5 条与声明自相矛盾） |
+| `decayState(cell, now)` | `{ r, activationRaw, activation, stale, horizon }` | 新增（v0.7.1）。三套衰减量的**唯一入口**；`staleFactor(tAccess, now, stability?)` 第三参可选，不传等价于 v0.7.0 |
+| `MnemoPanel.initialPaletteOpen` | `boolean?` | 新增（v0.7.1）。预览用（`#tab,palette`），宿主无需传 |
+| `ScopeMode` 导出 | `'shared' \| 'per-user' \| 'per-session'` | 新增（v0.7.1）。注意与 `SecurityConfig.scopeMode`（含 `auto`）**不是同一个联合** |
+
+**`Cell.tags` 为什么不进 blob**：MC03 的 `flags` 是 1 字节且 8 个位已全部占用
+（residual / noDecay / disputed / pii / redacted / web / emotional / milestone）。
+再挤一位就得改布局版本 → 全库 rebuild。标记类信息走列是更便宜的取舍。
+
+---
+
 ## 4. 运行时状态：`ctx.provide('mnemoRuntime', …)`
 
 这是 v0.3 新加的。**文档里每一个"未实机验证"的能力，都必须有一个运行时可读的状态**，

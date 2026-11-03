@@ -325,6 +325,12 @@ R(t) = (1 + F·t/S)^(−0.5),  F = 19/81
 > `reconsolidation` 里算提取增益），但 `demoteDue()` 改走 `retention.ts` 的七因子保留度。
 > 原因：R(t) 只看时间，把频率丢掉了——反复确认过的事实与只说过一次的同龄记忆，
 > R 完全相同。ACT-R 激活 `B = ln Σ t_j^−0.5` 把频率与近因统一进一个量，是它的超集。
+>
+> **v0.7.1 收敛**：`R(t)` / ACT-R 激活 / 陈旧包络此前各用**不同的时间尺度**，
+> 同一条记忆可能在检索里"还提得起来"、在保留度里"早就该忘了"。
+> 现在三者由 `core/src/decay.ts` 的 `decayState(cell, now)` 一次给出，且包络的起点与跨度
+> 按 `stability` 缩放（强化到 60 天的记忆不再从第 30 天开始折损）。
+> 默认档（S₀=7 → 倍率 1）**数值与 0.7.0 逐位相同**——统一不能顺手改行为。
 
 ### 5.7 保留度与六档处置（v0.4）
 
@@ -501,7 +507,7 @@ ctx.slots.register({ name: 'sidebar.panellist', id: 'mnemo', order: 60, label: (
 | 键 | 默认 | 生效 | 影响 |
 | :--- | :--- | :--- | :--- |
 | `dbPath` | `~/.dsh/mnemo/vault.db` | 启 | 换库 |
-| `scopeKey` | `user:local` | 启 | 换记忆域 |
+| `scopeKey` | `auto` | 启 | 换记忆域（`auto` = 从 userId 推导；显式字符串 = 固定域） |
 | `sdrDim` / `sdrK` / `embDim` | 2048 / 8 / 256 | **重** | 容量与噪声底 |
 | `preset` | `balanced` | 热 | 一键覆盖细项 |
 | `maxSlots` | 4 | 热 | +1 槽 ≈ +45 token |
@@ -556,7 +562,7 @@ cell 数 / 边数 / 存储字节 / 分层分布 / 类型分布 / `support=1` 占
 | PII 脱敏在编码前生效 | ✅ | `redact()`：手机/身份证/邮箱/4 类密钥 → `«SECRET:n»` |
 | 密钥占位符不被当真实值 | ✅ | `isRedactionPlaceholder` → 槽位降 UNK |
 | `forget(hard)` 后无残留 | ✅ | 删 cell + 边 + sources（残差按 sha 保留，孤儿可后续 GC） |
-| 跨用户隔离 | ⚠ 部分 | 作用域隔离已实现；**鉴权未做**（谁传 `scopeKey` 都行） |
+| 跨用户隔离 | ✅ | 作用域由服务端推导（v0.7.0）+ `scopeMode` 一键档（v0.7.1）；**鉴权仍由宿主负责** |
 | 外发守卫拦记忆内容 | ✅ | 3-gram Bloom + PII 正则，fail-closed，惰性重建 |
 | `expand` 不复活被遮蔽原文 | ✅ | `shadow_map` 检测 + 800 字上限 + 单会话 2 次 |
 | 情感关闭后仍可用 | ✅ | `affectEnabled=false` 走降级路径 |
@@ -769,6 +775,11 @@ v0.2 的 2.50× 里，很大一部分是**测量错误**：存储场景的分母
 真正的多用户隔离需要从会话身份推导，不能由调用方声明。
 
 > 证据：`RecallQuery.scopeKey` 可由任意调用方设置。
+>
+> **v0.7.0 已修（作用域），v0.7.1 补一键档。** `resolveScopeKey` 从服务端身份推导，
+> 调用方传的 `scopeKey` 默认被忽略，`stripScopeArgs()` 在工具入口剥掉作用域字段；
+> v0.7.1 新增 `security.scopeMode: 'per-session'`——没有身份层的多租户部署也能一键做到
+> "不跨会话泄漏"。仍未做的只有**鉴权本身**（谁是这个用户由宿主回答，插件不猜）。
 
 **D10｜面板数据面未接 remote**
 

@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-11-02T14:07:44.029Z",
+  "generatedAt": "2026-11-03T07:27:48.431Z",
   "note": "手写对话 + 手写 query，无模板生成。判据是渲染文本包含期望片段；陷阱题判据是 verdict≠hit。",
-  "cases": 7,
-  "queries": 12,
+  "cases": 8,
+  "queries": 13,
   "accuracy": {
     "overall": 1,
     "single": 1,
@@ -17,8 +17,8 @@
       "pass": 7
     },
     "update": {
-      "total": 1,
-      "pass": 1
+      "total": 2,
+      "pass": 2
     },
     "affect": {
       "total": 1,
@@ -83,11 +83,19 @@
       "verdict": "weak"
     },
     {
+      "case": "update-office",
+      "q": "办公室在哪？",
+      "kind": "update",
+      "ok": true,
+      "note": "hits=1 tokens=22",
+      "verdict": "hit"
+    },
+    {
       "case": "life-cat",
       "q": "我的猫叫什么？",
       "kind": "single",
       "ok": true,
-      "note": "hits=2 tokens=78",
+      "note": "hits=1 tokens=51",
       "verdict": "weak"
     },
     {

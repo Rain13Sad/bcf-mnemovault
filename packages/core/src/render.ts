@@ -108,6 +108,13 @@ export function kvPairs(cell: MemCell): Array<[string, string]> {
   const isPreference = pred === 'prefers' || pred === 'dislikes'
   const isUses = pred === 'uses' || pred === 'changes' || pred === 'deploys'
   const isMovement = pred === 'goes' || pred === 'lives' || pred === 'scheduled'
+  /**
+   * 位置句（v0.7.1）：`办公室 在 浦东`。
+   *
+   * 旧渲染给的是 `浦东=located`——"哪个东西在浦东"这个主语丢了，
+   * 而它正是改口链里唯一稳定的对照键。有话题时必须读作 `话题=地点`。
+   */
+  const isLocative = (pred === 'located' || pred === 'lives') && !!manner && !!patient
 
   /**
    * v0.7.0：渲染必须覆盖**所有**承载信息的槽。
@@ -121,7 +128,12 @@ export function kvPairs(cell: MemCell): Array<[string, string]> {
     if (v && out.length < 3) out.push([clean(k), clean(v)])
   }
 
-  if (isMovement && place) {
+  if (isLocative) {
+    // "办公室=静安寺" 比 "at=静安寺" 多带了主语，模型才能回答"办公室在哪"
+    push(manner, patient)
+    push('at', place && place !== patient ? place : undefined)
+    push('qty', qty)
+  } else if (isMovement && place) {
     // 移动/日程类：地点是第一信息（"去北京"比"用户=goes"有用得多）
     push('at', place)
     push('qty', qty)

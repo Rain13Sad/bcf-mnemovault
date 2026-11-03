@@ -146,6 +146,18 @@ export class Encoder {
    */
   private minorSessions = new Set<string>()
 
+  /**
+   * 会话级话题锚（v0.7.1）。
+   *
+   * 中文改口不重复主语（"办公室在浦东" → "搬到徐汇" → "定在静安寺"），
+   * 后两句没有主体；不带锚的话它们会成为无主记忆，冲突检测拿不到 MANNER 键，
+   * "现在到底在哪"就永远答不出来（审计 R1）。
+   *
+   * 只存**最近一个**话题，且只对属性类谓词生效（见 `CARRY_PREDS`）——
+   * 携带太多会让"我妈住院了 / 买了水果"串成一句假记忆。
+   */
+  private lastTopic = new Map<string, string>()
+
   /** L1 端口：宿主小模型；缺席时用 L1-lite（规则增强） */
   private readonly port: LlmPort | null
   private l1: L1Status
@@ -239,7 +251,8 @@ export class Encoder {
      *
      * 注意：脱敏在切分**之前**（v0.5 的教训），所以帧里的文本已经是脱敏后的。
      */
-    const safeUserText = redact(input.userText).text
+    const redTurn = redact(input.userText)
+    const safeUserText = redTurn.text
     // 轮级标签先算一次：有些信号（年龄、危机）落在不会产出 cell 的从句里
     this.computeTurnTags(safeUserText, input.sessionId)
     /**
@@ -253,7 +266,8 @@ export class Encoder {
      * 新口径：**至少容纳本轮有信息的从句数**（上限仍是 maxCellsPerTurn）。
      * 字数预算继续管"长粘贴别刷库"，但不再决定"一句里的两件事只记一件"。
      */
-    const frames = parseFrames(safeUserText, { agent: '用户', now: at })
+    const carryTopic = this.lastTopic.get(input.sessionId)
+    const frames = parseFrames(safeUserText, { agent: '用户', now: at, carryTopic })
     const informativeCount = frames.filter((f) => f.informative).length
     /**
      * 上限取 3：短句里的两三个事实必须都留下（"字体偏好等宽，主题用深色"），
@@ -261,10 +275,27 @@ export class Encoder {
      * 不设这个上限，一段 800 字的多从句长文会一次产出七八条 cell，
      * 把存储比从 0.72 推到 0.81（实测）。
      */
-    const budget = Math.max(
-      this.maxCellsForTurn(input.userText),
-      Math.min(informativeCount, this.config.cellsPerTurnFloor),
-    )
+    /**
+     * 预算下限必须**容忍缺字段**（v0.7.1）。
+     *
+     * 宿主/devkit 传进来的 encoder 配置是**手写对象**，不经过 schema 解析；
+     * 新增字段如果只写在 schema 里，运行期就是 `undefined` →
+     * `Math.min(n, undefined)` = NaN → `cells.length >= NaN` 恒为 false →
+     * **上限整个失效**（实测：一轮 294 字产出了 4 条 cell，而预算是 3）。
+     *
+     * 这类"配置缺字段导致闸门静默失效"的 bug 不会报错，只会让存储比悄悄变差。
+     */
+    const floor = Math.max(1, Math.floor(Number.isFinite(this.config.cellsPerTurnFloor) ? this.config.cellsPerTurnFloor : 3))
+    const budget = Math.max(this.maxCellsForTurn(input.userText), Math.min(informativeCount, floor))
+    // 更新会话话题锚（本轮最后一个有主体的成帧从句）
+    for (const f of frames) {
+      if (f.informative && f.topic && f.topic.length >= 2) this.lastTopic.set(input.sessionId, f.topic)
+    }
+    if (this.lastTopic.size > 64) {
+      // 有界：删最早的会话，避免长驻插件无限增长
+      const oldest = this.lastTopic.keys().next().value
+      if (oldest !== undefined) this.lastTopic.delete(oldest)
+    }
     let seq = input.seqs[0] ?? 0
     for (const f of frames) {
       if (!f.informative) {
@@ -278,7 +309,7 @@ export class Encoder {
       const key = f.raw.trim().toLowerCase()
       if (!key || seen.has(key)) continue
       seen.add(key)
-      const cell = this.buildCell({ ...input, at }, f.raw, 0, seq++, getTurnRef(), f)
+      const cell = this.buildCell({ ...input, at }, f.raw, 0, seq++, getTurnRef(), f, redTurn.pii)
       if (!cell) {
         out.skipped++
         continue
@@ -435,6 +466,18 @@ export class Encoder {
     turnRef?: ResidualRef,
     /** v0.7.0：帧路径。给了就用帧的槽位，不再走整句启发式 */
     frame?: Frame,
+    /**
+     * 轮级 PII 标记（v0.7.1）。
+     *
+     * 帧路径拿到的文本是**已经脱敏过**的（`encodeTurn` 先 redact 再切分），
+     * 于是 buildCell 里再 redact 一次已经找不到密钥 → `red.pii` 恒为 false
+     * → 主写入路径上 `FLAG.pii` **从来没被设置过**。
+     *
+     * 后果不是"泄漏"（明文确实没落盘），而是"看不见"：
+     * 面板无法标出"这条含敏感信息"，外发守卫也少了一层判据。
+     * 所以轮级结果必须显式传下来。
+     */
+    turnPii?: boolean,
   ): MemCell | null {
     const at = input.at ?? Date.now()
     const red = redact(text)
@@ -524,7 +567,7 @@ export class Encoder {
       cellId,
       kind: kind as MemCell['kind'],
       tier: 1,
-      flags: FLAG.residual | (provenance === 3 ? FLAG.web : 0) | (red.pii ? FLAG.pii | FLAG.redacted : 0),
+      flags: FLAG.residual | (provenance === 3 ? FLAG.web : 0) | (red.pii || turnPii ? FLAG.pii | FLAG.redacted : 0),
       tFrom: BigInt(timeRange ? timeRange.from : at),
       tTo: BigInt(timeRange ? timeRange.to : at),
       tIngest: BigInt(at),

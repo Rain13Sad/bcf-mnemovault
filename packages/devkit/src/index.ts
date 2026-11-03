@@ -128,6 +128,7 @@ export async function createHarness(opts: HarnessOptions = {}): Promise<Harness>
       encodeTools: true,
       maxCellsPerTurn: 8,
       cellsPerTurnChars: 600,
+      cellsPerTurnFloor: 3,
       maxResidualBytes: 8192,
       l1: { enabled: false, probe: false, timeoutMs: 4000 },
       ...(opts.encoder ?? {}),

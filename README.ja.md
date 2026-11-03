@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.7.0 -->
+<!-- DOC-VERSION: 0.7.1 -->
 
 # MnemoVault
 

@@ -86,6 +86,16 @@ const RULES: CrisisRule[] = [
   // "不想活" 是意念表达，不参与否定降级（"不想"在这里是固定搭配的一部分）
   { re: /不想(再)?活(了|下去|着)?|活不下去|活够了/, level: 'critical', category: 'suicide', negatable: false },
   { re: /(想|要)\s*(杀|弄死|捅死|砍死|毒死)/, level: 'critical', category: 'harm-others', negatable: true },
+  /**
+   * 伤害他人（v0.7.1，审计 R3）。
+   *
+   * 旧表只认"杀/弄死/捅死"，于是"我打算伤害他"整句漏判（level=none）。
+   * 这里按**动词的严重度**分两级：明确的伤害意图进 critical，
+   * "打/揍/报复"这类进 elevated——两者的处置相同（挂起陪伴层 + 留痕），
+   * 只是严重度不同，不该因为词轻就当作没事。
+   */
+  { re: /(想|要|打算|准备|决定|计划|考虑)\s*(去)?\s*(伤害|报复|收拾)\s*(他|她|人|别人|某人|那个|这个)/, level: 'critical', category: 'harm-others', negatable: true },
+  { re: /(想|要|打算|准备|决定|计划|考虑)\s*(去)?\s*(打|揍|教训)\s*(他|她|人|别人|某人|那个|这个)/, level: 'elevated', category: 'harm-others', negatable: true },
 
   // ── elevated：意念 / 自伤 / 无价值感 ──────────────────────────
   { re: /想死|死了算了|不如死|死了更好|消失(了)?(更好|算了)|没(人)?(需要|在乎)我|我是(个)?(负担|累赘)|拖累(别人|大家)/, level: 'elevated', category: 'suicide', negatable: true },
@@ -204,11 +214,24 @@ const MINOR_PATTERNS: RegExp[] = [
    * `(?<!\d)` 是必需的：没有它，"我 30 岁了" 会匹配到末位的 "0 岁"，
    * 把一个成年人判成未成年人——保护措施误伤成年人同样是缺陷。
    */
-  /(?:我)?(?:今年|现在)?\s*(?<!\d)(?:1[0-7]|[0-9])\s*(?:周)?岁/,
+  /(?:我)?(?:今年|现在)?\s*(?<!\d)(?:1[0-7]|[0-9])\s*(?:周)?岁/g,
   // 学段
-  /(?:我)?(?:在)?(?:上|读)\s*(?:小学|初中|高中|初一|初二|初三|高一|高二|高三)/,
-  /未成年|还没成年|未满\s*18|未满十八/,
+  /(?:我)?(?:在)?(?:上|读)\s*(?:小学|初中|高中|初一|初二|初三|高一|高二|高三)/g,
+  /未成年|还没成年|未满\s*18|未满十八/g,
 ]
+
+/**
+ * 第三方主体（v0.7.1，审计 R4）。
+ *
+ * "我儿子今年 8 岁" 说的是**别人**的年龄，旧实现把它当成用户本人，
+ * 于是成年人被降级成未成年人模式（不进热层、关闭陪伴层）。
+ * 这是 fail-safe 方向，但把"提到孩子"的用户当成孩子，是实打实的体验伤害。
+ *
+ * 只在**紧邻**匹配点之前判：中间隔着别的句子成分就不算第三方，
+ * 避免"我儿子在上小学，我今年 15 岁"里后半句被前文带偏。
+ */
+const THIRD_PARTY =
+  /(儿子|女儿|孩子|宝宝|娃|弟弟|妹妹|哥哥|姐姐|同学|朋友|室友|同事|侄子|侄女|外甥|邻居|他家|她家|别人家的)\s*(今年|现在|刚|已经|才)?\s*$/
 
 export function detectMinor(text: string, opts: { declaredAge?: number } = {}): MinorSignal {
   if (typeof opts.declaredAge === 'number' && opts.declaredAge > 0 && opts.declaredAge < 18) {
@@ -217,8 +240,13 @@ export function detectMinor(text: string, opts: { declaredAge?: number } = {}): 
   const t = text ?? ''
   const evidence: string[] = []
   for (const re of MINOR_PATTERNS) {
-    const m = re.exec(t)
-    if (m) evidence.push(m[0])
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(t)) !== null) {
+      const before = t.slice(Math.max(0, m.index - 10), m.index)
+      if (!THIRD_PARTY.test(before)) evidence.push(m[0])
+      if (m[0].length === 0) re.lastIndex++
+    }
   }
   return { detected: evidence.length > 0, source: evidence.length > 0 ? 'declared' : 'none', evidence }
 }

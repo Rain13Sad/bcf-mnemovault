@@ -86,6 +86,10 @@ export interface MemoryServiceOptions {
   scopeKey?: string
   /** 宿主提供的用户身份。多租户部署必须传，否则隔离退化为共享域 */
   userId?: string
+  /** 作用域推导模式（v0.7.1）。`per-session` = 一键档：不需要身份层，也不跨会话泄漏 */
+  scopeMode?: 'auto' | 'shared' | 'per-user' | 'per-session'
+  /** 会话 id，仅 per-session 模式在构造期使用 */
+  sessionId?: string
   store?: Store
   now?: () => number
   /** 面板快照落盘路径；undefined 则不落盘（测试/浏览器） */
@@ -187,12 +191,26 @@ export class MemoryService extends Service {
     super(ctx, 'memory')
     this.config = opts.config
     // v0.7.0：作用域由服务端推导，不接受调用方直接声明（见 security.ts 的三条规则）
+    const wantMode = opts.scopeMode ?? opts.config.security.scopeMode
     this.scope = resolveScopeKey({
       configured: opts.scopeKey ?? opts.config.scopeKey,
       userId: opts.userId,
-      sessionId: opts.userId ? undefined : undefined,
+      sessionId: opts.sessionId,
+      mode: wantMode,
     })
-    this.scopeKey = this.scope.key
+    /**
+     * per-session 的边界是 `session` 列，构造期**还不知道**会话 id，
+     * 所以这里不按"有没有 sessionId"降级——降级会让整个模式失效
+     * （实测：devkit/宿主在装载期都拿不到 sessionId）。
+     * 真正的门在检索侧：没有 sessionId 的查询一律不可见。
+     */
+    if (wantMode === 'per-session') this.scope = { key: 'sess:*', mode: 'per-session' }
+    /**
+     * per-session 的边界是 `session` 列，不是 scope 列——所以写入口用一个哨兵键，
+     * 检索侧按会话过滤（见 recall 的 `perSession` 分支）。
+     * 哨兵键必须**固定**：否则同一个库里会出现多个互不可见的 scope。
+     */
+    this.scopeKey = this.scope.mode === 'per-session' ? 'sess:*' : this.scope.key
     this.now = opts.now ?? (() => Date.now())
     this.space = new SdrSpace({ dim: opts.config.sdrDim, k: opts.config.sdrK })
     this.store = opts.store ?? createStore({ path: opts.config.dbPath, space: this.space })
@@ -874,6 +892,7 @@ export class MemoryService extends Service {
         now: this.now(),
         working: this.working,
         scopeKey: this.scopeKey,
+        scopeMode: this.scope.mode,
         ann: this.ensureAnn() ?? undefined,
         sdrCandidates: (sdr, minOverlap) => this.sdrCandidates(sdr, minOverlap)?.map((c) => c.id) ?? null,
         embScan: (q, visit) => this.embScan(q, visit),
@@ -2360,6 +2379,16 @@ export function conflictFamily(pred?: string): string | undefined {
     pred === 'is'
   ) {
     return 'assign'
+  }
+  /**
+   * 位置家族（v0.7.1）。
+   *
+   * "办公室在浦东"（located）与"搬到徐汇"（lives）说的是**同一个属性**，
+   * 但它们在谓词上是两个词。不归一的话，三阶段改口只会互相看不见，
+   * 最终答案停在中间那一版——审计 R1 的实测结果。
+   */
+  if (pred === 'located' || pred === 'lives' || pred === 'works' || pred === 'studies') {
+    return 'place'
   }
   return predFamily(pred)
 }

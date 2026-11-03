@@ -100,6 +100,10 @@ export const Config = z.object({
       allowScopeOverride: z.boolean().default(false).description('允许查询参数覆盖作用域（默认关：隔离只能由服务端推导）'),
       allowGlobalScope: z.boolean().default(false).description("允许 scope='global' 跨域全库检索（宿主/用户权限，不是模型权限）"),
       sessionIsolateSemantic: z.boolean().default(false).description('语义记忆也按会话隔离（多租户无法保证 per-user scopeKey 时开启）'),
+      scopeMode: z
+        .union([z.const('auto'), z.const('shared'), z.const('per-user'), z.const('per-session')])
+        .default('auto')
+        .description("作用域推导模式。多租户无身份层时设 'per-session'：一键做到'至少不跨会话泄漏'"),
       blockInstructionRendering: z.boolean().default(true).description('指令形态文本默认不进 MRS 渲染（仍可检索）'),
       crisisEnabled: z.boolean().default(true).description('危机识别与转介。关掉它必须写进部署文档'),
       crisisReferral: z.string().default('').description('转介文案覆盖（中国大陆以外部署必须改）。空 = 用内置默认'),
@@ -256,6 +260,7 @@ export * from './types.js'
 export * from './cell.js'
 export * from './sdr.js'
 export * from './forgetting.js'
+export * from './decay.js'
 export * from './retention.js'
 export * from './inverted.js'
 export * from './ports.js'

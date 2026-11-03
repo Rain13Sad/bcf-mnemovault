@@ -13,7 +13,7 @@
 
 import type { CellKind, MemCell } from './cell.js'
 import { FLAG, REL, TAG, foldEmb } from './cell.js'
-import { retrievabilityFrom } from './forgetting.js'
+import { decayR } from './decay.js'
 import { estimateTokens, assignShortIds, renderAffectLine, renderSurface } from './render.js'
 import type { SdrSpace, Sdr } from './sdr.js'
 import { snapshotIdOf, type Store } from './store.js'
@@ -71,6 +71,11 @@ export interface RecallDeps {
   working?: { activation(cellId: bigint): number }
   /** 当前作用域键（§14.10） */
   scopeKey?: string
+  /**
+   * 作用域模式（v0.7.1）。`per-session` 时不比较 scopeKey，改为**按会话过滤**——
+   * 它给"多租户但暂时没有身份层"的部署一个一键档：不需要 userId，也不会跨会话泄漏。
+   */
+  scopeMode?: 'auto' | 'shared' | 'per-user' | 'per-session'
   /**
    * 向量索引（§9.1 Q1）。给了就用它取候选，没给就精确扫描。
    * 是否真的走 ANN 由 config.recall.annEnabled + annThreshold 决定——
@@ -460,6 +465,7 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   /** `scope: 'global'` 是跨域全库检索，属于宿主/用户权限，不是模型权限。 */
   const wantGlobal = q.scope === 'global' && config.security.allowGlobalScope
   const isolateSemantic = config.security.sessionIsolateSemantic
+  const perSession = deps.scopeMode === 'per-session'
   /**
    * 可见性判定（列口径）。
    *
@@ -484,8 +490,16 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
     // 作用域隔离（§14.10 / §19.2）：情景记忆默认不跨会话，语义/图式全局共享。
     // 这是"A 用户的事被 B 用户问出来"这条事故的唯一防线。
     if (!wantGlobal) {
-      const cellScope = f.scope ?? 'user:local'
-      if (cellScope !== 'global' && cellScope !== scopeKey) return false
+      /**
+       * per-session（v0.7.1）：作用域键是共享的哨兵值，真正的边界是 `session`。
+       * 没有 sessionId 时**一律不可见**——宁可查不到，也不退回"全库可见"。
+       */
+      if (perSession) {
+        if (!q.sessionId || f.session !== q.sessionId) return false
+      } else {
+        const cellScope = f.scope ?? 'user:local'
+        if (cellScope !== 'global' && cellScope !== scopeKey) return false
+      }
       // v0.7.0：`sessionIsolateSemantic` 打开时，语义记忆也只在本会话可见。
       // 多租户部署无法保证 per-user scopeKey 时，这是最后一道防线。
       const scoped = f.kind === 0 || isolateSemantic
@@ -503,8 +517,11 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
      * v0.7.0：指令形态文本默认不进渲染。
      *
      * 记忆化提示注入的关键一步是"把用户说过的一句话，在后续每一轮当成系统指令注入回去"。
-     * 打上 `TAG.instruction` 的 cell 仍然可被检索（面板能看到、能展开原文），
-     * 但不会出现在 MRS 渲染块里——它从"每轮都在场的指令"降级为"一条可查的记录"。
+     *
+     * v0.7.1 修正了一处**注释与实现不一致**：旧注释说"仍可被检索"，
+     * 但这条 `return false` 是在候选收集阶段——它连 hits 都拿不到。
+     * 现在按实现如实描述：**不进召回**（面板与 `/mnemo show` 仍能看原文），
+     * 因为这正是"不让它每轮在场"的最直接做法。要检索它，只能显式关掉这个开关。
      */
     if (config.security.blockInstructionRendering && cell.tags?.includes(TAG.instruction)) return false
     return visibleFields({
@@ -789,6 +806,65 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
   // 槽内按分数降序，槽间按槽号（渲染顺序稳定）
   selected.sort((a, b) => a.breakdown.slot - b.breakdown.slot || b.breakdown.score - a.breakdown.score)
 
+  /**
+   * 弃权判定（v0.6.2 引入，v0.7.1 重构）。
+   *
+   * ── 为什么必须排在渲染之前 ────────────────────────────────────
+   * v0.7.0 是"先渲染 5 条、再补一句'有模糊候选但未达置信阈值'"。
+   * 那句话与下面 5 条内容是**自相矛盾**的：模型看到声明的同时也看到了素材，
+   * 而模型的默认行为是从已有素材里凑一个答案——审计 R5 实测到的正是这一点。
+   *
+   * 现在反过来：先判，再决定给多少。weak 只留**证据最强的那一条**，
+   * 声明与内容一致（"我有点印象，但不确定"），而不是"我不确定，这里是五条"。
+   *
+   * ── 判据的三次迭代 ──────────────────────────────────────────
+   * ① 手动检索此前永不弃权（`manual` 跳过 ignition），陷阱题恒为 hit；
+   * ② 不能用**总分**：近因/心境/情境是与问题无关的基线，无关记忆也有 ~0.28；
+   * ③ 不能用 **SDR containment**：查询侧二元组把 |q| 稀释，真命中只有 0.01。
+   * 最终用**实体重叠**——"查询里的实体有没有出现在这条记忆的槽位里"。
+   */
+  const qEntSet = new Set(
+    keptEnts.map((e) => normToken(e)).filter((e) => e.length >= 2 && !QUERY_STOP.has(e)),
+  )
+  const entityEvidence = (cell: MemCell): number => {
+    if (qEntSet.size === 0) return 0
+    let hit = 0
+    for (const s of cell.slots) {
+      if (s.type !== 'LIT' || !s.value) continue
+      if (qEntSet.has(normToken(s.value))) hit++
+    }
+    return hit > 0 ? Math.min(1, 0.5 + 0.5 * (hit / qEntSet.size)) : 0
+  }
+  const evidenceOf = (s: { cand: Candidate }): number =>
+    Math.max(
+      entityEvidence(s.cand.cell),
+      s.cand.simGraph,
+      s.cand.simTemporal,
+      // 语义只在"近乎同一句"时算证据（哈希向量的绝对余弦没有区分力）
+      s.cand.rawSemantic >= SEMANTIC_EVIDENCE_FLOOR ? s.cand.rawSemantic : 0,
+    )
+  const bestEvidence = selected.length ? Math.max(...selected.map(evidenceOf)) : 0
+  const verdict: 'hit' | 'weak' | 'none' =
+    selected.length === 0 ? (pool.length > 0 ? 'weak' : 'none') : bestEvidence < ABSTAIN_SIM ? 'weak' : 'hit'
+
+  /**
+   * weak：只保留证据最强的一条。
+   *
+   * 留 1 条而不是 0 条，是因为"有个模糊印象"本身是有效信息
+   * （用户可以据此追问"是不是 XX？"）；但留 5 条就等于把选择权
+   * 偷偷交回给模型，而那正是要避免的。
+   */
+  if (verdict === 'weak' && selected.length > 1) {
+    let best = selected[0]
+    for (const s of selected) {
+      const e = evidenceOf(s)
+      const be = evidenceOf(best)
+      if (e > be || (e === be && s.breakdown.score > best.breakdown.score)) best = s
+    }
+    selected.length = 0
+    selected.push(best)
+  }
+
   const picked = selected.map((s) => s.cand.cell)
   const shortIds = assignShortIds(picked.map((cell) => ({ cell })))
   const includeLegend = !q.manual
@@ -814,61 +890,12 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
 
   const strategy = dominantStrategy(selected.map((s) => s.cand))
 
-  /**
-   * v0.6.2（§3.3 修复）：弃权判定。
-   *
-   * v0.7.0 换了判据，原因有三层：
-   *
-   * ① **手动检索此前永不弃权**。`manual` 跳过 ignition，陷阱题（"我养的狗叫什么"）
-   *    总能拿到一条低分记忆，verdict 恒为 'hit'，模型于是有素材可编。
-   *
-   * ② 不能用**总分**判：近因(0.35)+心境(0.25)+情境(0.30) 是与问题无关的基线，
-   *    一条完全无关的记忆也能拿 ~0.28，等于"库里有东西就永不弃权"。
-   *
-   * ③ 也不能用 **SDR containment**：查询侧为了覆盖中文会展开二元组，
-   *    |q| 被稀释到几十位，一条真正命中的记忆 containment 只有 0.01，
-   *    落在符号路自己的门限（0.05）以下——"命中了但被判成没命中"。
-   *
-   * 所以改成**实体重叠**：直接看"查询里的实体有没有出现在这条记忆的槽位里"。
-   * 这是"在讲同一件事"最朴素也最可靠的判据，不受归一化与位宽影响。
-   */
-  const qEntSet = new Set(
-    keptEnts.map((e) => normToken(e)).filter((e) => e.length >= 2 && !QUERY_STOP.has(e)),
-  )
-  const entityEvidence = (cell: MemCell): number => {
-    if (qEntSet.size === 0) return 0
-    let hit = 0
-    for (const s of cell.slots) {
-      if (s.type !== 'LIT' || !s.value) continue
-      if (qEntSet.has(normToken(s.value))) hit++
-    }
-    return hit > 0 ? Math.min(1, 0.5 + 0.5 * (hit / qEntSet.size)) : 0
-  }
-  const bestEvidence = selected.length
-    ? Math.max(
-        ...selected.map((s) =>
-          Math.max(
-            entityEvidence(s.cand.cell),
-            s.cand.simGraph,
-            s.cand.simTemporal,
-            // 语义只在"近乎同一句"时算证据（哈希向量的绝对余弦没有区分力）
-            s.cand.rawSemantic >= SEMANTIC_EVIDENCE_FLOOR ? s.cand.rawSemantic : 0,
-          ),
-        ),
-      )
-    : 0
-  const verdict: 'hit' | 'weak' | 'none' =
-    selected.length === 0 ? (pool.length > 0 ? 'weak' : 'none') : bestEvidence < ABSTAIN_SIM ? 'weak' : 'hit'
   if (verdict !== 'hit') {
     // 在渲染结果里追加一行弃权声明——模型看到它就知道"这条不该编"
     const abstainLine = verdict === 'none'
       ? '〔记忆系统：未找到相关记忆〕'
       : '〔记忆系统：有模糊候选但未达置信阈值，可能未记录过此事〕'
-    if (rendered.text.length > 0) {
-      rendered.text = abstainLine + '\n' + rendered.text
-    } else {
-      rendered.text = abstainLine
-    }
+    rendered.text = rendered.text.length > 0 ? abstainLine + '\n' + rendered.text : abstainLine
     rendered.tokens += estimateTokens(abstainLine)
   }
 
@@ -908,7 +935,7 @@ export function scoreCandidate(cand: Candidate, ctx: ScoreCtx, interference = 0)
   const w = ctx.config.recall
   const cell = cand.cell
   const sim = Math.max(cand.simSemantic, cand.simSymbolic, cand.simGraph, cand.simTemporal)
-  const recency = retrievabilityFrom(Number(cell.tAccess), cell.stability, ctx.now)
+  const recency = decayR(cell, ctx.now)
   // 复述强化与启动效应取较大者：前者是长期统计，后者是"这轮刚摸过"
   const freqLong = Math.min(1, Math.log1p(cell.accessCount) / Math.log1p(100))
   const freq = Math.max(freqLong, Math.min(1, (cand.activation ?? 0) * 0.85))

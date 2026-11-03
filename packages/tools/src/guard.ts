@@ -182,6 +182,7 @@ export interface EgressGuard {
 /** 敏感 cell：含 PII，或用户来源且 importance 高。不扫全库——只扫这一小撮。 */
 export function sensitiveTexts(memory: MemoryService, limit = 5000): string[] {
   const out: string[] = []
+  const dec = new TextDecoder()
   memory.store.forEachCell((c) => {
     if (out.length >= limit) return
     // 用户自己说过的话默认就该被保护：不设 importance 门槛，
@@ -190,6 +191,24 @@ export function sensitiveTexts(memory: MemoryService, limit = 5000): string[] {
     if (!sensitive) return
     if (c.digest) out.push(c.digest)
     for (const s of c.slots) if (s.type === 'LIT' && s.value.length >= 3) out.push(s.value)
+    /**
+     * 残差原文（v0.7.1，审计 R7）。
+     *
+     * 守卫此前只看 digest（截断到 120 字）与槽位（结构化取值），
+     * 于是**只存在于残差里的那段话完全不受保护**——而残差恰恰是
+     * "用户原话"的主要载体：一句 300 字的倾诉，槽位里可能只剩三个词。
+     *
+     * 取前 512 字节就够：3-gram 只要连续命中 6 个就能判定，
+     * 更长的片段对判据没有增益，却会显著抬高 Bloom 构建成本。
+     */
+    if (c.residual) {
+      try {
+        const bytes = memory.store.getResidual(Number(c.residual.off))
+        if (bytes) out.push(dec.decode(bytes.slice(0, 512)))
+      } catch {
+        // 残差已释放（墓碑）或读取失败：跳过，不影响其余指纹
+      }
+    }
   })
   return out
 }
