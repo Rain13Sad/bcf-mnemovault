@@ -42,16 +42,31 @@ export interface AffectEstimate {
   labels: EmotionLabel[]
   /** 估计的置信度：词典命中越多越高；纯标点/语气词给低值 */
   confidence: number
+  /** v0.7.2：字面与语用可能相反（"我没事"/"你说呢"）。此时不猜情绪，只降级置信度。 */
+  indirect?: boolean
+  /** 含蓄线索的类型，供面板与情感策略层决定是否追问。 */
+  cue?: string
+}
+
+/**
+ * v0.7.2（A13 / B10）：领域词注入通道。
+ * 词表不再是只能改源码的硬编码常量——部署方可以按行业加词而不 fork 项目。
+ * 同名词以后注入的为准（可覆盖内置效价），且不写任何全局状态，便于测试隔离。
+ */
+export interface AffectOptions {
+  extraLexicon?: Array<[string, number, number, number]>
 }
 
 export const NEUTRAL_PAD: Pad = { v: 0, a: 0, d: 0, s: 0 }
 
-/** 数值裁剪。所有对外返回的 PAD 都要过它，避免累计漂移出界。 */
+/** 数值裁剪。NaN 必须归零——旧实现 `x < -1` 对 NaN 恒假，会把 NaN 一路带进 PAD。 */
 export function clamp11(x: number): number {
+  if (!Number.isFinite(x)) return 0
   return x < -1 ? -1 : x > 1 ? 1 : x
 }
 
 export function clamp01(x: number): number {
+  if (!Number.isFinite(x)) return 0
   return x < 0 ? 0 : x > 1 ? 1 : x
 }
 
@@ -183,6 +198,63 @@ export const LEXICON: Array<[string, number, number, number]> = [
   ['jealous', -0.5, 0.55, -0.2],
   ['confused', -0.3, 0.5, -0.4],
   ['hurt', -0.6, 0.5, -0.3],
+
+  // ── v0.7.2 扩容（B10 / D17）──────────────────────────────────────
+  // 评判报告 §8 给情感感知 2/5，核心缺口是"词表只吃高信号词、日常口语全丢"。
+  // 这里补的是**高频中低频情绪词**（不是堆同义词）：中文口语的失落/憋屈、
+  // 英文的 stressed / overwhelmed / failed。加词只加数据，匹配逻辑不变。
+  ['踏实', 0.5, 0.2, 0.5],
+  ['安心', 0.5, 0.15, 0.5],
+  ['感动', 0.65, 0.45, 0.2],
+  ['温暖', 0.55, 0.2, 0.3],
+  ['痛快', 0.6, 0.5, 0.5],
+  ['过瘾', 0.6, 0.55, 0.4],
+  ['省心', 0.5, 0.15, 0.5],
+  ['稳了', 0.55, 0.3, 0.6],
+  ['顺手', 0.4, 0.15, 0.4],
+  ['清醒', 0.35, 0.2, 0.5],
+  ['心累', -0.6, 0.3, -0.3],
+  ['扎心', -0.65, 0.5, -0.2],
+  ['无语', -0.5, 0.35, -0.2],
+  ['憋屈', -0.6, 0.4, -0.3],
+  ['头疼', -0.5, 0.4, -0.2],
+  ['糟心', -0.6, 0.5, -0.2],
+  ['难受', -0.6, 0.35, -0.3],
+  ['心慌', -0.55, 0.6, -0.4],
+  ['烦躁', -0.6, 0.6, 0.1],
+  ['沮丧', -0.65, 0.3, -0.3],
+  ['失落', -0.6, 0.3, -0.3],
+  ['疲惫', -0.5, 0.25, -0.2],
+  ['压力', -0.45, 0.5, -0.3],
+  ['纠结', -0.4, 0.45, -0.3],
+  ['不甘', -0.5, 0.5, -0.1],
+  ['无奈', -0.5, 0.25, -0.3],
+  ['麻木', -0.45, 0.15, -0.3],
+  ['窒息', -0.7, 0.7, -0.4],
+  ['delighted', 0.75, 0.55, 0.4],
+  ['thrilled', 0.8, 0.75, 0.35],
+  ['pleased', 0.55, 0.3, 0.45],
+  ['satisfied', 0.5, 0.25, 0.5],
+  ['fantastic', 0.8, 0.65, 0.45],
+  ['brilliant', 0.7, 0.55, 0.5],
+  ['lucky', 0.55, 0.4, 0.4],
+  ['passed', 0.55, 0.4, 0.5],
+  ['resolved', 0.5, 0.25, 0.55],
+  ['miserable', -0.8, 0.5, -0.35],
+  ['depressed', -0.75, 0.3, -0.4],
+  ['stressed', -0.6, 0.6, -0.35],
+  ['overwhelmed', -0.65, 0.7, -0.4],
+  ['dread', -0.65, 0.6, -0.4],
+  ['regret', -0.55, 0.35, -0.3],
+  ['awkward', -0.35, 0.4, -0.3],
+  ['stuck', -0.45, 0.45, -0.3],
+  ['rejected', -0.65, 0.5, -0.35],
+  ['ignored', -0.55, 0.4, -0.35],
+  ['helpless', -0.65, 0.35, -0.45],
+  ['drained', -0.55, 0.25, -0.3],
+  ['failed', -0.6, 0.5, -0.2],
+  ['sorry', -0.3, 0.25, -0.2],
+  ['stuck again', -0.5, 0.5, -0.3],
 ]
 
 /**
@@ -238,38 +310,178 @@ const INTENSIFIERS: Array<[string, number]> = [
 // 中文：不 / 没 / 别 / 无 / 非 / 未　英文：not / never / no / n't / without / hardly / barely
 
 /**
+ * 含蓄 / 口是心非线索（v0.7.2 · D17 / B17）。
+ *
+ * 评判报告 §8 点名："我没事（反语）、还好吧（勉强）、你说呢（不满）都会判错"。
+ * 词表法在这类句子上必然失败——字面是"没事 / 好吧"，语用上却是"不想多说"。
+ * 这里**不假装能读出真实情绪**：只做保守的置信度降级 + 标记，
+ * 让上层不要把字面正极当成"已确认的情绪"（延续"宁可漏，不可编"）。
+ */
+const INDIRECT_CUES: Array<[RegExp, string]> = [
+  [/^(?:我)?没事[。.!！~…\s]*$/, 'dismissive'],
+  [/^(?:我)?还好吧[。.?？~…\s]*$/, 'dismissive'],
+  [/^(?:我)?你说呢[。.?？~…\s]*$/, 'rhetorical'],
+  [/^(?:我)?无所谓[。.!！~…\s]*$/, 'dismissive'],
+  [/^(?:我)?随便吧?[。.!！~…\s]*$/, 'dismissive'],
+  [/^(?:我)?算了(?:吧)?[。.!！~…\s]*$/, 'resignation'],
+]
+/** 消解语境：出现"问题已解决"类信号时，"没事"是字面义，不判含蓄。 */
+const INDIRECT_RESOLVERS = /(修好|解决|搞定|恢复|不用担心|已经|没问题|没事了|放心|ok|fixed|resolved|solved)/i
+
+export interface IndirectSignal {
+  kind: string
+  cue: string
+}
+
+/** 检测含蓄表达。纯函数，宿主可自行决定是否采用（不影响词表主路径）。 */
+export function detectIndirect(text: string): IndirectSignal | null {
+  const t = text.trim()
+  if (!t || t.length > 24 || INDIRECT_RESOLVERS.test(t)) return null
+  for (const [re, kind] of INDIRECT_CUES) if (re.test(t)) return { kind, cue: t }
+  return null
+}
+
+interface LexHit {
+  start: number
+  end: number
+  lv: number
+  la: number
+  ld: number
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * 命中收集（v0.7.2 · F5）。
+ *
+ * 旧实现对所有词都走 `s.indexOf(w)` 子串匹配，于是
+ * `like` 命中 `dislike`、`good` 命中 `goodbye`、`fine` 命中 `define`
+ * ——三个高频误判来自同一个根因。英文改整词边界；中文改
+ * **最长优先 + 区间重叠抑制**，顺带修掉"太棒了"被 `太棒了`/`棒` 累加两次、
+ * "很好"被 `很好`/`好` 累加两次的双重计数。
+ */
+function collectHits(s: string, lex: Array<[string, number, number, number]>): LexHit[] {
+  const hits: LexHit[] = []
+  for (const [word, lv, la, ld] of lex) {
+    const w = word.toLowerCase()
+    if (!w) continue
+    if (/^[a-z]/.test(w)) {
+      const re = new RegExp(`(?:^|[^a-z])${escapeRe(w)}(?=$|[^a-z])`, 'g')
+      let m: RegExpExecArray | null
+      let occ = 0
+      while (occ < 3 && (m = re.exec(s)) !== null) {
+        const start = m.index + (m[0].length - w.length)
+        hits.push({ start, end: start + w.length, lv, la, ld })
+        occ++
+        if (m.index === re.lastIndex) re.lastIndex++
+      }
+    } else {
+      let from = 0
+      let occ = 0
+      while (occ < 3) {
+        const idx = s.indexOf(w, from)
+        if (idx < 0) break
+        from = idx + w.length
+        hits.push({ start: idx, end: from, lv, la, ld })
+        occ++
+      }
+    }
+  }
+  hits.sort((x, y) => y.end - y.start - (x.end - x.start) || x.start - y.start)
+  const kept: LexHit[] = []
+  for (const h of hits) {
+    if (kept.some((k) => h.start < k.end && k.start < h.end)) continue
+    kept.push(h)
+  }
+  return kept.sort((x, y) => x.start - y.start)
+}
+
+/**
+ * 否定极性（v0.7.2 · F6 / F7）。返回 -1 = 翻转、1 = 双重否定（弱肯定）、0 = 无否定。
+ *
+ * 两处旧 bug：① `no` 没有右边界，`nothing / none / novel` 全被判成否定
+ * （"I am nothing happy" 被读成 "not happy"）；② 只有布尔翻转，
+ * "不是不开心" 两个否定词只算一次，判成负面。
+ */
+function negationPolarity(before: string): -1 | 0 | 1 {
+  if (!before) return 0
+  const tail = before.toLowerCase()
+  /**
+   * 中文只认**紧邻情绪词**的否定串，不许跨标点。
+   * 若简单 `before.match(/[不没...]/g)`，"没事，已经修好了" 里 "没事" 的 "没"
+   * 会被当成否定副词，把后面的 "好" 翻成负面——字面正面句被判成负面。
+   * 从词前往回跳最多 2 个修饰字，遇否定词计数并继续（"不是不" = 2）。
+   */
+  let i = before.length
+  let zh = 0
+  const isNegChar = (ch: string) => /[不没别无未非]/.test(ch)
+  const isFiller = (ch: string) => /[^\s，。！？,.!?；;]/.test(ch)
+  while (i > 0) {
+    let skipped = 0
+    while (i > 0 && skipped < 2 && isFiller(before[i - 1]) && !isNegChar(before[i - 1])) {
+      i--
+      skipped++
+    }
+    if (i > 0 && isNegChar(before[i - 1])) {
+      zh++
+      i--
+      continue
+    }
+    break
+  }
+  const enCore = (tail.match(/(?:^|[^a-z])(?:not|never|without|hardly|barely)\b/g) ?? []).length
+  // `no` 必须后接空白或结束，否则 nothing / none / novel 都会被误判
+  const enNo = (tail.match(/(?:^|[^a-z])no(?=\s|$)/g) ?? []).length
+  const ent = (tail.match(/n't\b/g) ?? []).length
+  const n = zh + enCore + enNo + ent
+  return n === 0 ? 0 : n % 2 === 1 ? -1 : 1
+}
+
+/** 合并内置词表与注入词表：同名词以后者为准，且不污染模块级常量。 */
+function mergeLexicon(extra?: Array<[string, number, number, number]>): Array<[string, number, number, number]> {
+  if (!extra?.length) return LEXICON_DEDUP
+  const map = new Map<string, [string, number, number, number]>()
+  for (const e of LEXICON_DEDUP) map.set(e[0].toLowerCase(), e)
+  for (const e of extra) {
+    if (!Array.isArray(e) || typeof e[0] !== 'string' || !e[0]) continue
+    map.set(e[0].toLowerCase(), [
+      e[0],
+      Number.isFinite(e[1]) ? e[1] : 0,
+      Number.isFinite(e[2]) ? e[2] : 0,
+      Number.isFinite(e[3]) ? e[3] : 0,
+    ])
+  }
+  return [...map.values()]
+}
+
+/**
  * 从文本估计核心情感。规则路线，**不是**语义模型——
  * 它只回答"这句话有多带电、往哪个方向"，不回答"是什么情绪"。
  * 精确标签交给 `labelFromAppraisal()` 或 LLM 抽取端口。
  */
-export function estimateAffect(text: string): AffectEstimate {
+export function estimateAffect(text: string, opts: AffectOptions = {}): AffectEstimate {
+  const indirect = detectIndirect(text)
+  if (indirect) {
+    // 含蓄句：不编造情绪，给中性 + 低置信 + 标记。上层应把它当"需要澄清"而非"心情不错"。
+    return { v: 0, a: 0.55, d: -0.05, s: 0.3, labels: [], confidence: 0.15, indirect: true, cue: indirect.kind }
+  }
   const s = text.toLowerCase()
+  const lex = mergeLexicon(opts.extraLexicon)
   let v = 0
   let a = 0
   let d = 0
   let hits = 0
-  let negated = 0
 
-  for (const [word, lv, la, ld] of LEXICON_DEDUP) {
-    const w = word.toLowerCase()
-    // 同一句里同一个词可能出现多次（"很开心，真的很开心"）：全部计入，但最多 3 次
-    let from = 0
-    let occ = 0
-    while (occ < 3) {
-      const idx = s.indexOf(w, from)
-      if (idx < 0) break
-      from = idx + w.length
-      occ++
-      // 前 14 个字符足够覆盖 "I am really not very ..." 这类叠加修饰
-      const before = s.slice(Math.max(0, idx - 14), idx)
-      const neg = isNegated(before)
-      const mult = intensifierOf(before)
-      v += (neg ? -lv * 0.7 : lv) * mult
-      a += la * mult * (neg ? 0.7 : 1)
-      d += ld * mult
-      hits++
-      if (neg) negated++
-    }
+  for (const h of collectHits(s, lex)) {
+    // 前 14 个字符足够覆盖 "I am really not very ..." 这类叠加修饰
+    const before = s.slice(Math.max(0, h.start - 14), h.start)
+    const pol = negationPolarity(before)
+    const mult = intensifierOf(before) * (pol === 1 ? 0.6 : 1)
+    const signed = pol === -1 ? -h.lv * 0.7 : h.lv
+    v += signed * mult
+    a += h.la * mult * (pol === -1 ? 0.7 : 1)
+    d += h.ld * mult
+    hits++
   }
 
   // 标点与语气：感叹号提高唤醒，问号提高不确定（降低支配），省略号降低唤醒
@@ -297,23 +509,6 @@ export function estimateAffect(text: string): AffectEstimate {
     labels: labelFromPad(pad),
     confidence: clamp01(hits * 0.18 + (bangs + ques > 0 ? 0.1 : 0)),
   }
-}
-
-/**
- * 否定判定（v0.6.1 · 修 F4）。
- *
- * 英文用词边界，中文按"紧邻"判：`before` 是词前最多 14 个字符。
- * 中文否定词后面允许夹 1–2 个修饰字（"不是很开心"里的"是很"）。
- */
-function isNegated(before: string): boolean {
-  if (!before) return false
-  const tail = before.toLowerCase()
-  // 英文：not / never / no / hardly … 按词边界；n't 是**后缀**（don't / isn't），
-  // 前面紧贴字母，所以单独一条规则——v0.6.0 的 `endsWith('not')` 在这里全军覆没。
-  if (/(?:^|[^a-z])(not|never|no|without|hardly|barely)(?:[\s\w,'-]{0,8})$/.test(tail)) return true
-  if (/n't(?:[\s\w,'-]{0,8})$/.test(tail)) return true
-  // 中文：否定词 + 最多 2 个非标点字符 + 词
-  return /(不|没|别|无|非|未)[^，。！？,.!?；;\s]{0,2}$/.test(before)
 }
 
 /**

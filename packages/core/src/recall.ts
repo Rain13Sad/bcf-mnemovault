@@ -1049,7 +1049,15 @@ export function dominantChannel(c: Candidate): RecallChannel | 'mixed' {
   if (c.channels.size > 1) {
     const arr = [...c.channels]
     const best = arr.reduce((a, b) => (simOf(c, b) > simOf(c, a) ? b : a))
-    const second = arr.filter((x) => x !== best).reduce((a, b) => (simOf(c, b) > simOf(c, a) ? b : a), arr[0])
+    /**
+     * v0.7.2 F4：reduce 的初值不能是 `arr[0]`。
+     * 当 best 恰好是 arr[0] 时，旧写法把 best 自己当成第二名的候选初值，
+     * 于是 second 永远等于 best、差值恒为 0，`dominantChannel` 恒返回 'mixed'
+     * ——面板"为什么召回这条"显示的通道分类从上线起就是错的。
+     */
+    const rest = arr.filter((x) => x !== best)
+    if (rest.length === 0) return best
+    const second = rest.reduce((a, b) => (simOf(c, b) > simOf(c, a) ? b : a))
     if (Math.abs(simOf(c, best) - simOf(c, second)) < 0.05) return 'mixed'
     return best
   }

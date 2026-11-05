@@ -370,9 +370,18 @@ export class Encoder {
    * 既稀释了证据计数，又让固定基底成本翻六倍。
    */
   maxCellsForTurn(text: string): number {
-    const max = this.config.maxCellsPerTurn
+    /**
+     * v0.7.2 F3：与 `cellsPerTurnFloor` 同类的"缺字段静默失效"。
+     * 宿主手写配置里少一个字段就是 undefined → `Math.min(n, undefined)` = NaN →
+     * `cells.length >= NaN` 恒假 → 本轮预算闸门整段失效（一轮能刷出十几个 cell）。
+     * 不报错、不告警，只会让存储比悄悄变差，所以必须在消费端兜底。
+     */
+    const max = Number.isFinite(this.config.maxCellsPerTurn) ? Math.max(1, Math.floor(this.config.maxCellsPerTurn)) : 8
     const per = this.config.cellsPerTurnChars
-    if (!per || per <= 0) return max
+    // 缺字段时沿用原语义：不做字数预算，只由防御性上限管。
+    // L1 端口路径（features.test）传的手写配置就没有这个字段，塞默认 600 会把
+    // 模型给出的 2 条命题裁成 1 条——那是行为改变，不是 NaN 兜底。
+    if (!Number.isFinite(per) || per <= 0) return max
     return Math.max(1, Math.min(max, Math.ceil(text.length / per)))
   }
 

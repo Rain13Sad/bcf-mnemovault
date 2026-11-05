@@ -64,6 +64,16 @@ export interface SnapshotRecord {
   created: number
 }
 
+/** v0.7.2（E10）：谁在什么时候读过原始记忆。合规审计用，默认关闭。 */
+export interface AccessRecord {
+  at: number
+  actor: string
+  action: string
+  target: string
+  chars: number
+  reason?: string
+}
+
 export interface Store {
   readonly kind: 'sqlite' | 'memory'
   open(): void
@@ -169,6 +179,11 @@ export interface Store {
 
   putSnapshot(rendered: string, tokens: number): string
   getSnapshot(snapId: string): SnapshotRecord | null
+  /** v0.7.2（E2 / E6）：列出召回快照。删除彻底性校验与数据导出都要能穷举它。 */
+  listSnapshots(limit?: number): SnapshotRecord[]
+  /** v0.7.2（E10）：原始记忆访问留痕（默认不记录，由宿主显式开启）。 */
+  appendAccess(rec: AccessRecord): void
+  listAccess(limit?: number): AccessRecord[]
 
   shadowSeqs(session: string, seqs: number[]): void
   isShadowed(session: string, seq: number): boolean
@@ -214,7 +229,7 @@ export interface Store {
    * 这里把派生表一并清掉，返回每张表的删除行数作为回执——
    * 用户有权知道"到底删干净了没有"，而不是拿到一句"已删除"。
    */
-  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' }): {
+  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' } | { kind: 'cell'; id: string }): {
     log: number
     snapshots: number
     evicts: number
@@ -222,12 +237,41 @@ export interface Store {
     sources: number
   }
 
+  /**
+   * v0.7.2（D7 / D8）：跨进程原子锁（CAS + TTL + owner）。
+   *
+   * 旧巩固锁只是 meta 表里的一个字符串，`SELECT` 与 `UPSERT` 是两条独立语句，
+   * 无事务、无 owner、无过期时间：两个进程同时读到空就都会开跑，
+   * 进程崩溃后锁永远不释放（只能靠 doctor --unlock 人工清）。
+   * 服务端部署只要多开一个进程就会踩到，是评判报告列的 P0。
+   */
+  tryAcquireLock(key: string, owner: string, ttlMs: number): boolean
+  /** 只释放自己持有的锁；别人的锁不会被误清。 */
+  releaseLock(key: string, owner: string): boolean
+  lockInfo(key: string): { owner: string; expiresAt: number } | null
+
   /** BEGIN IMMEDIATE 语义的单写事务。读侧不进事务（WAL 快照）。 */
   write<T>(fn: () => T): T
   stats(): { cells: number; edges: number; residuals: number; bytes: number; rawBytes?: number; residualBytes?: number }
 }
 
 const idKey = (id: bigint) => toHex(id, 16)
+
+/** 锁值 = JSON [owner, expiresAt]。解析失败视为"旧格式/已损坏"，可被抢占。 */
+function parseLock(v: string | null | undefined): { owner: string; expiresAt: number } | null {
+  if (!v) return null
+  try {
+    const arr = JSON.parse(v) as unknown
+    if (Array.isArray(arr) && typeof arr[0] === 'string' && Number.isFinite(arr[1])) {
+      return { owner: arr[0], expiresAt: Number(arr[1]) }
+    }
+  } catch {
+    /* 旧格式或手工写坏的锁：按可抢占处理 */
+  }
+  return null
+}
+
+const lockTtl = (ttlMs: number) => (Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : 600_000)
 
 /** tags 列 ↔ string[]。空串 = 无标记（绝大多数 cell）。 */
 export function parseTags(raw: unknown): string[] {
@@ -316,6 +360,7 @@ export class MemoryStore implements Store {
   private shadow = new Set<string>()
   private evicts: EvictRecord[] = []
   private kv = new Map<string, string>()
+  private accessLog: AccessRecord[] = []
   private retention = new Map<string, { score: number; band: number; at: number }>()
   /** v0.6.2：token → document frequency，与 docs 一起构成 IDF 的原料。 */
   private tokenDfMap = new Map<string, number>()
@@ -472,7 +517,13 @@ export class MemoryStore implements Store {
   }
   getResidual(off: number): Uint8Array | null {
     const c = this.residuals[off]
-    return c ? decompress(c.codec, c.bytes, c.rawLen) : null
+    if (!c) return null
+    try {
+      return decompress(c.codec, c.bytes, c.rawLen)
+    } catch {
+      // v0.7.2 F8：损坏的残差不返回压缩字节冒充原文，交给上层退回摘要。
+      return null
+    }
   }
   residualRefs(sha: Uint8Array): number {
     let n = 0
@@ -534,6 +585,16 @@ export class MemoryStore implements Store {
   }
   getSnapshot(snapId: string): SnapshotRecord | null {
     return this.snaps.get(snapId) ?? null
+  }
+  listSnapshots(limit = 1000): SnapshotRecord[] {
+    return [...this.snaps.values()].slice(-Math.max(1, limit))
+  }
+  appendAccess(rec: AccessRecord): void {
+    this.accessLog.push({ ...rec })
+    if (this.accessLog.length > 10_000) this.accessLog.splice(0, this.accessLog.length - 10_000)
+  }
+  listAccess(limit = 1000): AccessRecord[] {
+    return this.accessLog.slice(-Math.max(1, limit))
   }
 
   shadowSeqs(session: string, seqs: number[]): void {
@@ -600,7 +661,7 @@ export class MemoryStore implements Store {
     this.tokenDocs = 0
   }
 
-  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' }): {
+  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' } | { kind: 'cell'; id: string }): {
     log: number
     snapshots: number
     evicts: number
@@ -610,14 +671,58 @@ export class MemoryStore implements Store {
     const all = target.kind === 'all'
     const sid = target.kind === 'session' ? target.id : ''
     const out = { log: 0, snapshots: 0, evicts: 0, shadow: 0, sources: 0 }
+    /**
+     * v0.7.2 F1：单 cell 只清自己的派生行，绝不动整轮日志与其它 cell。
+     * 内存驱动与 SQLite 驱动必须给出等价的回执，否则测试里"删干净"是假象。
+     */
+    if (target.kind === 'cell') {
+      const cid = target.id
+      const short = cid.slice(-4)
+      const beforeEv = this.evicts.length
+      this.evicts = this.evicts.filter((e) => !String(e.cellId).endsWith(short))
+      out.evicts = beforeEv - this.evicts.length
+      const src = this.sources.get(cid)
+      if (src) {
+        out.sources = src.length
+        this.sources.delete(cid)
+      }
+      for (const [k, v] of [...this.snaps]) {
+        if (v.rendered.includes(short)) {
+          this.snaps.delete(k)
+          out.snapshots++
+        }
+      }
+      return out
+    }
     const before = this.logs.length
     if (all) this.logs = []
     else this.logs = this.logs.filter((e) => e.session !== sid)
     out.log = before - this.logs.length
-    out.snapshots = this.snaps.size
-    if (all) this.snaps.clear()
-    out.evicts = this.evicts.length
-    if (all) this.evicts = []
+    /** 该会话 cell 的短 id 集合：快照与驱逐记录都按它关联（删 cell 之前算）。 */
+    const shorts = all ? null : new Set<string>()
+    if (shorts) {
+      for (const [cid, srcs] of this.sources) if (srcs.some((s) => s.session === sid)) shorts.add(String(cid).slice(-4))
+    }
+    if (all) {
+      out.snapshots = this.snaps.size
+      this.snaps.clear()
+      out.evicts = this.evicts.length
+      this.evicts = []
+      this.accessLog = []
+    } else {
+      const keys = [...(shorts ?? [])]
+      // 旧实现在这里"报数不删"（out.snapshots = size 但只有 all 分支才 clear），
+      // 会话级删除其实把渲染过的记忆文本全留在内存里。两种驱动现在都真删。
+      for (const [k, v] of [...this.snaps]) {
+        if (keys.some((sh) => v.rendered.includes(sh))) {
+          this.snaps.delete(k)
+          out.snapshots++
+        }
+      }
+      const beforeEv = this.evicts.length
+      this.evicts = this.evicts.filter((e) => !keys.some((sh) => String(e.cellId).endsWith(sh)))
+      out.evicts = beforeEv - this.evicts.length
+    }
     for (const k of [...this.shadow]) {
       if (all || k.startsWith(sid + '#')) {
         this.shadow.delete(k)
@@ -631,6 +736,25 @@ export class MemoryStore implements Store {
       else this.sources.set(k, keep)
     }
     return out
+  }
+
+  tryAcquireLock(key: string, owner: string, ttlMs: number): boolean {
+    const k = 'lock:' + key
+    const now = Date.now()
+    const cur = parseLock(this.kv.get(k))
+    if (cur && cur.owner !== owner && cur.expiresAt > now) return false
+    this.kv.set(k, JSON.stringify([owner, now + lockTtl(ttlMs)]))
+    return true
+  }
+  releaseLock(key: string, owner: string): boolean {
+    const k = 'lock:' + key
+    const cur = parseLock(this.kv.get(k))
+    if (!cur || cur.owner !== owner) return false
+    this.kv.delete(k)
+    return true
+  }
+  lockInfo(key: string): { owner: string; expiresAt: number } | null {
+    return parseLock(this.kv.get('lock:' + key))
   }
 
   write<T>(fn: () => T): T {
@@ -729,6 +853,17 @@ CREATE TABLE IF NOT EXISTS recall_snapshots (
   tokens    INTEGER NOT NULL,
   created   INTEGER NOT NULL
 );
+
+-- v0.7.2（E10）：原始记忆访问审计。独立表，不进 MC03 blob，旧库免 rebuild。
+CREATE TABLE IF NOT EXISTS access_log (
+  at     INTEGER NOT NULL,
+  actor  TEXT NOT NULL,
+  action TEXT NOT NULL,
+  target TEXT NOT NULL,
+  chars  INTEGER NOT NULL DEFAULT 0,
+  reason TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_access_at ON access_log(at);
 
 CREATE TABLE IF NOT EXISTS shadow_map (
   session TEXT NOT NULL, seq INTEGER NOT NULL,
@@ -831,8 +966,13 @@ export class SqliteStore implements Store {
       if (have.has(name)) continue
       try {
         db.exec(`ALTER TABLE cells ADD COLUMN ${name} ${ddl}`)
-      } catch {
-        /* 并发启动时另一进程已加过：忽略 */
+      } catch (err) {
+        /**
+         * v0.7.2 F9：只忽略"另一进程已加过列"这一种并发情形。
+         * 旧实现吞掉任意 ALTER 失败（磁盘满 / 只读库 / DDL 写错），
+         * 结果 tags 列根本不存在，写入一路报错而 doctor 查不出根因。
+         */
+        if (!/duplicate column|already exists/i.test(String(err))) throw err
       }
     }
   }
@@ -1040,8 +1180,13 @@ export class SqliteStore implements Store {
       args.push(filter.until)
     }
     const order = filter.order === 'oldest' ? 'ASC' : 'DESC'
+    /**
+     * v0.7.2 F10：`filter.limit` 可能来自宿主手写配置（NaN / Infinity / 字符串）。
+     * 旧写法 `Math.floor(NaN)` 会拼出 `LIMIT NaN`，让整条查询抛语法错误。
+     */
+    const lim = Number.isFinite(filter.limit) ? Math.max(1, Math.floor(filter.limit as number)) : 0
     const sql = `${SELECT_CELL} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY t_from ${order} ${
-      filter.limit ? 'LIMIT ' + Math.max(1, Math.floor(filter.limit)) : ''
+      lim > 0 ? 'LIMIT ' + lim : ''
     }`
     return this.prep(sql)
       .all(...args)
@@ -1114,7 +1259,12 @@ export class SqliteStore implements Store {
   getResidual(off: number): Uint8Array | null {
     const r = this.prep('SELECT data,codec,raw_len FROM residuals WHERE offset = ?').get(off)
     if (!r) return null
-    return decompress(String(r.codec), new Uint8Array(r.data as Uint8Array), Number(r.raw_len))
+    try {
+      return decompress(String(r.codec), new Uint8Array(r.data as Uint8Array), Number(r.raw_len))
+    } catch {
+      // v0.7.2 F8：残差损坏 → 返回 null，expand 退回结构化摘要而不是渲染乱码。
+      return null
+    }
   }
   residualRefs(sha: Uint8Array): number {
     const r = this.prep('SELECT ref_cnt FROM residuals WHERE sha = ?').get(sha)
@@ -1175,6 +1325,38 @@ export class SqliteStore implements Store {
       Date.now(),
     )
     return id
+  }
+  listSnapshots(limit = 1000): SnapshotRecord[] {
+    return this.prep('SELECT * FROM recall_snapshots ORDER BY created DESC LIMIT ?')
+      .all(Math.max(1, limit))
+      .map((r) => ({
+        snapId: String(r.snap_id),
+        rendered: String(r.rendered),
+        tokens: Number(r.tokens),
+        created: Number(r.created),
+      }))
+  }
+  appendAccess(rec: AccessRecord): void {
+    this.prep('INSERT INTO access_log (at,actor,action,target,chars,reason) VALUES (?,?,?,?,?,?)').run(
+      rec.at,
+      rec.actor,
+      rec.action,
+      rec.target,
+      Number.isFinite(rec.chars) ? rec.chars : 0,
+      rec.reason ?? '',
+    )
+  }
+  listAccess(limit = 1000): AccessRecord[] {
+    return this.prep('SELECT * FROM access_log ORDER BY at DESC LIMIT ?')
+      .all(Math.max(1, limit))
+      .map((r) => ({
+        at: Number(r.at),
+        actor: String(r.actor),
+        action: String(r.action),
+        target: String(r.target),
+        chars: Number(r.chars),
+        reason: String(r.reason ?? ''),
+      }))
   }
   getSnapshot(snapId: string): SnapshotRecord | null {
     const r = this.prep('SELECT * FROM recall_snapshots WHERE snap_id = ?').get(snapId)
@@ -1298,7 +1480,7 @@ export class SqliteStore implements Store {
    *
    * 返回每张表的删除行数：用户有权知道删干净没有。
    */
-  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' }): {
+  purgeAux(target: { kind: 'session'; id: string } | { kind: 'all' } | { kind: 'cell'; id: string }): {
     log: number
     snapshots: number
     evicts: number
@@ -1318,8 +1500,25 @@ export class SqliteStore implements Store {
       const evicts = count('SELECT COUNT(*) AS n FROM evict_log')
       const shadow = count('SELECT COUNT(*) AS n FROM shadow_map')
       const sources = count('SELECT COUNT(*) AS n FROM cell_sources')
-      this.conn.exec('DELETE FROM session_log; DELETE FROM recall_snapshots; DELETE FROM evict_log; DELETE FROM shadow_map; DELETE FROM cell_sources;')
+      this.conn.exec('DELETE FROM session_log; DELETE FROM recall_snapshots; DELETE FROM evict_log; DELETE FROM shadow_map; DELETE FROM cell_sources; DELETE FROM access_log;')
       return { log, snapshots, evicts, shadow, sources }
+    }
+    /**
+     * v0.7.2 F1：单 cell 分支。只删**这条 cell 自己**的派生行——
+     * `cell_sources` / `evict_log`，以及渲染文本里出现该 cell 短 id 的快照。
+     * 会话日志与影子表是**按轮共享**的，一条 cell 无权删掉整轮的原文。
+     * （`evict_log.cell_id` 历史上既存过短 id 也存过完整 hex，用后 4 位统一匹配。）
+     */
+    if (target.kind === 'cell') {
+      const cid = target.id
+      const short = cid.slice(-4)
+      const evicts = count('SELECT COUNT(*) AS n FROM evict_log WHERE substr(cell_id, -4) = ?', short)
+      const sources = count('SELECT COUNT(*) AS n FROM cell_sources WHERE cell_id = ?', cid)
+      const snapshots = count('SELECT COUNT(*) AS n FROM recall_snapshots WHERE instr(rendered, ?) > 0', short)
+      run('DELETE FROM evict_log WHERE substr(cell_id, -4) = ?', short)
+      run('DELETE FROM cell_sources WHERE cell_id = ?', cid)
+      run('DELETE FROM recall_snapshots WHERE instr(rendered, ?) > 0', short)
+      return { log: 0, snapshots, evicts, shadow: 0, sources }
     }
     const sid = target.id
     /**
@@ -1341,11 +1540,57 @@ export class SqliteStore implements Store {
     run('DELETE FROM shadow_map WHERE session = ?', sid)
     run('DELETE FROM evict_log WHERE cell_id IN (SELECT cell_id FROM cells WHERE session = ?)', sid)
     run('DELETE FROM cell_sources WHERE cell_id IN (SELECT cell_id FROM cells WHERE session = ?)', sid)
-    return { log, snapshots: 0, evicts, shadow, sources }
+    /**
+     * v0.7.2 F1：旧实现会话级恒返回 `snapshots: 0` 且**一行也不删**。
+     * 回执上"快照 0 行"看起来像"本来就没有"，实际渲染过的记忆文本还留在盘上，
+     * 红线 2「无法真正删除」在会话路径上并未闭合。
+     * 用关联子查询按该会话 cell 的 4 位短 id 定位快照（必须在删 cell **之前**跑）。
+     */
+    const snapWhere = 'EXISTS (SELECT 1 FROM cells c WHERE c.session = ? AND instr(s.rendered, substr(c.cell_id, 13)) > 0)'
+    const snapshots = count(`SELECT COUNT(*) AS n FROM recall_snapshots s WHERE ${snapWhere}`, sid)
+    run(
+      `DELETE FROM recall_snapshots WHERE snap_id IN (SELECT s.snap_id FROM recall_snapshots s WHERE ${snapWhere})`,
+      sid,
+    )
+    return { log, snapshots, evicts, shadow, sources }
   }
 
   private tokenDocs(): number {
     return Number(this.meta('token_df.docs') ?? 0) || 0
+  }
+
+  tryAcquireLock(key: string, owner: string, ttlMs: number): boolean {
+    const k = 'lock:' + key
+    const now = Date.now()
+    /**
+     * `write()` 是 BEGIN IMMEDIATE：SQLite 会序列化跨进程的写事务，
+     * 于是"读锁 → 判过期 → 写锁"整体原子，check-then-set 不再是竞态。
+     * 这是多进程场景与旧实现最本质的区别（旧实现两条独立语句无事务）。
+     */
+    return this.write(() => {
+      const row = this.prep('SELECT v FROM meta WHERE k = ?').get(k) as { v?: string } | undefined
+      const cur = parseLock(row?.v)
+      if (cur && cur.owner !== owner && cur.expiresAt > now) return false
+      this.prep('INSERT INTO meta(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').run(
+        k,
+        JSON.stringify([owner, now + lockTtl(ttlMs)]),
+      )
+      return true
+    })
+  }
+  releaseLock(key: string, owner: string): boolean {
+    const k = 'lock:' + key
+    return this.write(() => {
+      const row = this.prep('SELECT v FROM meta WHERE k = ?').get(k) as { v?: string } | undefined
+      const cur = parseLock(row?.v)
+      if (!cur || cur.owner !== owner) return false
+      this.prep('DELETE FROM meta WHERE k = ?').run(k)
+      return true
+    })
+  }
+  lockInfo(key: string): { owner: string; expiresAt: number } | null {
+    const row = this.prep('SELECT v FROM meta WHERE k = ?').get('lock:' + key) as { v?: string } | undefined
+    return parseLock(row?.v)
   }
 
   /** 单写事务（§8.5）。嵌套调用退化为最外层事务，避免巩固 pass 里再包一层。 */

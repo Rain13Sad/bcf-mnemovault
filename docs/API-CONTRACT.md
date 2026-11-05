@@ -307,6 +307,26 @@ v0.4 里 P1 与 P2 都落在 3，存储层无法区分——这是 v0.5 修掉�
 （residual / noDecay / disputed / pii / redacted / web / emotional / milestone）。
 再挤一位就得改布局版本 → 全库 rebuild。标记类信息走列是更便宜的取舍。
 
+### 3.4 v0.7.2 变更
+
+总原则不变：**新增字段一律可选、新增能力默认不改变既有行为**。MC03 布局未动，旧库免 rebuild。
+
+| 变更 | 形状 | 兼容策略 |
+| :--- | :--- | :--- |
+| `AffectEstimate.indirect` / `cue` | `boolean?` / `string?` | 新增。含蓄/口是心非句给低置信弃权，不猜情绪；旧调用方读不到这两个字段时行为与以前一致 |
+| `AffectOptions.extraLexicon` | `Array<[string, number, number, number]>?` | 新增。`estimateAffect(text, opts)` 的第二参；同名词覆盖内置值，**不写模块级状态** |
+| `EngineOptions.lexicon` | 同上 | 新增。引擎构造期注入领域词表；不传 = 内置词表 |
+| `MemoryService.setAccessAudit(enabled, actor?)` | `void` | 新增。**默认关闭**，expand 保持纯读；显式开启后才写 `access_log` |
+| `Store.tryAcquireLock` / `releaseLock` / `lockInfo` | `(key, owner, ttlMs) => boolean` 等 | 新增。两种驱动（memory / sqlite）语义等价；锁值存 `meta` 的 `lock:<key>`，不是新表 |
+| `Store.listSnapshots` / `appendAccess` / `listAccess` | `(limit?) => SnapshotRecord[]` 等 | 新增。`access_log` 走 `CREATE TABLE IF NOT EXISTS` 增量建表，旧库免 rebuild |
+| `purgeAux({kind:'cell'})` | 新增目标类型 | 单 cell 只清自己的派生行；此前误映射成 `{kind:'all'}`（v0.7.2 修复） |
+| `exportBundle` / `validateBundle` / `verifyPurge` / `metricsText` / `accessAuditLine` | 纯函数 | 新增，见 `packages/core/src/vault-tools.ts` |
+| `/mnemo export --json` | 命令参数 | 新增参数，**命令动词数不变**；人类可读档仍是默认 |
+| `decompress` 失败语义 | 抛 `Error` | 行为变更：不再把压缩字节冒充原文。`getResidual` 捕获后返回 `null`，expand 退回摘要 |
+
+**bundle 不含"原样导回"能力**：`cellId` 是内容寻址结果，写回必须重算 SDR/向量，
+那是 `/mnemo rebuild --from-log` 的职责。导出格式承诺的是「拿得走、看得懂、校验得了」。
+
 ---
 
 ## 4. 运行时状态：`ctx.provide('mnemoRuntime', …)`

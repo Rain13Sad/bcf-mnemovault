@@ -684,7 +684,15 @@ function clamp01(x: number): number {
   return Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0))
 }
 
-export function apply(ctx: Context, config: Config) {
+export function apply(ctx: Context, rawConfig: Config) {
+  /**
+   * v0.7.2 F2（安全红线）：宿主 / devkit 传进来的常常是**手写配置对象**，
+   * 不经 schemastery 解析。此时 crisisEnabled / minorGuardEnabled / coeff 全是
+   * undefined —— 危机识别与未成年人保护会在**所有 bench 与 harness 测试里静默关闭**，
+   * 而上层仍以为机制在工作（实测：createHarness 里三项全丢）。
+   * 默认值必须在消费端兜底，不能依赖调用方记得补齐。
+   */
+  const config = Config((rawConfig ?? {}) as Config)
   const affect = new AffectService(ctx, config)
   // 启动即尝试恢复：热重载后不该从"陌生人"重新开始
   try {

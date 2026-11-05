@@ -152,6 +152,13 @@ export class MemoryService extends Service {
   private pendingActions: PanelAction[] = []
   /** 单会话内每个 cell 的展开次数（§14.9：上限 2 次） */
   private expandCounts = new Map<string, number>()
+  /**
+   * v0.7.2（E10）：原始记忆访问审计开关。**默认关闭**——expand 是读操作，
+   * 默认写库会破坏 `readOnly` / "观察不该有副作用" 的既有契约。
+   * 需要合规留痕的部署方显式 `setAccessAudit(true)`，由宿主决定 actor 身份。
+   */
+  private accessAudit = false
+  private accessActor = 'local'
 
   /**
    * SDR 倒排索引（v0.5.2）。懒构建：第一次 ingest/recall 时才建，避免"库很小却先花 200 ms"。
@@ -306,6 +313,16 @@ export class MemoryService extends Service {
    */
   setClock(fn: () => number): void {
     this.now = fn
+  }
+
+  /** v0.7.2（E10）：打开/关闭原始记忆访问留痕，并指定审计主体标识。默认关闭。 */
+  setAccessAudit(enabled: boolean, actor = 'local'): void {
+    this.accessAudit = Boolean(enabled)
+    this.accessActor = String(actor).slice(0, 64) || 'local'
+  }
+
+  accessAuditEnabled(): boolean {
+    return this.accessAudit
   }
 
   // ── 生命周期 ─────────────────────────────────────────────────────
@@ -624,6 +641,8 @@ export class MemoryService extends Service {
       let best: { cell: MemCell; j: number } | undefined
       const consider = (other: MemCell) => {
         if (other.kind !== clean.kind) return
+        // v0.7.2 F13：跨用户/跨会话不得互相合并（写入侧隔离，见 sameBoundary）
+        if (!this.sameBoundary(other, clean)) return
         const j = this.space.sim(other.sdr, clean.sdr)
         // Jaccard 高者胜；**并列时**按 §7.5 的合并竞争规则裁决（support → importance → tIngest 早）。
         // 之前 `compete()` 定义了却从未被调用，而"并列"在稀疏码上并不罕见——
@@ -663,12 +682,20 @@ export class MemoryService extends Service {
         }
         if (bestId !== undefined) {
           const other = this.store.getCell(bestId)
-          if (other) best = { cell: other, j: bestJ }
+          const boundaryOk = Boolean(other && this.sameBoundary(other, clean))
+          if (other && boundaryOk) best = { cell: other, j: bestJ }
           // 并列：只有这时才需要看 support/importance/tIngest 裁决（§7.5）
           for (const id of tied) {
-            const other = this.store.getCell(id)
-            if (other && best) best = { cell: compete(best.cell, other), j: bestJ }
+            const tiedCell = this.store.getCell(id)
+            if (tiedCell && best && this.sameBoundary(tiedCell, clean)) best = { cell: compete(best.cell, tiedCell), j: bestJ }
           }
+          /**
+           * v0.7.2 F13：最优 Jaccard 候选可能来自**别的会话/用户域**。
+           * 索引里只有 id/kind/size/overlap，没有 scope，所以这一步才发现。
+           * 此时必须退化为全扫（consider 已按边界过滤），否则本域里的次优候选
+           * 会被静默漏掉——去重看起来"没找到重复"，实际是找错域了。
+           */
+          if (!boundaryOk) this.store.forEachCell(consider)
         }
       } else {
         this.store.forEachCell(consider)
@@ -810,6 +837,22 @@ export class MemoryService extends Service {
    * v0.5.2：从全表扫改成走 `agent|谓词家族` 索引。判据没变，只是**不再看无关的 cell**——
    * 原来每条新记忆都要解一遍全库的 blob，10 万 cell 下这是写路径上最贵的一步。
    */
+  /**
+   * v0.7.2 F13（C8 交叉污染压测抓到的真实缺陷）：写入侧的隔离边界。
+   *
+   * 此前 `findConflict` 与去重都**只按槽位比**，不看这条记忆属于谁。
+   * 在 `scopeMode=per-session` 下，B 会话写"数据库用 MySQL"会把 A 会话的
+   * "数据库用 PostgreSQL" 标成 tInvalid（SUPERSEDES），即使召回侧看不见对方，
+   * A 的记忆已被毁。检索隔离挡不住写入污染——两处必须各有一道门。
+   */
+  private sameBoundary(a: MemCell, b: MemCell): boolean {
+    if (this.scope.mode === 'per-session') {
+      const sa = a.session ?? ''
+      return sa !== '' && sa === (b.session ?? '')
+    }
+    return (a.scope ?? '') === (b.scope ?? '')
+  }
+
   private findConflict(cell: MemCell): MemCell | undefined {
     const agent = slotValue(cell, 'AGENT')
     const pred = slotValue(cell, 'PRED')
@@ -820,6 +863,8 @@ export class MemoryService extends Service {
     const patientKey = slotValue(cell, 'PATIENT')
     const visit = (other: MemCell) => {
       if (other.cellId === cell.cellId) return
+      // v0.7.2 F13：不许跨用户/跨会话建立版本链（否则等于远程把别人的记忆标失效）
+      if (!this.sameBoundary(other, cell)) return
       const p1 = slotValue(cell, 'PATIENT') ?? ''
       const p2 = slotValue(other, 'PATIENT') ?? ''
       const m1 = slotValue(cell, 'MANNER') ?? ''
@@ -1130,6 +1175,17 @@ export class MemoryService extends Service {
       text = text.slice(0, 800) + '…[截断]'
       truncated = true
     }
+    // v0.7.2（E10）：只有显式开启审计时才写库；默认下 expand 仍是纯读。
+    if (this.accessAudit && raw) {
+      this.store.appendAccess({
+        at: this.now(),
+        actor: this.accessActor,
+        action: 'expand',
+        target: cellId,
+        chars: text.length,
+        reason: sessionId ? `session:${sessionId}` : undefined,
+      })
+    }
     this.emit('memory/expand', { cellId, level, chars: text.length, shadowed: false })
     return { cellId, level, text, tokens: estimateTokens(text), shadowed, truncated, chars: text.length }
   }
@@ -1205,7 +1261,13 @@ export class MemoryService extends Service {
       ids = [BigInt('0x' + target.id.replace(/^0x/, '').padStart(16, '0'))]
     }
 
-    const auxTarget = target.kind === 'cell' ? { kind: 'all' as const } : target
+    /**
+     * v0.7.2 F1（P0 数据丢失）：单条 cell 的级联清理只能限定在该 cell。
+     * 旧写法把 {kind:'cell'} 映射成 {kind:'all'}，`/mnemo purge cell <id> --yes`
+     * 会清空**整个库**的会话日志 / 渲染快照 / 驱逐记录 / 来源映射——
+     * 用户只想删一条记忆，却失去了全库的可重建依据。
+     */
+    const auxTarget = target.kind === 'cell' ? { kind: 'cell' as const, id: toHex(ids[0], 16) } : target
     let aux = { log: 0, snapshots: 0, evicts: 0, shadow: 0, sources: 0 }
     let residuals = 0
     let edges = 0
@@ -1407,8 +1469,19 @@ export class MemoryService extends Service {
     if (openLock) {
       if (opts.unlock) {
         this.store.setMeta('consolidate:open', '')
+        const info = this.store.lockInfo('consolidate')
+        if (info && this.store.releaseLock('consolidate', info.owner)) fixed.push(`清除跨进程原子锁（owner=${info.owner}）`)
         fixed.push(`清除遗留锁 ${openLock}`)
       } else issues.push(`遗留巩固锁 ${openLock}（/mnemo doctor --unlock 解除）`)
+    } else {
+      // v0.7.2 D8：进程也可能在写 `consolidate:open` 之前就崩了，
+      // 只留下原子锁。这种情况下旧 doctor 什么也查不到，服务却一直被挡。
+      const info = this.store.lockInfo('consolidate')
+      if (info && info.expiresAt > this.now()) {
+        if (opts.unlock) {
+          if (this.store.releaseLock('consolidate', info.owner)) fixed.push(`清除残留原子锁（owner=${info.owner}）`)
+        } else issues.push(`残留的跨进程巩固锁 owner=${info.owner}（/mnemo doctor --unlock 解除）`)
+      }
     }
 
     const layout = this.store.meta('layout') ?? ''
@@ -2010,17 +2083,31 @@ export class MemoryService extends Service {
         if (!eng) return { ok: false, message: '未安装 mnemo-llm（引擎端口不可用，当前走哈希 + 规则）' }
         if (a.action === 'probe') {
           // 探测是异步的，但 applyAction 是同步契约：先返回"已开始"，结果走面板刷新
-          void eng.probe?.().then((r) => {
-            this.emit('mnemo/engine', { action: 'probe', ok: r.ok, message: r.message })
-            this.publishPanel()
-          })
+          // v0.7.2 F11：旧实现没有 .catch()，端点超时/网络错误会变成 unhandledRejection
+          // （在部分 Node 配置下直接终止进程），且面板永远停在"探测中"。
+          void Promise.resolve(eng.probe?.())
+            .then((r) => {
+              if (!r) return
+              this.emit('mnemo/engine', { action: 'probe', ok: r.ok, message: r.message })
+              this.publishPanel()
+            })
+            .catch((err) => {
+              this.emit('mnemo/engine', { action: 'probe', ok: false, message: `探测失败：${String(err)}` })
+              this.publishPanel()
+            })
           return { ok: true, message: '已发起连通性探测（结果会显示在"引擎"卡片）' }
         }
         if (a.action === 'reembed') {
-          void eng.reembed?.({ limit: 500 }).then((r) => {
-            this.emit('mnemo/engine', { action: 'reembed', ...r })
-            this.publishPanel()
-          })
+          void Promise.resolve(eng.reembed?.({ limit: 500 }))
+            .then((r) => {
+              if (!r) return
+              this.emit('mnemo/engine', { action: 'reembed', ...r })
+              this.publishPanel()
+            })
+            .catch((err) => {
+              this.emit('mnemo/engine', { action: 'reembed', ok: false, message: `重算失败：${String(err)}` })
+              this.publishPanel()
+            })
           return { ok: true, message: '已排队重算向量空间（每批 500 条，可重复执行直到 done=total）' }
         }
         const c = eng.compileNow?.()

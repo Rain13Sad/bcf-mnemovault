@@ -12,7 +12,7 @@
  * 既能挂到 ctx.cmdline，也能在测试与 demo 里直接调。
  */
 
-import { KIND_NAME, formatBreakdown, toHex, type MemoryService, type Preset } from '@rain13sad/llm-mnemo-core'
+import { KIND_NAME, formatBreakdown, toHex, exportBundle, type MemoryService, type Preset } from '@rain13sad/llm-mnemo-core'
 import { AmbiguousCellIdError, resolveCellId } from './id.js'
 
 export interface CommandDeps {
@@ -489,12 +489,20 @@ async function runCommandInner(argv: string[], deps: CommandDeps): Promise<strin
     }
 
     case 'export': {
+      /**
+       * v0.7.2（E6 / 追问 30）：机器可读的数据可携带格式。
+       * 旧实现只有人类可读清单，且 `listCells({limit:5000})` 会**静默截断**——
+       * 用户以为导出了全部，实际超过 5000 条就没了。JSON 档走 forEachCell 全量，
+       * 带校验和，可被别的系统读取；原样导回仍走 rebuild --from-log（见 bundle 注释）。
+       */
+      if (rest.includes('--json')) return JSON.stringify(exportBundle(mem), null, 2)
       const cells = mem.store.listCells({ limit: 5000 })
+      const truncated = cells.length >= 5000 ? '\n⚠ 已达 5000 条上限，完整导出请用 /mnemo export --json' : ''
       const lines = cells.map((c) => {
         const kv = c.slots.filter((s) => s.type === 'LIT').map((s) => `${s.value}`).join(' / ')
         return `[${toHex(c.cellId, 16).slice(-4)}] ${new Date(Number(c.tFrom)).toISOString().slice(0, 10)} ${KIND_NAME[c.kind]}  ${kv}`
       })
-      return [`共 ${cells.length} 条`, ...lines].join('\n')
+      return `共 ${cells.length} 条${truncated}\n` + lines.join('\n')
     }
 
     default:

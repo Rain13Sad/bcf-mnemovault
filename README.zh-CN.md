@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.7.1 -->
+<!-- DOC-VERSION: 0.7.2 -->
 
 # MnemoVault
 
@@ -29,8 +29,8 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.7.1** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 11 个包 · 78 个源文件 / 约 27,100 行 TS（`.ts` + `.tsx`，含 UI）· 335 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **状态** | **v0.7.2** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 11 个包 · 79 个源文件 / 约 27,900 行 TS（`.ts` + `.tsx`，含 UI）· 355 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
 | **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **28 条缺点 D1–D28** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
 | **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 28 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -80,7 +80,7 @@ DSH 的上下文窗口是有限的，而"用户三个月前说过什么"要么�
 ```bash
 npm ci               # 只有 devDependencies（typescript / react / 类型）
 npm run build        # 按依赖顺序编译 11 个包（没有 bundler，逐包 tsc）
-npm test             # 335 条测试
+npm test             # 355 条测试
 npm run demo         # 26 轮中文对话：注入 / 巩固 / 统计 / 守卫
 npm run bench:eval   # mnemo-bench：Recall@8 / MRR / 去重 P,R / 时间推理 / 成本
 npm run panel        # 面板预览：http://127.0.0.1:5178/
@@ -254,6 +254,33 @@ dispose()
 上面的 `createHarness` 是最短的"看到一条"的路径。
 
 </details>
+
+---
+
+## v0.7.2：对照独立评判报告逐板块复核，补落地能力与验证层
+
+**落地能力版本**。依据是第三方《MnemoVault v0.7.1 源代码评判报告》（21 节、加权 3.49/5，
+在陌生环境独立复现了全部宣称数字）。本版先修**实测能复现**的缺陷，保持所有已发布指标不变，
+再补报告指出"机制有、产品化工具没有"的那一截。存储布局未动（MC03 不变，旧库免 rebuild）。
+
+- **两个 P0 缺陷，都是先复现再修**：`/mnemo purge cell <id> --yes` 会清空**整个库**的
+  派生层（日志、渲染快照、驱逐记录、来源映射）；devkit 手写配置让危机识别与未成年人保护
+  在**所有 bench 与 harness 测试里静默关闭**。两条都配了"改回去就变红"的断言。
+- **写入侧租户隔离**：`per-session` 下 B 会话的写入能把 A 会话的 cell 标成失效——
+  检索隔离挡不住写入污染。由本版新增的 C8 交叉污染压测实测抓到。
+- **情感感知**（报告最低分板块）：英文整词边界（`like` 不再命中 `dislike`）、双重否定、
+  含蓄/"我没事"不再编造情绪而是低置信弃权、词表扩到 159 条、领域词典注入
+  （扩词不必 fork 源码）。
+- **运维工具链**：机器可读全量导出带完整性校验和（`/mnemo export --json`）、删除彻底性
+  独立校验、Prometheus 指标、文件级备份/恢复带 sha256 清单、默认关闭的访问审计、
+  CAS + TTL + owner 的跨进程巩固锁。
+- **验证层**：八节确定性验证（交叉污染 / 存储完整性 Cov / 交叉消融 / 组件消融 /
+  谄媚代理 / 故障注入 / 删除校验 / 锁并发），带 CI 门槛。**这是机制验证，不是公开基准**，
+  也不测端到端答题率。
+
+**355 条测试全过，既有基准数字逐项未退化**（Recall@8 0.905 / MRR 0.73 / bench-real 13/13 /
+10k cell p95 30.53 ms）。仍未完成的（公开基准、第三方红队、DPIA、生产部署、真实厂商端点）
+在 `docs/V0.7.2-REVIEW-RESPONSE.md` 里如实列出，不把"做了机制"写成"已商用"。
 
 ---
 

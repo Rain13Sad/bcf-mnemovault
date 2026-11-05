@@ -55,6 +55,8 @@ export interface EngineOptions {
   maxTokens?: number
   /** 单轮注入价格上限（¥，缺省用 config.llm.maxPricePerTurn，0 = 不限） */
   maxPrice?: number
+  /** v0.7.2（A13 / B10）：领域情感词注入。不传 = 内置词表；同名词覆盖内置值。 */
+  lexicon?: Array<[string, number, number, number]>
 }
 
 export interface EngineRecall {
@@ -133,6 +135,7 @@ export class EmotionMemoryEngine {
   private readonly audit: AuditPort
   private readonly maxTokens: number
   private readonly maxPrice: number
+  private readonly lexicon?: Array<[string, number, number, number]>
   private mood: Pad = { ...NEUTRAL_PAD }
   private labels: EmotionLabel[] = []
   private lastCompile: PanelEngineInfo['lastCompile'] = null
@@ -157,6 +160,7 @@ export class EmotionMemoryEngine {
     this.model = typeof opts.model === 'string' ? resolveModel(opts.model) : opts.model ?? resolveModel(this.config.llm.model)
     this.maxTokens = opts.maxTokens ?? this.config.maxSurfaceTokens
     this.maxPrice = opts.maxPrice ?? this.config.llm.maxPricePerTurn
+    this.lexicon = opts.lexicon
     /**
      * 心境初值（v0.6.1 · 缓解 F11）。
      *
@@ -182,22 +186,33 @@ export class EmotionMemoryEngine {
    * 把两者绑在一起会让 `salience` 失去意义。
    */
   observe(text: string, opts: { turn?: number } = {}): ObserveResult {
-    const est = estimateAffect(text)
-    this.mood = integrateMood(this.mood, { v: est.v, a: est.a, d: est.d, s: est.s }, 18)
+    const est = estimateAffect(text, this.lexicon ? { extraLexicon: this.lexicon } : {})
+    /**
+     * v0.7.2（D17 / B17）：含蓄 / 口是心非句不要按字面正极积分心境。
+     * "我没事"若被当成 +0.16 的轻松，系统会在用户明显不想多说时越聊越轻快——
+     * 这不是识别错误，是**把不确定当确定**。低置信读数按 1/4 权重积分，
+     * 并给模型一条"先澄清"的提示，而不是替用户判定心情。
+     */
+    const weight = est.indirect || est.confidence < 0.2 ? 0.25 : 1
+    this.mood = integrateMood(
+      this.mood,
+      { v: est.v * weight, a: est.a, d: est.d * weight, s: est.s * weight },
+      18,
+    )
     this.labels = est.labels
-    const brief = emotionBrief({
-      pad: this.mood,
-      labels: est.labels,
-      hints: behaviorHints({ pad: this.mood, unresolved: 0 }),
-    })
+    const baseHints = behaviorHints({ pad: this.mood, unresolved: 0 })
+    const hints = est.indirect
+      ? ['字面与语气可能不一致，先澄清再谈事', ...baseHints].slice(0, 3)
+      : baseHints
+    const brief = emotionBrief({ pad: this.mood, labels: est.labels, hints })
     this.audit.record({
       at: this.clock.now(),
       action: 'observe',
       target: `turn:${opts.turn ?? 0}`,
       actor: 'user',
-      detail: `v=${est.v.toFixed(2)} a=${est.a.toFixed(2)} conf=${est.confidence.toFixed(2)}`,
+      detail: `v=${est.v.toFixed(2)} a=${est.a.toFixed(2)} conf=${est.confidence.toFixed(2)}${est.indirect ? ' indirect=1' : ''}`,
     })
-    return { affect: est, mood: { ...this.mood }, brief, hints: behaviorHints({ pad: this.mood }) }
+    return { affect: est, mood: { ...this.mood }, brief, hints }
   }
 
   moodNow(): { pad: Pad; labels: EmotionLabel[]; brief: string } {

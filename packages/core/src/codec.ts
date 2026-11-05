@@ -75,8 +75,14 @@ export function decompress(codec: string, bytes: Uint8Array, rawLen: number): Ui
       return out
     }
     return out
-  } catch {
-    return bytes
+  } catch (err) {
+    /**
+     * v0.7.2 F8：旧实现把**压缩字节当原文**返回。上层会把 brotli 二进制
+     * 解码成乱码，当成"记忆原文"注入模型 / 渲染到面板，且全程不报错。
+     * 残差损坏必须显式失败；`store.getResidual` 捕获后返回 null，
+     * `expand` 会退回结构化摘要，而不是展示垃圾。宁可说"原文不可读"，不可编造原文。
+     */
+    throw new Error(`残差解压失败（codec=${codec}, rawLen=${rawLen}）：${String(err)}`)
   }
 }
 

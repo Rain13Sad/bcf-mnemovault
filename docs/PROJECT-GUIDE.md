@@ -762,12 +762,16 @@ v0.2 的 2.50× 里，很大一部分是**测量错误**：存储场景的分母
 
 ### 12.3 工程层
 
-**D8｜巩固锁在 `meta` 表，不在 Session Log**
+**D8｜巩固锁在 `meta` 表，不在 Session Log（v0.7.2 部分修复）**
 
-文档要求"锁写在 Session Log，否则崩溃后无法判断上次 pass 是否完成"。
-现在写在 `meta` 里——单进程够用，多进程/多会话并发时会漏判。
+文档要求"锁写在 Session Log"。实现仍在 `meta`，但 v0.7.2 把"一个字符串 + 两条无事务语句"
+换成 `tryAcquireLock` 的 `BEGIN IMMEDIATE` CAS，带 TTL 与 owner：跨进程不再同时开跑，
+崩溃留下的锁 10 分钟后可抢占，`doctor --unlock` 同时清标记锁与残留原子锁。
+**仍未做的是把锁搬进事件流**（用未匹配的 `consolidate/start` 判定完成状态），
+所以这条缺点保留编号，状态改为「部分」。
 
-> 证据：`service.ts` 的 `setMeta('consolidate:open')`。
+> 证据：`store.ts` 的 `tryAcquireLock` / `service.ts` 的 doctor 分支；
+> `test/v072-fixes.test.mjs` 与 `scripts/bench-verify.mjs` 的锁并发节。
 
 **D9｜`scopeKey` 没有鉴权**
 
@@ -781,12 +785,13 @@ v0.2 的 2.50× 里，很大一部分是**测量错误**：存储场景的分母
 > v0.7.1 新增 `security.scopeMode: 'per-session'`——没有身份层的多租户部署也能一键做到
 > "不跨会话泄漏"。仍未做的只有**鉴权本身**（谁是这个用户由宿主回答，插件不猜）。
 
-**D10｜面板数据面未接 remote**
+**D10｜面板数据面 remote 只完成一半（v0.7.2 修正文档漂移）**
 
-`MnemoDataSource` 的三个适配器里，`remote` 只定义了接口，host 侧 contribution 没实现。
-当前部署只能走只读事件源或 demo 数据。
+`tools/src/bridge.ts` 与 `ui/src/client/index.ts` 已接可写 remote（旧文档一直写"未接"，
+与代码不符）；但 `ui/src/client/data.ts` 的 event 源仍是 `writable:false`，
+remote 也只覆盖部分动作。状态从 ❌ 改为 ◐：面板已能改一部分记忆，仍不是全量可写数据面。
 
-> 证据：`docs/API-CONTRACT.md` 第 3 节。
+> 证据：`tools/src/bridge.ts`、`ui/src/client/index.ts`、`ui/src/client/data.ts`。
 
 **D11｜compaction 订阅靠猜事件名**
 
@@ -980,6 +985,9 @@ README 里"1 万 cell p95 ≤ 40 ms"**在 CI 里没有任何断言**。
 
 #### P0-4　巩固锁搬进事件流
 
+> **v0.7.2 状态**：跨进程互斥这一半已落地（CAS + TTL + owner，见 D8 与验证层
+> `lockConcurrency` 节）；下面"搬进事件流"仍是未完成项，不再算本版 P0 待办。
+
 - **问题**：D8，多进程会漏判遗留锁。
 - **做法**：`memory/consolidate/start` 事件已经写了，把"是否完成"改成读事件流里
   未匹配的 start；`meta` 只做本地缓存。
@@ -1039,6 +1047,9 @@ README 里"1 万 cell p95 ≤ 40 ms"**在 CI 里没有任何断言**。
 - **验证**：κ ≥ 0.55；调参后 PAD 与标注的相关系数提升。
 
 #### P2-3　面板接 remote
+
+> **v0.7.2 状态**：remote 可写通道已接（见 D10 的漂移修正），剩余工作是 event 源
+> 放开写入与动作覆盖补齐；此处保留原方案供后续版本使用。
 
 - **问题**：D10，面板只能看只读数据。
 - **做法**：host 侧实现 `remote.ts`，暴露 `snapshot()` / `act()` / `subscribe()` 三个方法

@@ -50,15 +50,19 @@ CI 会在 push 与 PR 上跑 Ubuntu + Windows 两套：`npm ci → build → typ
 
 ## 3. 版本与发布节奏
 
-- 版本号写在根 `package.json` 与 10 个子包里（当前都是 `0.3.1`），升级时**一起改**。
-  注意 `0.3.0` 换了存储布局（MC03），发布说明里必须写明旧库需 `/mnemo rebuild --from-log`。
+- 版本号写在根 `package.json` 与 **11 个子包**里（当前都是 `0.7.2`），升级时**一起改**，
+  兄弟依赖范围也要同步成 `^0.7.2`（`ci-check-publish.mjs` 会逐项校验）。
+  MC03 布局自 v0.3.0 起未变；任何改 `sdrDim` / `sdrK` / `embStoreDim` 的版本必须写明旧库需 rebuild。
 
-**发布前必跑**：`node scripts/ci-check-publish.mjs`（版本/兄弟依赖/lockfile 三项一致）。
+**发布前必跑**：`node scripts/ci-check-publish.mjs`（版本/兄弟依赖/lockfile 三项一致），
+再 `npm install --package-lock-only --ignore-scripts` 同步 lockfile。
 v0.3.0 正是漏了这一步：10 个包升到 0.3.0，8 个 package.json 的兄弟依赖还写 `^0.2.0`，
 结果 `npm ci` 失败、`npm install` 后编译报错，整个版本不可安装。
 - `CHANGELOG.md` 用 Keep a Changelog 格式；每个发布条目至少写清「新增 / 修复 / 已知问题」。
-- 打 tag：`git tag -a v0.3.1 -m "v0.3.1" && git push --tags`，再在 GitHub 上
-  Draft a release，把 CHANGELOG 对应段落粘进去。
+- 打 tag：`git tag -a v0.7.2 -m "v0.7.2" && git push origin v0.7.2`，再
+  `gh release create v0.7.2 --title "v0.7.2" --notes-file <CHANGELOG 段落>`。
+- npm 发布走 `node scripts/publish-all.mjs --otp=<6 位码>`；先用 `npm run publish:dry` 预演。
+  开启 2FA 时缺 OTP 会报 `EOTP`（见本文错误对照表）。
 
 ## 4. 发布到 npm
 

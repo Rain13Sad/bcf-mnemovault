@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.7.1 -->
+<!-- DOC-VERSION: 0.7.2 -->
 
 # MnemoVault
 
@@ -34,8 +34,8 @@ instead of replaying the transcript.
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.7.1** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 11 packages · 78 source files / ~27,100 lines of TS (`.ts` + `.tsx`, UI included) · 335 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
+| **Status** | **v0.7.2** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 11 packages · 79 source files / ~27,900 lines of TS (`.ts` + `.tsx`, UI included) · 355 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 | **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (28 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -51,6 +51,36 @@ instead of replaying the transcript.
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
 
 ---
+
+## What's new in 0.7.2
+
+A **deployment-readiness** release driven by the independent v0.7.1 source-code review
+(21 sections, weighted 3.49/5). It fixes defects we could actually reproduce, keeps every
+published benchmark number unchanged, and adds the productisation tooling and verification
+the review found missing. No storage-layout change (MC03 untouched, old vaults need no rebuild).
+
+- **Two P0 defects, both reproduced before fixing**: `/mnemo purge cell <id> --yes` wiped the
+  *entire* derived layer (logs, rendered snapshots, eviction records, source maps); and
+  hand-written harness configs silently disabled crisis detection and minor protection in
+  every benchmark run. Both now have red-on-revert assertions.
+- **Write-side tenant isolation**: under `per-session`, one session's write could mark another
+  session's cell invalid even though reads were isolated. Found by the new C8 stress test.
+- **Affect perception** (the review's weakest section): word-boundary matching (`like` no
+  longer fires inside `dislike`), double negation, indirect/"I'm fine" handling that abstains
+  instead of inventing an emotion, a 159-entry lexicon, and domain lexicon injection that
+  does not require forking the source.
+- **Operational tooling**: machine-readable full export with an integrity checksum
+  (`/mnemo export --json`), independent purge verification, Prometheus metrics, file-level
+  backup/restore with a sha256 manifest, opt-in access audit, and an atomic cross-process
+  consolidation lock with TTL and owner.
+- **Verification layer**: eight deterministic checks — cross-contamination, storage coverage,
+  cross-ablation, component ablation, sycophancy proxy, fault injection, purge integrity,
+  lock concurrency — with a CI gate. These are **mechanism checks, not a public benchmark**;
+  see Known limitations and `docs/V0.7.2-REVIEW-RESPONSE.md`.
+
+All 355 tests pass and every pre-existing benchmark number is unchanged. What is still *not*
+done (public baselines, red-team, DPIA, production deployments, real-provider endpoints) is
+listed honestly in the response document.
 
 ## What's new in 0.7.1
 
@@ -545,7 +575,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 335 tests
+npm test             # 355 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)

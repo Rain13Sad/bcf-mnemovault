@@ -103,6 +103,17 @@ export class Consolidator {
     if (open) throw new Error(`存在未完成的巩固锁 ${open}，先 /mnemo doctor --unlock`)
 
     const t0 = Date.now()
+    /**
+     * v0.7.2 D7/D8：先抢跨进程原子锁，再写遗留锁标记。
+     * 同进程重复跑仍由 `consolidate:open` 挡住（旧语义不变，integration.test 有断言）；
+     * 跨进程并发由 `tryAcquireLock` 的 BEGIN IMMEDIATE CAS 挡住；
+     * TTL 让崩溃进程留下的锁 10 分钟后自动可被抢占，不再需要人工 unlock 才能恢复服务。
+     * 失败路径**故意不释放**：留锁是"这次 pass 没跑完"的可检测信号。
+     */
+    const owner = `${process.pid}:${passId}`
+    if (!mem.store.tryAcquireLock('consolidate', owner, 10 * 60_000)) {
+      throw new Error('另一个进程正在整理记忆（锁未过期），请稍后重试或 /mnemo doctor --unlock')
+    }
     mem.store.setMeta('consolidate:open', passId)
     mem.emit('memory/consolidate/start', { passId, phase: 'nrem' })
     try {
@@ -149,6 +160,7 @@ export class Consolidator {
       })
       mem.emit('memory/consolidate/end', { passId, ok: true })
       mem.store.setMeta('consolidate:open', '')
+      mem.store.releaseLock('consolidate', owner)
       // 把结果回填给面板：`记忆整理` 页要显示"最近一次整理做了什么"，
       // 否则用户只能看到"还没有跑过"，明明刚跑过。
       mem.noteConsolidation({
@@ -511,8 +523,10 @@ export function apply(ctx: Context, config: Config) {
         consolidator.run(passId)
         lastPassTurn = turns
         lastPassCells = memory.store.countCells()
-      } catch {
+      } catch (err) {
         // 失败留锁，等待 doctor --unlock；不阻断本轮
+        // v0.7.2 F12：原来是空 catch，失败原因彻底丢失，面板只显示"没整理"。
+        memory.error(`consolidate ${passId} (turn-stopping) failed: ${String(err)}`)
       }
     })
     return () => off()
@@ -528,8 +542,9 @@ export function apply(ctx: Context, config: Config) {
           consolidator.run(derivePassId('idle', turns))
           lastPassTurn = turns
           lastPassCells = memory.store.countCells()
-        } catch {
-          /* 锁冲突时跳过 */
+        } catch (err) {
+          // v0.7.2 F12：锁冲突是预期内的，但其它失败必须留痕，否则静默停摆。
+          memory.error(`consolidate (idle) skipped: ${String(err)}`)
         }
       }
     }, 90_000)

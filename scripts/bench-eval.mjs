@@ -308,15 +308,18 @@ const report = {
     residuals: st.residuals,
     invalidated: stats.invalidated,
   },
+  // v0.7.2：以前这里写的是"设计目标"，与 ci-assert-bench.mjs 的**硬门槛**不是同一组数，
+  // 读者会误以为 MRR 0.65 / dedupe 0.90 / coarse 0.70 是 CI 判据。现在显式区分两者。
   targets: {
-    recallAt8: '≥ 0.80',
-    mrr: '≥ 0.65',
-    dedupePrecision: '≥ 0.90',
-    timeReasoningAccuracy: '≥ 0.75',
-    tokensPerTurn: '≤ 240',
-    storageRatio: '≤ 0.60（短轮次库，定长基底主导，见 README 的分解表）',
-    storageRatioRealistic: '≤ 0.90（默认切分：2.25 条/轮，残差压缩 0.47 是硬下界）',
-    storageRatioCoarse: '≤ 0.70（每轮 1 条 cell：残差 0.45 + 单条 0.17 = 0.62）',
+    recallAt8: 'CI ≥ 0.80',
+    mrr: 'CI ≥ 0.60（设计目标 0.65）',
+    dedupePrecision: 'CI ≥ 0.85（设计目标 0.90）',
+    dedupeRecall: 'CI ≥ 0.95',
+    timeReasoningAccuracy: 'CI ≥ 0.75',
+    tokensPerTurn: 'CI ≤ 240',
+    storageRatio: '诊断口径（短轮次库，定长基底主导，不作门槛）',
+    storageRatioRealistic: 'CI ≤ 0.90（残差压缩 0.47 是硬下界）',
+    storageRatioCoarse: 'CI ≤ 0.72（设计目标 0.70）',
     storageBreakEvenChars: '参考值：存储比降到 1.0× 所需的轮次字数',
   },
 }

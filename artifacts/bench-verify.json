@@ -1,0 +1,103 @@
+{
+  "generatedAt": "2026-11-05T09:13:54.397Z",
+  "version": "0.7.2",
+  "note": "机制验证，不是公开基准；样本量小，通过≠质量优于竞品",
+  "sections": {
+    "crossContamination": {
+      "pass": true,
+      "ownHits": [
+        1,
+        1
+      ],
+      "crossHits": [
+        1,
+        0
+      ],
+      "crossVerdicts": [
+        "weak",
+        "none"
+      ],
+      "leaked": false,
+      "ownCellsIntact": 1,
+      "ownCellsInvalidatedByOtherTenant": 0,
+      "note": "同时验证读取隔离与写入隔离；v0.7.2 前 B 的写入会把 A 的 cell 标为失效"
+    },
+    "storageCoverage": {
+      "pass": true,
+      "cov": 1,
+      "covered": 8,
+      "total": 8,
+      "missing": [],
+      "cellsWritten": 10,
+      "note": "Cov = 写入的关键值中能在 cell 的 digest/slots 里找到的比例；残差回链仍在，但有损抽取的天花板由这个数字量化"
+    },
+    "affectAblation": {
+      "pass": true,
+      "scoreAll": 0.65,
+      "scoreNoAffect": 0.613,
+      "scoreNoCue": 0.696,
+      "deltaAffect": 0.037,
+      "deltaCue": -0.046,
+      "channels": [
+        "semantic"
+      ],
+      "dominantChannelFixed": true,
+      "note": "交叉消融：去掉情感权重后，同一条记忆的打分必须变化；这是\"结构耦合\"而非\"拼装\"的定量证据"
+    },
+    "componentAblation": {
+      "pass": true,
+      "variants": {
+        "all": 0.65,
+        "noAffect": 0.613,
+        "noCue": 0.696
+      },
+      "note": "只测权重分量对分数的影响，不宣称端到端答题率变化"
+    },
+    "sycophancy": {
+      "pass": true,
+      "highTrustClarification": 2,
+      "highTrustEscalateApproval": false,
+      "lowTrustEscalateApproval": true,
+      "policyHasContentField": false,
+      "note": "策略层代理：不含底座模型的端到端违心同意率（项目不生成台词，无法独立测该项）"
+    },
+    "faultInjection": {
+      "pass": true,
+      "corruptResidualRejected": true,
+      "writeProbeApplied": true,
+      "transactionRolledBack": true,
+      "note": "轻量故障注入：残差损坏 + SQLite 写入中途抛错回滚；断电/磁盘满/LLM 超时仍未覆盖"
+    },
+    "purgeIntegrity": {
+      "pass": true,
+      "receiptCells": 4,
+      "audit": {
+        "ok": true,
+        "cells": 0,
+        "edges": 0,
+        "orphanResiduals": 0,
+        "snapshots": 0,
+        "evictions": 0,
+        "sessionLog": 0,
+        "danglingSources": 0,
+        "issues": []
+      },
+      "note": "回执说\"删了多少\"，verifyPurge 从零数\"还剩多少\"；两者都为零才算红线 2 闭合"
+    },
+    "lockConcurrency": {
+      "pass": true,
+      "firstOwnerAcquired": true,
+      "secondOwnerBlocked": true,
+      "sameOwnerReentrant": true,
+      "wrongOwnerReleaseRejected": true,
+      "expiredLockTakeover": true,
+      "ownerReleaseOk": true,
+      "note": "CAS + TTL + owner；MemoryStore 单进程语义等价，SQLite 走 BEGIN IMMEDIATE 跨进程互斥"
+    }
+  },
+  "overall": {
+    "passed": 8,
+    "total": 8,
+    "ok": true
+  }
+}

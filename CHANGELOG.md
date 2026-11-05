@@ -6,6 +6,81 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [0.7.2] — 2026-11-05
+
+**落地能力版本**：对照《MnemoVault v0.7.1 源代码评判报告》（21 节、加权 3.49/5）逐板块复核，
+先修实测能复现的缺陷，再补"机制有、产品化工具没有"的那一截，最后把验证层从两个自建基准
+扩到八类机制验证。存储布局未动（MC03 不变，**旧库免 rebuild**），无 API 破坏性变更
+（新增字段全部可选，新增的是命令参数不是命令动词）。
+
+### 修复（全部由本轮实测复现，每条都有"回滚即变红"的断言）
+
+- **F1（P0 数据丢失）`/mnemo purge cell <id> --yes` 清空全库派生层**。
+  `purgeAux` 把 `{kind:'cell'}` 映射成 `{kind:'all'}`，删一条记忆会连带清掉全库
+  `session_log` / `recall_snapshots` / `evict_log` / `cell_sources`。现在只清该 cell 自己的
+  来源、驱逐记录与含其短 id 的渲染快照；会话日志按轮共享，一条 cell 无权删。
+  同时修掉会话级 `snapshots: 0` 的"报数不删"——旧实现把渲染过的记忆文本整批留在盘上，
+  回执却写成"快照 0 行"，看起来像本来就没有。
+- **F2（P0 安全红线）harness 手写配置丢失危机与未成年人保护**。
+  devkit 传的是不经过 schemastery 解析的手写对象，`crisisEnabled` / `minorGuardEnabled` /
+  `coeff` 全是 `undefined`，于是所有 bench 与基于 harness 的测试都在"安全门关着"的状态下跑。
+  现在 `affect.apply()` 在消费端用 `Config()` 兜底补齐默认值（符合既有契约：
+  依赖宿主上下文的默认值一律在 `apply()` 里解析）。
+- **F13（P0 写入侧交叉污染）**：`per-session` 下 B 会话写"数据库用 MySQL"会把 A 会话的
+  "数据库用 PostgreSQL" 标成 `tInvalid`。冲突检测/去重只比槽位不看归属——检索隔离挡不住写入污染。
+  现在 `sameBoundary()` 在两条路径各加一道门；由新增的 C8 压测实测抓到。
+- **F3** `maxCellsForTurn` 缺字段 → NaN → `cells.length >= NaN` 恒假 → 预算闸门静默失效。
+  补 `Number.isFinite` 兜底，并保留"缺 `cellsPerTurnChars` 就不做字数预算"的旧语义（L1 端口依赖它）。
+- **F4** `dominantChannel` 恒返回 `mixed`：reduce 初值是 `arr[0]`，best 恰好是 `arr[0]` 时
+  第二名永远等于第一名。面板"为什么召回这条"的通道分类从上线起就是错的。
+- **F5/F6/F7/F14** 情感词表四处实测误判：`like` 命中 `dislike`、`good` 命中 `goodbye`、
+  `fine` 命中 `define`（子串匹配）；`no` 无右边界导致 `nothing/none/novel` 全判否定；
+  中文双重否定"不是不开心"判负；`clamp11/clamp01` 对 NaN 返回 NaN。
+- **F8** 残差解压失败把**压缩字节当原文**返回，上层会把 brotli 二进制渲染成"记忆原文"。
+  现在显式抛错，`getResidual` 捕获后返回 null，`expand` 退回结构化摘要。
+- **F9/F10/F11/F12** 迁移吞掉任意 ALTER 失败；`LIMIT NaN`；`probe/reembed` 的
+  `void promise.then()` 无 `.catch()`（unhandledRejection）；consolidator 两个空 catch 吞掉失败原因。
+
+### 新增
+
+- **§8 情感感知（报告最低分 2/5）**：词表扩到 **159 条**；英文整词边界 + 中文最长优先与
+  区间重叠抑制（"太棒了"不再被两个词累加两次）；含蓄/口是心非检测（"我没事""还好吧""你说呢"）
+  **不猜真实情绪**，只给低置信度 + `indirect` 标记，并带消解语境排除（"没事，已经修好了"不误伤）。
+  引擎 `observe()` 对低置信读数按 1/4 权重积分心境并给"先澄清"提示。
+  新增领域词典注入（`EngineOptions.lexicon` / `estimateAffect(text, { extraLexicon })`），
+  部署方扩词不必 fork 源码（A13 / B10）。
+- **§4/§13 跨进程安全（D7/D8，报告列 P0）**：`tryAcquireLock` / `releaseLock` / `lockInfo`
+  用 `BEGIN IMMEDIATE` 的 CAS + TTL + owner 替代"meta 表里一个字符串 + 两条无事务语句"。
+  崩溃留下的锁 10 分钟后自动可被抢占；`doctor --unlock` 同时清标记锁与残留原子锁。
+- **§14 落地工具链**：`packages/core/src/vault-tools.ts` + `scripts/vault-tools.mjs`
+  —— 机器可读全量导出（E6，带完整性校验和，不再 `listCells(5000)` 静默截断）、
+  `/mnemo export --json`、`verifyPurge()` 删除彻底性独立校验（E2）、Prometheus 文本（D6）、
+  文件级备份/恢复含 manifest 与 sha256（D11）、访问审计 `access_log`（E10，
+  **默认关闭**以保住 `expand` 的纯读契约，宿主显式 `setAccessAudit(true)` 开启）。
+- **§12 验证层**：`scripts/bench-verify.mjs` + `scripts/ci-assert-verify.mjs`，八节确定性验证
+  —— 交叉污染压测(C8)、存储完整性 Cov(A8，首次量化)、记忆×情感交叉消融(B12)、
+  组件消融(C10)、谄媚压力测试(B16 策略层代理)、故障注入(D9)、删除彻底性(E2)、锁并发(D7)。
+  产物 `artifacts/bench-verify.json` 进 `verify` 与 CI（双 OS × Node 22）。
+  **诚实声明**：这是机制验证，不是 LoCoMo/LongMemEval 公开基准，也不测端到端答题率。
+
+### 数值
+
+- 测试 **335 → 355**（新增 `test/v072-fixes.test.mjs` 20 条；原有 335 全过，0 跳过）。
+- 源文件 78 → 79（新增 `vault-tools.ts`）；行数约 27,100 → 27,900。
+- 既有指标**逐项未退化**：Recall@8 0.905 / MRR 0.73 / dedupe 1.00 / 时序 1.00 /
+  tokens 106.95 / storageRealistic 0.832 / coarse 0.626；bench-real 13/13；
+  10k cells recall p95 30.53 ms / 索引 261 ms / 1629 KB；验证层 8/8（Cov 1.00、情感消融 Δ 0.037）。
+- 命令动词仍 27 个（只给 `export` 加 `--json` 参数）；缺点条数仍 28（本轮修既有缺陷，不新增 D 编号）。
+
+### 仍未完成（不把"做了机制"写成"已商用"）
+
+A6 真 embedding 默认接线 / A7 LLM 抽取对真实厂商端点跑通 / C3 公开基准 / C4 基线对照 /
+C6 第三方红队 / C7 私有集 / B6 心理专家评审 / B9 监护人同意 / D3 1M 规模 /
+E7/E8 DPIA 与合规映射 / E11 AUP / E12 违法内容处置流程 / E15–E17 商业主体与生产案例
+—— 均未完成。逐板块对照见 `docs/V0.7.2-REVIEW-RESPONSE.md`。
+
+---
+
 ## [0.7.1] — 2026-11-03
 
 **正确性版本**：修掉 v0.7 审计复测抓到的七个残留缺陷（R1–R7，其中两个 P0），

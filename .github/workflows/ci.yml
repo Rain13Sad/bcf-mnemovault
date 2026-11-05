@@ -70,12 +70,22 @@ jobs:
       - name: 规模门槛（1 万 cell）
         run: npm run ci:assert-scale
 
+      # v0.7.2：验证层（交叉污染 / Cov / 交叉消融 / 谄媚 / 故障注入 / 删除校验 / 锁）。
+      # 这是评判报告 §12「数字可复现但覆盖太窄」的直接回应，与既有指标分开跑、分开断言。
+      - name: 验证层基准
+        run: npm run bench:verify
+
+      - name: 验证层门槛
+        run: node scripts/ci-assert-verify.mjs
+
       - name: 上传基准报告
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bench-${{ matrix.os }}-node${{ matrix.node }}
-          path: artifacts/bench.json
+          path: |
+            artifacts/bench.json
+            artifacts/bench-verify.json
           if-no-files-found: warn
           retention-days: 14
 
