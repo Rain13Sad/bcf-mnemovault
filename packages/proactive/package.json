@@ -50,7 +50,7 @@
     "@deepseek-ai/dsh-session": "*"
   },
   "dependencies": {
-    "@deepseek-ai/schemastery": "^3.18.5",
+    "@deepseek-ai/schemastery": "^3.19.0",
     "@rain13sad/llm-mnemo-core": "^0.7.3"
   },
   "publishConfig": {
