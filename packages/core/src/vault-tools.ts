@@ -1,5 +1,5 @@
 /**
- * v0.7.2 · 落地工具链（评判报告 §13 / §14：E2 / E6 / E10 / D6 / D11）
+ * v0.7.3 · 落地工具链（评判报告 §13 / §14：E2 / E6 / E10 / D6 / D11）
  *
  * 这一层**只读** store / MemoryService，不改 MC03 布局、不引第三方依赖、
  * 不做任何隐式写库。它补的是评判报告里"技术能力有、产品化工具没有"的那一截：
@@ -19,7 +19,7 @@ import type { Store } from './store.js'
 
 export const BUNDLE_FORMAT = 'mnemo-vault-bundle'
 export const BUNDLE_SCHEMA = 1
-export const BUNDLE_VERSION = '0.7.2'
+export const BUNDLE_VERSION = '0.7.3'
 
 export interface VaultBundle {
   format: typeof BUNDLE_FORMAT
@@ -82,18 +82,33 @@ export function validateBundle(raw: unknown): { ok: boolean; issues: string[]; c
   if (!b || typeof b !== 'object') return { ok: false, issues: ['不是对象'], checksum: '' }
   if (b.format !== BUNDLE_FORMAT) issues.push(`format 不是 ${BUNDLE_FORMAT}`)
   if (b.schema !== BUNDLE_SCHEMA) issues.push(`schema ${b.schema} 不受支持（本版 ${BUNDLE_SCHEMA}）`)
-  if (!Array.isArray(b.cells)) issues.push('cells 不是数组')
-  if (!Array.isArray(b.sessionLog)) issues.push('sessionLog 不是数组')
-  if (!Array.isArray(b.edges)) issues.push('edges 不是数组')
+  // v0.7.3 U5：旧版只校验三个数组，snapshots / evictLog / residuals / meta 被裁掉
+  // 或篡改时，只要 checksum 自洽就仍返回 ok:true（导出档案并不完整）。
+  const arrays: Array<[keyof VaultBundle, string]> = [
+    ['cells', 'cells'],
+    ['edges', 'edges'],
+    ['sessionLog', 'logs'],
+    ['evictLog', 'evictions'],
+    ['snapshots', 'snapshots'],
+    ['residuals', 'residuals'],
+  ]
+  for (const [field, countKey] of arrays) {
+    const arr = b[field]
+    if (!Array.isArray(arr)) {
+      issues.push(`${field} 不是数组`)
+      continue
+    }
+    const declared = b.counts?.[countKey as keyof VaultBundle['counts']]
+    if (Number.isFinite(declared) && declared !== arr.length) {
+      issues.push(`counts.${countKey}=${declared} 与实际 ${arr.length} 不符`)
+    }
+  }
+  if (!b.meta || typeof b.meta !== 'object') issues.push('meta 缺失')
   let checksum = ''
   if (typeof b.checksum === 'string' && b.checksum.length === 16) {
     checksum = bundleChecksum(b as VaultBundle)
     if (checksum !== b.checksum) issues.push(`校验和不匹配：文件 ${b.checksum} ≠ 计算 ${checksum}`)
   } else issues.push('缺少 checksum（无法确认文件完整性）')
-  if (Array.isArray(b.cells) && Array.isArray(b.sessionLog)) {
-    const declared = b.counts?.cells
-    if (Number.isFinite(declared) && declared !== b.cells.length) issues.push(`counts.cells=${declared} 与实际 ${b.cells.length} 不符`)
-  }
   return { ok: issues.length === 0, issues, checksum }
 }
 
@@ -104,11 +119,13 @@ export function validateBundle(raw: unknown): { ok: boolean; issues: string[]; c
  * 原样写回必然要重算向量与 SDR，那正是 rebuild 的语义。把导回做成静默重建
  * 会让用户以为 id/边/版本链都保住了——那是假的。
  */
-export function exportBundle(mem: MemoryService, opts: { includeRaw?: boolean } = {}): VaultBundle {
+export function exportBundle(mem: MemoryService, opts: { includeRaw?: boolean; scope?: string } = {}): VaultBundle {
   const store = mem.store
   const cells: unknown[] = []
   const offs = new Set<number>()
   store.forEachCell((c) => {
+    // v0.7.3 U4：--user 按作用域过滤，不再静默导出全库。
+    if (opts.scope && (c.scope ?? '') !== opts.scope) return
     cells.push(jsonSafe(c))
     const r = c.residual as { off?: number } | null
     if (r && Number.isFinite(r.off)) offs.add(Number(r.off))
@@ -153,6 +170,8 @@ export function exportBundle(mem: MemoryService, opts: { includeRaw?: boolean } 
 
 export interface PurgeAudit {
   ok: boolean
+  /** v0.7.3：'vault' = 全库判定；'session' = 只判定该会话可归属的残留 */
+  scope: 'vault' | 'session'
   cells: number
   edges: number
   orphanResiduals: number
@@ -173,13 +192,23 @@ export interface PurgeAudit {
  */
 export function verifyPurge(store: Store, opts: { session?: string } = {}): PurgeAudit {
   const issues: string[] = []
+  /**
+   * v0.7.3 U5：旧实现所有计数都是全库口径，只有 listLog 按会话过滤，
+   * 于是 `verify --session s` 在一个正常使用的库上恒 ok:false，工具等于没用。
+   * 会话模式只判定该会话可归属的残留；快照/驱逐/孤儿残差没有 session 列，
+   * 无法精确归属，因此只作信息保留、不参与 ok 判定（并如实写进 issues 之外）。
+   */
+  const sessionFilter = opts.session ? new Set(store.cellsOfSession(opts.session).map((id) => String(id))) : null
   let cells = 0
   const liveIds = new Set<string>()
   store.forEachCell((c) => {
+    if (sessionFilter && !sessionFilter.has(String(c.cellId))) return
     cells++
     liveIds.add(String(c.cellId))
   })
-  const edges = store.allEdges().length
+  const edges = sessionFilter
+    ? store.allEdges().filter((e) => sessionFilter.has(String(e.src)) || sessionFilter.has(String(e.dst))).length
+    : store.allEdges().length
   const orphanResiduals = store.orphanResiduals().length
   const snapshots = store.listSnapshots(1_000_000).length
   const evictions = store.recentEvicts(1_000_000).length
@@ -194,15 +223,15 @@ export function verifyPurge(store: Store, opts: { session?: string } = {}): Purg
   const fields: Array<[string, number]> = [
     ['cell', cells],
     ['边', edges],
-    ['孤儿残差', orphanResiduals],
-    ['渲染快照', snapshots],
-    ['驱逐记录', evictions],
+    // 这三类表没有 session 列，会话模式下无法归属，只作信息不参与判定
+    ...(sessionFilter ? [] : ([['孤儿残差', orphanResiduals], ['渲染快照', snapshots], ['驱逐记录', evictions]] as Array<[string, number]>)),
     ['会话日志', logs.length],
     ['悬空来源映射', danglingSources],
   ]
   for (const [name, n] of fields) if (n > 0) issues.push(`仍有 ${n} 条${name}`)
   return {
     ok: issues.length === 0,
+    scope: sessionFilter ? 'session' : 'vault',
     cells,
     edges,
     orphanResiduals,

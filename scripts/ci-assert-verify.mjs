@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * v0.7.2 · 验证层 CI 门槛（与 ci-assert-bench.mjs 同一风格）
+ * v0.7.3 · 验证层 CI 门槛（与 ci-assert-bench.mjs 同一风格）
  *
  * 只断言**机制证据**，不把"机制通过"包装成"质量达标"：
  * 这些数字是自建语料上的确定性判据，不是公开基准分数。
@@ -19,7 +19,7 @@ const r = JSON.parse(readFileSync(path, 'utf8'))
 const s = r.sections ?? {}
 const problems = []
 
-if (r.version !== '0.7.2') problems.push(`版本标记是 ${r.version}，应为 0.7.2`)
+if (r.version !== '0.7.3') problems.push(`版本标记是 ${r.version}，应为 0.7.3`)
 if (!r.overall?.ok) problems.push(`验证层 ${r.overall?.passed ?? 0}/${r.overall?.total ?? 0} 通过`)
 for (const [name, sec] of Object.entries(s)) if (!sec?.pass) problems.push(`${name} 未通过`)
 
@@ -38,6 +38,17 @@ if (s.faultInjection?.transactionRolledBack !== true) problems.push('SQLite 写�
 if (s.purgeIntegrity?.audit?.ok !== true) problems.push('purge 后仍有派生层残留')
 if (s.lockConcurrency?.secondOwnerBlocked !== true || s.lockConcurrency?.expiredLockTakeover !== true) {
   problems.push('跨进程锁互斥或 TTL 抢占失效')
+}
+
+// v0.7.3 新增三节：安全红线、短 id 解析、词典配置化
+if (s.securityRedLines?.tuneBlocked !== true || s.securityRedLines?.traversalBlocked !== true) {
+  problems.push('运行时调参红线或恢复路径穿越防护失效')
+}
+if (s.idResolution?.explainResolvesFullId !== true || s.idResolution?.pinAppliesToRealCell !== true) {
+  problems.push('短 id 解析仍会指向不存在的 cell')
+}
+if (s.extractionConfig?.lexiconInjectionEffective !== true || s.extractionConfig?.builtinRuleOrderPreserved !== true) {
+  problems.push('抽取词典注入未生效或破坏了内置谓词顺序')
 }
 
 if (problems.length) {

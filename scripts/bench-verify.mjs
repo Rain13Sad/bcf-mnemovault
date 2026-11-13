@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * v0.7.2 · 验证层基准（评判报告 §12「评测可信度 2.5/5」与 §7/§11/§13/§14 的验证缺口）
+ * v0.7.3 · 验证层基准（评判报告 §12「评测可信度 2.5/5」与 §7/§11/§13/§14 的验证缺口）
  *
  * 评判报告给项目的最高评价是"数字全部可复现"，最低评价是"数字覆盖太窄"。
  * 这个脚本**不改任何既有指标**，只补上评判报告点名"从未做过"的验证：
@@ -12,6 +12,7 @@
  *   D9  故障注入（残差损坏 / 事务回滚）
  *   E2  删除彻底性的独立校验
  *   D7  跨进程锁的互斥 / 过期 / owner
+ *   v0.7.3 新增：安全红线（tune/restore/NaN）、短 id 解析、抽取词典配置化 + 语义 PII
  *
  * 判据全部是确定性的（无 LLM 裁判、无网络、无随机），与项目既有评测口径一致。
  * 产物：artifacts/bench-verify.json；门槛见 scripts/ci-assert-verify.mjs
@@ -250,11 +251,99 @@ const sections = {}
   }
 }
 
+// ── 8. v0.7.3 安全红线（tune / restore / NaN 弃权） ────────────────
+{
+  const { runCommand } = await import('../packages/tools/lib/commands.js')
+  const { clamp01 } = await import('../packages/core/lib/recall.js')
+  const { spawnSync } = await import('node:child_process')
+  const { rmSync } = await import('node:fs')
+  const h = await open()
+  const before = h.memory.config.security.allowGlobalScope
+  const tuneOut = await runCommand(['tune', 'security.allowGlobalScope=true'], { memory: h.memory })
+  const tuneBlocked = /拒绝/.test(tuneOut) && h.memory.config.security.allowGlobalScope === before
+  const apiBlocked = h.memory.applyAction({ kind: 'tune', patch: { 'security.purgeRequiresConfirm': false } }).ok === false
+  const probeDir = join(root, 'artifacts', '.restore-probe')
+  mkdirSync(probeDir, { recursive: true })
+  writeFileSync(join(probeDir, 'manifest.json'), JSON.stringify({ files: [{ name: 'blob/../../EVIL', sha256: 'x' }] }))
+  const cli = spawnSync(
+    process.execPath,
+    [join(root, 'scripts', 'vault-tools.mjs'), 'restore', '--from', probeDir, '--db', join(probeDir, 'v.db'), '--yes'],
+    { cwd: root, encoding: 'utf8' },
+  )
+  const traversalBlocked = cli.status !== 0 && /非法路径|越界/.test(`${cli.stdout}${cli.stderr}`)
+  rmSync(probeDir, { recursive: true, force: true })
+  const nanSafe = clamp01(NaN) === 0
+  sections.securityRedLines = {
+    pass: tuneBlocked && apiBlocked && traversalBlocked && nanSafe,
+    tuneBlocked,
+    apiBlocked,
+    traversalBlocked,
+    nanSafe,
+    note: '调优命令不得改写安全配置；恢复不得路径穿越；NaN 不得绕过弃权判定',
+  }
+}
+
+// ── 9. v0.7.3 短 id 解析（D23 残留） ──────────────────────────────
+{
+  const { toHex } = await import('../packages/core/lib/hash.js')
+  const h = await open()
+  await h.turn('项目代号是玄武石，构建工具用 pnpm。')
+  const c = cellsOf(h).filter((x) => x.provenance === 0)[0]
+  const full = toHex(c.cellId, 16)
+  const short = full.slice(-4)
+  const explainOk = h.memory.explain(short).includes(full)
+  const forgetOk = h.memory.forget(short, 'soft').ok
+  const pinOk = h.memory.applyAction({ kind: 'pin', cellId: short, pinned: true }).ok
+  const missingRejected = h.memory.purge({ kind: 'cell', id: 'zzzz' }, { confirm: 'purge', cascade: true }).ok === false
+  sections.idResolution = {
+    pass: explainOk && forgetOk && pinOk && missingRejected,
+    explainResolvesFullId: explainOk,
+    forgetHasReceipt: forgetOk,
+    pinAppliesToRealCell: pinOk,
+    unknownShortIdRejected: missingRejected,
+    note: '短 id 曾各自 padStart/padEnd 出不存在的 id，或静默 no-op 回"已删除"',
+  }
+}
+
+// ── 10. v0.7.3 抽取词典配置化 + 语义级 PII ─────────────────────────
+{
+  const { configureExtraction, resetExtraction } = await import('../packages/encoder/lib/index.js')
+  const { normToken, TOPIC_NOUNS, detectSemanticPII } = await import('../packages/core/lib/text.js')
+  const { canonicalToken } = await import('../packages/core/lib/recall.js')
+  const { parseFrames } = await import('../packages/encoder/lib/frames.js')
+  const baseline = normToken('工单')
+  configureExtraction({
+    synonyms: { 工单: 'ticket' },
+    topicNouns: ['灰度'],
+    synonymFamilies: [['灰度', '金丝雀', 'canary']],
+    predRules: [{ re: /灰度发布|放量/, pred: 'deploys' }],
+  })
+  const injected =
+    normToken('工单') === 'ticket' &&
+    canonicalToken('金丝雀') === '灰度' &&
+    TOPIC_NOUNS.includes('灰度') &&
+    parseFrames('灰度发布 用 canary 配置。')[0]?.pred === 'deploys'
+  const builtinOrder = parseFrames('用 vitest 跑测试')[0]?.pred === 'uses'
+  resetExtraction()
+  const resetOk = normToken('工单') === baseline && !TOPIC_NOUNS.includes('灰度')
+  const piiHits = ['我住在徐汇区钦州路 100 号', '确诊了甲状腺炎', '月收入 35000 元'].map((t) => detectSemanticPII(t).length)
+  const piiClean = detectSemanticPII('今天天气不错').length
+  sections.extractionConfig = {
+    pass: injected && builtinOrder && resetOk && piiHits.every((n) => n > 0) && piiClean === 0,
+    lexiconInjectionEffective: injected,
+    builtinRuleOrderPreserved: builtinOrder,
+    resetRestoresBaseline: resetOk,
+    semanticPIIHits: piiHits,
+    semanticPIIFalsePositive: piiClean,
+    note: 'A13 领域词注入不改源码；E4 语义级敏感信息识别且不改写原文',
+  }
+}
+
 await disposeAll()
 const list = Object.values(sections)
 const result = {
   generatedAt: new Date().toISOString(),
-  version: '0.7.2',
+  version: '0.7.3',
   note: '机制验证，不是公开基准；样本量小，通过≠质量优于竞品',
   sections,
   overall: { passed: list.filter((s) => s.pass).length, total: list.length, ok: list.every((s) => s.pass) },

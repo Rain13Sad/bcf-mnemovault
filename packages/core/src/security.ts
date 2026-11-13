@@ -22,6 +22,22 @@
  * 前者可以被传参绕过，后者不能。
  */
 
+/**
+ * v0.7.3 S1：运行时调参红线。
+ *
+ * `/mnemo tune <k=v>` 是全项目唯一允许**任意键名**输入的入口。
+ * 实测（v0.7.2）：`/mnemo tune security.allowGlobalScope=true` 能把作用域红线关掉，
+ * `security.purgeRequiresConfirm=false` 能去掉删除确认，`embStoreDim=...` 能让落盘
+ * 布局与 MC03 布局键不一致却没有任何 rebuild 提示。这些键只能在部署配置里设定。
+ *
+ * 注意 `setConfig` 本身不设闸：宿主设置页会提交完整 config，那属于部署通道。
+ * 闸放在「模型可见的命令 / 面板 action」这两个运行时入口。
+ */
+import { detectSemanticPII } from './text.js'
+
+export const RUNTIME_TUNE_DENY =
+  /^(?:security\.(?:allowScopeOverride|allowGlobalScope|purgeRequiresConfirm|crisisEnabled|minorGuardEnabled|scopeMode|scopeKey)|scopeKey|scopeMode|dbPath|residualDir|sdrDim|sdrK|embDim|embStoreDim)(?:\.|$)/i
+
 /** 作用域推导模式。 */
 export type ScopeMode = 'shared' | 'per-user' | 'per-session'
 
@@ -227,5 +243,7 @@ const SENSITIVE_PATTERNS: RegExp[] = [
 
 export function isSensitive(text: string): boolean {
   if (!text) return false
-  return SENSITIVE_PATTERNS.some((re) => re.test(text))
+  // v0.7.3 U2（E4）：并入语义级识别（自然语言住址 / 诊断 / 财务 / 敏感事件）。
+  // 旧表只有零散关键词，"我住在徐汇区钦州路 100 号""确诊了甲状腺炎"都漏判。
+  return detectSemanticPII(text).length > 0 || SENSITIVE_PATTERNS.some((re) => re.test(text))
 }

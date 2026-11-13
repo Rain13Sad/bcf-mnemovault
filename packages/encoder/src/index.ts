@@ -41,6 +41,10 @@ import {
   detectMinor,
   looksLikeInstruction,
   isSensitive,
+  configureTextLexicon,
+  resetTextLexicon,
+  configureSynonymFamilies,
+  resetSynonymFamilies,
   TAG,
   type MemCell,
   type ResidualRef,
@@ -51,8 +55,34 @@ import {
 } from '@rain13sad/llm-mnemo-core'
 
 import { fromHostLlm, parseLlmPropositions, probeLlmPort, segmentLite, segmentWithPort, type HostLlmPort, type LlmPort, type Proposition } from './l1.js'
-import { frameDigest, frameToSlots, parseFrames, type Frame } from './frames.js'
+import { frameDigest, frameToSlots, parseFrames, configurePredRules, resetPredRules, type Frame } from './frames.js'
 import type { L1Status, RuntimeStatus } from '@rain13sad/llm-mnemo-core'
+
+/**
+ * v0.7.3 U1（A13 · 抽取词典配置化）：宿主一次调用即可注入领域词表，不必 fork 源码。
+ *
+ * 四类词各管一段：同义词归一（`normToken`）、话题名词（偏好句成帧）、
+ * 查询侧同义词族（向量通道等价桥接）、谓词规则（Frame 抽取）。
+ * 注入是**进程级**的，重放/测试用 `resetExtraction()` 复原到内置基线。
+ */
+export interface ExtractionLexicon {
+  synonyms?: Record<string, string>
+  topicNouns?: string[]
+  synonymFamilies?: string[][]
+  predRules?: Array<{ re: RegExp | string; pred: string }>
+}
+
+export function configureExtraction(opts: ExtractionLexicon): void {
+  configureTextLexicon({ synonyms: opts.synonyms, topicNouns: opts.topicNouns })
+  if (opts.synonymFamilies) configureSynonymFamilies(opts.synonymFamilies)
+  if (opts.predRules) configurePredRules(opts.predRules)
+}
+
+export function resetExtraction(): void {
+  resetTextLexicon()
+  resetSynonymFamilies()
+  resetPredRules()
+}
 
 export const name = 'mnemo-encoder'
 export const inject = ['memory', 'sessions']
@@ -130,7 +160,9 @@ export interface EncodeResult {
 const PLACEHOLDER_G = new RegExp('\u00abSECRET:[0-9]+\u00bb', 'g')
 
 const PROPOSITION_KIND: Array<{ re: RegExp; kind: number }> = [
-  { re: /不要|别|禁止|永远|must|never/i, kind: KIND.procedure },
+  // v0.7.3 S14：`别` 是高频构词部件（特别/个别/分别/区别…），"我特别喜欢这个方案"
+  // 旧实现会把它归成 procedure。与 frames.ts 的 NEG_CUE 用同一条后顾排除规则。
+  { re: /不要|(?<![特个分区类性级])别|禁止|永远|must|never/i, kind: KIND.procedure },
   { re: /喜欢|偏好|习惯|prefer|always/i, kind: KIND.semantic },
   { re: /决定|定了|以后都|from now on/i, kind: KIND.semantic },
 ]
@@ -834,7 +866,8 @@ function clamp11(x: number): number {
 }
 
 function clamp01(x: number): number {
-  return Math.min(1, Math.max(0, x))
+  // v0.7.3 S14：与同文件 clamp11 对齐，NaN 不得写进 importance / salience。
+  return Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0))
 }
 
 
@@ -913,7 +946,18 @@ export function apply(ctx: Context, config: Config) {
         if (!r.ok && runtime) {
           runtime.limits = [...runtime.limits.filter((x) => !x.startsWith('L1')), `L1：宿主 llm 自检未通过（${r.note}），当前用 lite 规则切分`]
         }
-      })()
+      })().catch((err) => {
+        /**
+         * v0.7.3 S14：旧实现是裸 `void (async()=>{})()`，await 之后 setL1/pushL1
+         * 抛错会变成 unhandledRejection（部分 Node 配置下直接终止进程），
+         * 而且面板永远停在"自检中"。自检失败必须落成一个明确的降级状态。
+         */
+        log.warn(`L1 自检异常，已退回规则切分：${String(err)}`)
+        if (runtime) {
+          runtime.setL1({ enabled: true, entry: String((port as HostLlmPort).entry ?? 'unknown'), ok: false, lastMs: 0, note: String(err), mode: 'lite' })
+          pushL1()
+        }
+      })
       return () => {
         alive = false
       }

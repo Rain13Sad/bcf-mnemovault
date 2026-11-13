@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.7.2 -->
+<!-- DOC-VERSION: 0.7.3 -->
 
 # MnemoVault
 
@@ -34,8 +34,8 @@ instead of replaying the transcript.
 
 | | |
 | :--- | :--- |
-| **Status** | **v0.7.2** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
-| **Size** | 11 packages · 79 source files / ~27,900 lines of TS (`.ts` + `.tsx`, UI included) · 355 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
+| **Status** | **v0.7.3** · Developer Preview. Baseline DSH `0.2.1-rc.3` (`next` channel); the host itself still ships breaking changes |
+| **Size** | 11 packages · 79 source files / ~28,300 lines of TS (`.ts` + `.tsx`, UI included) · 377 tests · **no third-party runtime dependency outside `@deepseek-ai/*`** (the only external one is `schemastery` for config schemas; the rest is Node built-in: `node:sqlite` / `node:zlib`) |
 | **Start here** | Maintaining it → [Project guide](docs/PROJECT-GUIDE.md) (in Chinese)<br>Hacking on it → [CONTRIBUTING](CONTRIBUTING.md)　Design rationale → [design doc v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>All docs → [docs/README.md](docs/README.md) |
 | **Time budget** | *Just run it* → 5 min, [Quick start](#quick-start)　·　*Judge it for production* → 40 min, PROJECT-GUIDE §12 (28 weaknesses with evidence)　·　*Change its behaviour* → 60 min, CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -51,6 +51,30 @@ instead of replaying the transcript.
 - [Documentation](#documentation) · [Contributing](#contributing) · [License](#license)
 
 ---
+
+## What's new in 0.7.3
+
+A **security-hardening + practical-capability** release. Runtime probes against v0.7.2 found
+defects that code review alone had missed — all reproduced before fixing, all with red-on-revert assertions.
+
+- **Three P0 issues**: `/mnemo tune security.allowGlobalScope=true` actually turned the tenant
+  isolation red line off (a server-side gate now blocks both the command and the panel action);
+  `vault-tools restore` accepted `blob/../../anything` in its manifest and could overwrite arbitrary
+  files; and a `NaN` inside evidence scoring bypassed abstention (`verdict = 'hit'` on trap questions).
+- **Quiet data-loss / wrong-answer fixes**: empty source maps made `expand()` always return a
+  placeholder; five separate short-id parsers resolved ids to non-existent cells (silent no-op
+  deletes, `SUPERSEDES` edges pointing nowhere, `explain` describing the wrong cell);
+  `clearLattice()` ran un-transactioned and deleted edges of preserved persona cells;
+  snapshot ids were truncated to a weak 64-bit tail and could silently drop new snapshots.
+- **Practical features**: host-injectable extraction lexicons (domain predicates/synonyms/topic nouns
+  without forking), semantic-level PII detection that flags rather than erases the memory,
+  `/mnemo doctor --json`, the long-promised `/mnemo export --user` plus `--no-raw`,
+  and full bundle-field validation.
+- **Verification layer now has 11 sections** (added security red lines, short-id resolution,
+  extraction configuration), each with a CI gate. These remain *mechanism checks*, not a public benchmark.
+
+All 377 tests pass; every pre-existing benchmark number is unchanged; 11/11 verification sections pass.
+Section-by-section response: `docs/V0.7.3-REVIEW-RESPONSE.md`.
 
 ## What's new in 0.7.2
 
@@ -575,7 +599,7 @@ replayed byte-for-byte from its snapshot.
 ```bash
 npm ci               # devDependencies only (typescript / react / types)
 npm run build        # compiles the 10 packages in dependency order (plain tsc, no bundler)
-npm test             # 355 tests
+npm test             # 377 tests
 npm run demo         # 26-turn Chinese dialogue: injection / consolidation / stats / egress guard
 npm run bench:eval   # mnemo-bench: Recall@8 / MRR / dedupe P,R / temporal reasoning / token cost
 npm run panel        # panel preview at http://127.0.0.1:5178/  (#retention,wide for the desktop layout)

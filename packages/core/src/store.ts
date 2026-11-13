@@ -262,7 +262,9 @@ function parseLock(v: string | null | undefined): { owner: string; expiresAt: nu
   if (!v) return null
   try {
     const arr = JSON.parse(v) as unknown
-    if (Array.isArray(arr) && typeof arr[0] === 'string' && Number.isFinite(arr[1])) {
+    // v0.7.3 S12：owner 为空串时，两个不同调用方都拿到 `''`，
+    // `cur.owner !== owner` 恒 false → 可以无限续期别人的锁。
+    if (Array.isArray(arr) && typeof arr[0] === 'string' && arr[0].length > 0 && Number.isFinite(arr[1])) {
       return { owner: arr[0], expiresAt: Number(arr[1]) }
     }
   } catch {
@@ -272,6 +274,10 @@ function parseLock(v: string | null | undefined): { owner: string; expiresAt: nu
 }
 
 const lockTtl = (ttlMs: number) => (Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : 600_000)
+
+/** v0.7.3 S11：limit 常来自宿主手写配置（NaN / Infinity / 字符串），统一兜底。 */
+const safeLimit = (n: number | undefined, fallback = 1000): number =>
+  Number.isFinite(n) ? Math.max(1, Math.floor(n as number)) : fallback
 
 /** tags 列 ↔ string[]。空串 = 无标记（绝大多数 cell）。 */
 export function parseTags(raw: unknown): string[] {
@@ -587,14 +593,14 @@ export class MemoryStore implements Store {
     return this.snaps.get(snapId) ?? null
   }
   listSnapshots(limit = 1000): SnapshotRecord[] {
-    return [...this.snaps.values()].slice(-Math.max(1, limit))
+    return [...this.snaps.values()].slice(-safeLimit(limit))
   }
   appendAccess(rec: AccessRecord): void {
     this.accessLog.push({ ...rec })
     if (this.accessLog.length > 10_000) this.accessLog.splice(0, this.accessLog.length - 10_000)
   }
   listAccess(limit = 1000): AccessRecord[] {
-    return this.accessLog.slice(-Math.max(1, limit))
+    return this.accessLog.slice(-safeLimit(limit))
   }
 
   shadowSeqs(session: string, seqs: number[]): void {
@@ -608,7 +614,7 @@ export class MemoryStore implements Store {
     this.evicts.push(rec)
   }
   recentEvicts(n: number): EvictRecord[] {
-    return this.evicts.slice(-n).reverse()
+    return this.evicts.slice(-safeLimit(n)).reverse()
   }
 
   meta(key: string): string | null {
@@ -629,11 +635,24 @@ export class MemoryStore implements Store {
   }
   clearLattice(preserveKinds: number[] = []): void {
     const keep = new Set(preserveKinds)
-    for (const [k, c] of [...this.cells]) if (!keep.has(c.kind)) this.cells.delete(k)
-    this.edgeList = []
-    this.sources.clear()
+    const kept = new Set<string>()
+    for (const [k, c] of [...this.cells]) {
+      if (!keep.has(c.kind)) this.cells.delete(k)
+      else kept.add(k)
+    }
+    /**
+     * v0.7.3 S8：旧实现无条件 `edgeList = []` / `sources.clear()`。
+     * rebuild 会保留 kind 3/4/5（人格锚/关系/图式），却把它们的所有边和来源一起抹掉，
+     * "这个人是谁"还能读出来，关系图却空了。两种驱动必须等价。
+     */
+    if (preserveKinds.length === 0) {
+      this.edgeList = []
+      this.sources.clear()
+    } else {
+      this.edgeList = this.edgeList.filter((e) => kept.has(idKey(e.src)) && kept.has(idKey(e.dst)))
+      for (const k of [...this.sources.keys()]) if (!kept.has(k)) this.sources.delete(k)
+    }
     for (const k of [...this.retention.keys()]) if (!this.cells.has(k)) this.retention.delete(k)
-    // 全量清空时词频表一起清（与 SqliteStore 同口径）
     if (preserveKinds.length === 0) this.clearTokenDf()
   }
 
@@ -959,8 +978,13 @@ export class SqliteStore implements Store {
     try {
       const rows = db.prepare('PRAGMA table_info(cells)').all() as Array<{ name?: string }>
       have = new Set(rows.map((r) => String(r.name ?? '')))
-    } catch {
-      return
+    } catch (err) {
+      /**
+       * v0.7.3 S10：旧实现在这里直接 `return`（静默吞异常）。
+       * PRAGMA 失败说明库打不开或表结构读不出来，之后 tags 列永远不加，
+       * 写入会在运行期一串串报错，而 doctor 查不出根因。
+       */
+      throw new Error(`读取 cells 表结构失败（增量迁移中止）：${String(err)}`)
     }
     for (const [name, ddl] of want) {
       if (have.has(name)) continue
@@ -1061,7 +1085,7 @@ export class SqliteStore implements Store {
 
   findBySuffix(suffix: string, limit = 8): bigint[] {
     return this.prep('SELECT cell_id FROM cells WHERE cell_id LIKE ? LIMIT ?')
-      .all(`%${suffix.toLowerCase()}`, Math.max(1, limit))
+      .all(`%${suffix.toLowerCase()}`, safeLimit(limit))
       .map((r) => BigInt('0x' + String(r.cell_id)))
   }
 
@@ -1100,7 +1124,7 @@ export class SqliteStore implements Store {
         WHERE (5 - r.band) > c.tier AND c.tier < 4 AND (c.flags & 2) = 0
         ORDER BY r.at ASC LIMIT ?`,
     )
-      .all(Math.max(1, limit))
+      .all(safeLimit(limit))
       .map((r) => BigInt('0x' + String(r.id)))
   }
 
@@ -1110,7 +1134,7 @@ export class SqliteStore implements Store {
         WHERE c.tier < 4 AND (c.flags & 2) = 0 AND COALESCE(r.at, 0) < ?
         ORDER BY COALESCE(r.at, 0) ASC LIMIT ?`,
     )
-      .all(before, Math.max(1, limit))
+      .all(before, safeLimit(limit))
       .map((r) => BigInt('0x' + String(r.id)))
   }
 
@@ -1229,7 +1253,7 @@ export class SqliteStore implements Store {
   allEdges(limit?: number): EdgeRecord[] {
     const sql = limit ? 'SELECT src,dst,rel,weight FROM edges LIMIT ?' : 'SELECT src,dst,rel,weight FROM edges'
     return this.prep(sql)
-      .all(...(limit ? [Math.max(1, limit)] : []))
+      .all(...(limit ? [safeLimit(limit)] : []))
       .map((r) => ({ src: BigInt('0x' + String(r.src)), dst: BigInt('0x' + String(r.dst)), rel: Number(r.rel), weight: Number(r.weight) }))
   }
   setEdgeWeight(src: bigint, dst: bigint, rel: number, weight: number): void {
@@ -1328,7 +1352,7 @@ export class SqliteStore implements Store {
   }
   listSnapshots(limit = 1000): SnapshotRecord[] {
     return this.prep('SELECT * FROM recall_snapshots ORDER BY created DESC LIMIT ?')
-      .all(Math.max(1, limit))
+      .all(safeLimit(limit))
       .map((r) => ({
         snapId: String(r.snap_id),
         rendered: String(r.rendered),
@@ -1348,7 +1372,7 @@ export class SqliteStore implements Store {
   }
   listAccess(limit = 1000): AccessRecord[] {
     return this.prep('SELECT * FROM access_log ORDER BY at DESC LIMIT ?')
-      .all(Math.max(1, limit))
+      .all(safeLimit(limit))
       .map((r) => ({
         at: Number(r.at),
         actor: String(r.actor),
@@ -1383,7 +1407,7 @@ export class SqliteStore implements Store {
   }
   recentEvicts(n: number): EvictRecord[] {
     return this.prep('SELECT * FROM evict_log ORDER BY at DESC LIMIT ?')
-      .all(Math.max(1, n))
+      .all(safeLimit(n))
       .map((r) => ({
         cellId: String(r.cell_id),
         mode: String(r.mode) as 'soft' | 'hard',
@@ -1425,17 +1449,36 @@ export class SqliteStore implements Store {
     }))
   }
   clearLattice(preserveKinds: number[] = []): void {
-    if (preserveKinds.length === 0) {
-      // 全量清空时词频表一起清：文档没了，df 就是脏数据。
-      this.conn.exec('DELETE FROM cells; DELETE FROM edges; DELETE FROM cell_sources; DELETE FROM retention; DELETE FROM token_df;')
-      this.setMeta('token_df.docs', '0')
-      return
-    }
-    const list = preserveKinds.map((k) => Math.floor(k)).join(',')
-    this.conn.exec(
-      `DELETE FROM cells WHERE kind NOT IN (${list}); DELETE FROM edges; DELETE FROM cell_sources;
-       DELETE FROM retention WHERE cell_id NOT IN (SELECT cell_id FROM cells);`,
-    )
+    /**
+     * v0.7.3 S8：旧实现有三个问题——
+     *   ① 多语句 `conn.exec` 在 autocommit 下跑，中途失败留下半清空的库；
+     *   ② preserveKinds 分支 `DELETE FROM edges` 无条件删**全部**边，连保留的
+     *      kind 3/4/5 人格锚/关系/图式的边也一起没了；
+     *   ③ `Math.floor(k).join(',')` 把值直接拼进 `NOT IN (...)`，NaN 会拼成 `NOT IN (NaN)`。
+     * 现在整体包事务、只删与被清 cell 关联的边、kind 列表走参数化。
+     */
+    this.write(() => {
+      const clearAll = 'DELETE FROM cells; DELETE FROM edges; DELETE FROM cell_sources; DELETE FROM retention; DELETE FROM token_df;'
+      if (preserveKinds.length === 0) {
+        this.conn.exec(clearAll)
+        this.setMeta('token_df.docs', '0')
+        return
+      }
+      const keep = preserveKinds.map((k) => Math.floor(Number(k))).filter((k) => Number.isFinite(k))
+      if (keep.length === 0) {
+        this.conn.exec(clearAll)
+        this.setMeta('token_df.docs', '0')
+        return
+      }
+      const marks = keep.map(() => '?').join(',')
+      const doomed = `SELECT cell_id FROM cells WHERE kind NOT IN (${marks})`
+      // 顺序：先按 cells 表算出待删集合并清派生表，最后才删 cells。
+      // OR 而不是 AND：只要一端被清掉就成悬空边，必须一并删（与 MemoryStore 的 filter 等价）。
+      this.prep(`DELETE FROM edges WHERE src IN (${doomed}) OR dst IN (${doomed})`).run(...keep, ...keep)
+      this.prep(`DELETE FROM cell_sources WHERE cell_id IN (${doomed})`).run(...keep)
+      this.prep(`DELETE FROM retention WHERE cell_id IN (${doomed})`).run(...keep)
+      this.prep(`DELETE FROM cells WHERE kind NOT IN (${marks})`).run(...keep)
+    })
   }
 
   /**
@@ -1685,7 +1728,14 @@ function cloneCell(c: MemCell): MemCell {
  * 现在两侧用同一个函数算，谁调都一致。
  */
 export function snapshotIdOf(rendered: string): string {
-  return toHex(BigInt('0x' + bytesToHex(sha32(rendered))), 16)
+  /**
+   * v0.7.3 S13：旧实现 `toHex(BigInt('0x' + hex), 16)` 把 128 位摘要截到**末 64 位**，
+   * 而且 sha32 的低位由 h1/h2 循环填充、是弱尾段；约 2^20 量级就能生日碰撞。
+   * 配合 `putSnapshot` 的 `ON CONFLICT DO NOTHING`，不同渲染文本撞 id 时会静默丢新快照，
+   * `replayRecall` / `getSnapshot` 取回错误文本——重放审计对不上。
+   * 直接用完整 hex（32 位）；旧库的 16 位 id 仍可读，两者不会冲突。
+   */
+  return bytesToHex(sha32(rendered))
 }
 
 function sha32(text: string): Uint8Array {

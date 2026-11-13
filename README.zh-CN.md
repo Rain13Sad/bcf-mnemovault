@@ -1,4 +1,4 @@
-<!-- DOC-VERSION: 0.7.2 -->
+<!-- DOC-VERSION: 0.7.3 -->
 
 # MnemoVault
 
@@ -29,8 +29,8 @@
 
 | | |
 | :--- | :--- |
-| **状态** | **v0.7.2** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
-| **规模** | 11 个包 · 79 个源文件 / 约 27,900 行 TS（`.ts` + `.tsx`，含 UI）· 355 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
+| **状态** | **v0.7.3** · Developer Preview。基线 DSH `0.2.1-rc.3`（`next` 通道），宿主自身仍在破坏性变更中 |
+| **规模** | 11 个包 · 79 个源文件 / 约 28,300 行 TS（`.ts` + `.tsx`，含 UI）· 377 条测试 · **运行期不依赖任何非 `@deepseek-ai/*` 的第三方包**（唯一的外部包是 `schemastery`，用于配置 schema；其余是 Node 内置 `node:sqlite` / `node:zlib`） |
 | **先读哪份** | 接手维护 → [项目说明书](docs/PROJECT-GUIDE.md)（含 **28 条缺点 D1–D28** / 12 条改进意见，已按 P0–P2 排序）<br>改代码 → [CONTRIBUTING](CONTRIBUTING.md)　算法依据 → [设计文档 v0.2](docs/design/MNEMOVAULT-DESIGN.md)<br>全部文档 → [docs/README.md](docs/README.md) |
 | **时间预算** | 只想跑起来 → 5 分钟，[快速开始](#快速开始)　·　判断能不能上生产 → 40 分钟，PROJECT-GUIDE §12 的 28 条缺点　·　想改它的决策行为 → 60 分钟，CONTRIBUTING + [`retention.ts`](packages/core/src/retention.ts) |
 
@@ -80,7 +80,7 @@ DSH 的上下文窗口是有限的，而"用户三个月前说过什么"要么�
 ```bash
 npm ci               # 只有 devDependencies（typescript / react / 类型）
 npm run build        # 按依赖顺序编译 11 个包（没有 bundler，逐包 tsc）
-npm test             # 355 条测试
+npm test             # 377 条测试
 npm run demo         # 26 轮中文对话：注入 / 巩固 / 统计 / 守卫
 npm run bench:eval   # mnemo-bench：Recall@8 / MRR / 去重 P,R / 时间推理 / 成本
 npm run panel        # 面板预览：http://127.0.0.1:5178/
@@ -254,6 +254,32 @@ dispose()
 上面的 `createHarness` 是最短的"看到一条"的路径。
 
 </details>
+
+---
+
+## v0.7.3：安全收口 + 实用能力补完
+
+**修复版本**。对 v0.7.2 做运行时探针，找出一批"只读代码看不出来、跑起来才错"的缺陷，
+全部先复现再修，每条配"改回去就变红"的断言。存储布局未动（MC03 不变，旧库免 rebuild）。
+
+- **三个 P0**：`/mnemo tune security.allowGlobalScope=true` 实测能把隔离红线关掉
+  （现在命令面与服务端 `applyAction` 两处都拦）；`vault-tools restore` 的 manifest 可用
+  `blob/../../任意文件` 覆盖目标机任意文件；证据打分里混进 NaN 会绕过弃权
+  （陷阱题判成 `hit` 并自信作答）。
+- **静默数据丢失 / 答错**：`expand()` 对无来源映射的 cell 恒返回占位文本；
+  五处短 id 各自 `padStart/padEnd`，导致删除静默 no-op 却回"已删除"、
+  `SUPERSEDES` 边指向不存在的 cell、`explain` 解释错对象；`clearLattice()` 无事务且
+  删掉保留人格锚的所有边；快照 id 被截到 64 位弱尾段，撞车时静默丢新快照。
+- **实用功能**：抽取词典配置化（宿主注入领域谓词/同义词/话题词，不必 fork）、
+  语义级敏感信息识别（住址/诊断/心理/财务，**只标记不改写记忆**）、
+  `/mnemo doctor --json`、HELP 承诺多年却没实现的 `/mnemo export --user`、
+  `--json --no-raw` 隐私口径、bundle 全字段交叉校验。
+- **验证层扩到 11 节**（新增安全红线、短 id 解析、抽取配置化），每节都有 CI 硬断言；
+  仍是**机制验证，不是公开基准**。
+
+**377 条测试全过**，既有基准数字逐项未退化，验证层 11/11。
+逐板块复核见 `docs/V0.7.3-REVIEW-RESPONSE.md`；未完成的（公开基准、第三方红队、
+DPIA、静态加密、rerank、真实厂商端点等）仍如实列在该文档中。
 
 ---
 

@@ -49,7 +49,7 @@ import { SensoryRing, WorkingSet } from './working.js'
 import { applyPreset, estimateTokensPerTurn } from './preset.js'
 import { hash64, toHex } from './hash.js'
 import { redact, isRedactionPlaceholder, extractEntities, normToken } from './text.js'
-import { resolveScopeKey, looksLikeInstruction, isSensitive, type ScopeResolution } from './security.js'
+import { resolveScopeKey, looksLikeInstruction, isSensitive, RUNTIME_TUNE_DENY, type ScopeResolution } from './security.js'
 import { assessCrisis, detectMinor, MINOR_POLICY, type CrisisAssessment, type MinorSignal } from './crisis.js'
 import type {
   DoctorReport,
@@ -1162,7 +1162,12 @@ export class MemoryService extends Service {
     }
     // level 2：原文残差
     const sources = this.store.sourcesOf(id)
-    const shadowed = sessionId ? sources.every((s) => this.store.isShadowed(s.session, s.seq)) : false
+    /**
+     * v0.7.3 S4：`[].every()` 恒为 true。手动 putCell / upsertMeta 写入的 cell、
+     * 或 purgeAux 清过来源映射的 cell 没有 sources，旧代码会把它们一律判成
+     * "已被压缩摘要覆盖"，expand(level 2) 永远拿不到原文（默认 sessionId 必现）。
+     */
+    const shadowed = Boolean(sessionId) && sources.length > 0 && sources.every((s) => this.store.isShadowed(s.session, s.seq))
     if (shadowed) {
       const text = '[该段已被压缩摘要覆盖，原文仅按需提供]'
       this.emit('memory/expand', { cellId, level, chars: text.length, shadowed: true })
@@ -1190,10 +1195,35 @@ export class MemoryService extends Service {
     return { cellId, level, text, tokens: estimateTokens(text), shadowed, truncated, chars: text.length }
   }
 
-  forget(cellId: string, mode: 'soft' | 'hard', actor: EvictRecord['actor'] = 'user', reason = 'user request'): void {
-    const id = BigInt('0x' + cellId.replace(/^0x/, '').padStart(16, '0'))
+  forget(
+    cellId: string,
+    mode: 'soft' | 'hard',
+    actor: EvictRecord['actor'] = 'user',
+    reason = 'user request',
+  ): { ok: boolean; message: string } {
+    /**
+     * v0.7.3 S6：旧实现把短 id `padStart` 成 16 位 → getCell 返回 null →
+     * `if (!cell) return` **静默 no-op**，而命令面照样回"已删除"；
+     * evict_log 里记的还是原始短 id，回链不上。现在返回明确回执。
+     */
+    const raw = cellId.replace(/^0x/, '').toLowerCase()
+    let id: bigint
+    if (raw.length < 16) {
+      const matches = this.store.findBySuffix(raw, 8)
+      if (matches.length !== 1) {
+        return {
+          ok: false,
+          message: matches.length === 0 ? `cell ${cellId} 不存在` : `短 id ${cellId} 有 ${matches.length} 条匹配，请用完整 16 位 id`,
+        }
+      }
+      id = matches[0]
+    } else {
+      if (!/^[0-9a-f]{1,16}$/.test(raw)) return { ok: false, message: `无效的 cell id：${cellId}` }
+      id = BigInt('0x' + raw.padStart(16, '0'))
+    }
+    const canonical = toHex(id, 16)
     const cell = this.store.getCell(id)
-    if (!cell) return
+    if (!cell) return { ok: false, message: `cell ${cellId} 不存在` }
     this.store.write(() => {
       if (mode === 'hard') {
         this.store.deleteCell(id) // 内含残差释放（没人再引用时物理删）
@@ -1205,12 +1235,13 @@ export class MemoryService extends Service {
         cell.flags &= ~FLAG.noDecay
         this.store.putCell(cell)
       }
-      const rec: EvictRecord = { cellId, mode, reason, actor, at: this.now() }
+      const rec: EvictRecord = { cellId: canonical, mode, reason, actor, at: this.now() }
       this.store.appendEvict(rec)
       this.evictions++
     })
-    this.emit('memory/evict', { cellId, mode, reason, actor })
+    this.emit('memory/evict', { cellId: canonical, mode, reason, actor })
     this.publishPanel()
+    return { ok: true, message: mode === 'hard' ? `已物理删除 ${canonical}` : `已软删除 ${canonical}（可唤醒）` }
   }
 
   /**
@@ -1258,7 +1289,29 @@ export class MemoryService extends Service {
     } else if (target.kind === 'session') {
       ids = this.store.cellsOfSession(target.id)
     } else {
-      ids = [BigInt('0x' + target.id.replace(/^0x/, '').padStart(16, '0'))]
+      /**
+       * v0.7.3 S7：短 id 曾直接 `padStart(16,'0')` → 解成 `000000000000abcd`，
+       * cells 删 0 条，但 purgeAux 仍按 `short='abcd'` 用 `instr(rendered,'abcd')`
+       * 删掉**其它 cell** 的快照/驱逐记录。要么解析成唯一完整 id，要么明确拒绝。
+       */
+      const raw = target.id.replace(/^0x/, '').toLowerCase()
+      if (raw.length < 16) {
+        const matches = this.store.findBySuffix(raw, 8)
+        if (matches.length !== 1) {
+          const empty = { log: 0, snapshots: 0, evicts: 0, shadow: 0, sources: 0 }
+          return {
+            ok: false,
+            message: matches.length === 0 ? `cell ${target.id} 不存在` : `短 id ${target.id} 有 ${matches.length} 条匹配，请用完整 16 位 id`,
+            cells: 0,
+            edges: 0,
+            residuals: 0,
+            aux: empty,
+          }
+        }
+        ids = matches
+      } else {
+        ids = [BigInt('0x' + raw.padStart(16, '0'))]
+      }
     }
 
     /**
@@ -1309,15 +1362,32 @@ export class MemoryService extends Service {
     }
   }
 
-  explain(cellId: string, q?: RecallQuery): string {    const target = cellId.replace(/^0x/, '').padEnd(16, '0').slice(-16)
-    const b = this.lastRecall?.breakdowns.find((x) => x.cellId.endsWith(target.slice(-4)) || x.cellId === target)
+  explain(cellId: string, q?: RecallQuery): string {
+    /**
+     * v0.7.3 S5（D23 残留）：旧实现用 `padEnd(16,'0')`（全项目其余处都是 padStart），
+     * 4 位短 id `abcd` 被补成 `abcd000000000000`，再用 `endsWith(slice(-4))` 比对
+     * ——`slice(-4)` 恒为 `0000`，于是命中末四位为 0000 的**别条** cell；
+     * 即使补对了，4 位后缀碰撞也会张冠李戴，而 `/mnemo why` 偏偏不调 resolveId。
+     */
+    const raw = cellId.replace(/^0x/, '').toLowerCase()
+    let id: bigint | null
+    if (raw.length < 16) {
+      const matches = this.store.findBySuffix(raw, 8)
+      if (matches.length === 0) return `cell ${cellId} 不存在`
+      if (matches.length > 1) return `cell ${cellId} 有 ${matches.length} 条匹配，请用完整 16 位 id`
+      id = matches[0]
+    } else {
+      id = BigInt('0x' + raw.padStart(16, '0'))
+    }
+    const target = toHex(id, 16)
+    const b = this.lastRecall?.breakdowns.find((x) => x.cellId === target)
     if (!b) {
       // 没有当轮召回记录时，现场算一次解释，而不是返回"无数据"
       // v0.5.2：必须 readOnly。v0.5 修了"面板刷新=一次使用"，但解释器这条路径漏了——
       // `/mnemo explain` 会抬高被解释那条的 tAccess/stability，并写再巩固日志。
       // 解释是**观察**，观察不该改变被观察的东西。
       const r = this.recall({ ...(q ?? { text: '', budget: 400 }), manual: true, readOnly: true })
-      const fresh = r.breakdowns.find((x) => x.cellId.endsWith(target.slice(-4)))
+      const fresh = r.breakdowns.find((x) => x.cellId === target)
       return fresh ? formatBreakdown(fresh, this.config.recall.ignition) : `cell ${target} 不在候选池内（可能低于 ignition 或被隔离）`
     }
     return formatBreakdown(b, this.config.recall.ignition)
@@ -1970,8 +2040,12 @@ export class MemoryService extends Service {
 
   /** 面板操作（pin / 改效价 / 遗忘 / 裁决）。`support` 不可手改是刻意的（§12.4）。 */
   applyAction(a: PanelAction): { ok: boolean; message: string } {
-    const id = 'cellId' in a ? BigInt('0x' + a.cellId.replace(/^0x/, '').padStart(16, '0')) : undefined
-    const cell = id ? this.store.getCell(id) : null
+    // v0.7.3 S9：pin / valence / importance / slot / restore 等所有带 cellId 的
+    // 面板动作都走统一短 id 解析，不再各自 padStart 出一个不存在的 id。
+    const parsedId = 'cellId' in a ? this.resolveCellIdStrict(a.cellId) : null
+    if ('cellId' in a && parsedId === null) return { ok: false, message: `cell ${a.cellId} 不存在或有歧义，请用完整 16 位 id` }
+    const id = parsedId ?? undefined
+    const cell = id !== undefined ? this.store.getCell(id) : null
     switch (a.kind) {
       case 'pin':
         if (!cell) return { ok: false, message: 'cell 不存在' }
@@ -1982,14 +2056,16 @@ export class MemoryService extends Service {
         return { ok: true, message: a.pinned ? '已固定（不衰减）' : '已取消固定' }
       case 'valence':
         if (!cell) return { ok: false, message: 'cell 不存在' }
-        cell.valence = Math.max(-1, Math.min(1, a.valence))
-        if (a.salience !== undefined) cell.salience = Math.max(0, Math.min(1, a.salience))
+        // v0.7.3 S9：NaN/Infinity 经 Math.min/max 仍是 NaN，会写进 SQLite REAL 列，
+        // 之后七因子打分全链污染。非法值保持原值不动。
+        if (Number.isFinite(a.valence)) cell.valence = Math.max(-1, Math.min(1, a.valence))
+        if (a.salience !== undefined && Number.isFinite(a.salience)) cell.salience = Math.max(0, Math.min(1, a.salience))
         this.store.putCell(cell)
         this.publishPanel()
         return { ok: true, message: `效价 → ${fmt2(cell.valence)}` }
       case 'importance':
         if (!cell) return { ok: false, message: 'cell 不存在' }
-        cell.importance = Math.max(0, Math.min(1, a.importance))
+        if (Number.isFinite(a.importance)) cell.importance = Math.max(0, Math.min(1, a.importance))
         this.store.putCell(cell)
         this.publishPanel()
         return { ok: true, message: `重要性 → ${fmt2(cell.importance)}` }
@@ -2005,11 +2081,17 @@ export class MemoryService extends Service {
         return this.restore(a.cellId)
       case 'forget':
         if (a.mode === 'hard' && a.confirm !== 'delete') return { ok: false, message: '硬删除需输入 delete 确认' }
-        this.forget(a.cellId, a.mode)
-        return { ok: true, message: a.mode === 'hard' ? '已物理删除' : '已软删除（可唤醒）' }
+        // v0.7.3 S6：把 forget 的真实回执透出去，不再无条件回"已删除"。
+        return this.forget(a.cellId, a.mode, 'user', 'panel action')
       case 'resolve': {
-        const A = BigInt('0x' + a.a.replace(/^0x/, ''))
-        const B = BigInt('0x' + a.b.replace(/^0x/, ''))
+        /**
+         * v0.7.3 S9：旧实现缺 `padStart(16,'0')`（同文件 :1973 的 id 解析是有的）。
+         * 传 4 位短 id `abcd` 会解成 0xabcd，SUPERSEDES 边指向一个根本不存在的 cell，
+         * 版本链静默断掉；空串 `BigInt('0x')` 还会抛 SyntaxError。
+         */
+        const A = this.resolveCellIdStrict(a.a)
+        const B = this.resolveCellIdStrict(a.b)
+        if (A === null || B === null) return { ok: false, message: 'resolve 需要有效的 cell id（1–16 位 hex）' }
         this.store.putEdge({ src: A, dst: B, rel: REL.SUPERSEDES, weight: 96 })
         const b = this.store.getCell(B)
         if (b) {
@@ -2061,6 +2143,12 @@ export class MemoryService extends Service {
         return { ok: true, message: `已更新 ${Object.keys(a.patch).join(', ')}（preset=${next.preset}，下一轮生效）` }
       }
       case 'tune': {
+        // v0.7.3 S1：服务端硬闸。命令面会先挡一次，但面板 action 不经过命令面，
+        // 所以这里必须再挡一次——否则模型构造一个 PanelAction 就能关掉隔离红线。
+        const denied = Object.keys(a.patch ?? {}).filter((k) => RUNTIME_TUNE_DENY.test(k))
+        if (denied.length) {
+          return { ok: false, message: `拒绝：${denied.join(', ')} 属于安全/布局红线，只能在部署配置中修改` }
+        }
         // 调控台：先给预估，再决定是否落。dryRun 不写库也不发事件。
         const merged = applyPreset({ ...this.config, ...(a.patch as Partial<MnemoConfig>) })
         if (a.dryRun) {
@@ -2322,6 +2410,22 @@ export class MemoryService extends Service {
     const batch = this.pendingActions.splice(0, 64)
     for (const a of batch) this.applyAction(a)
     return batch.length
+  }
+
+  /**
+   * v0.7.3 S5/S6/S7/S9：短 id 统一解析器。
+   *
+   * 旧代码在 explain / forget / purge / applyAction / resolve 五处各写了一遍
+   * `padStart(16,'0')`，短 id `abcd` 一律解成 `000000000000abcd`——不是真实 cell，
+   * 于是要么静默 no-op，要么把边指向不存在的对象。撞车时更危险（会取错人）。
+   * 现在只有**唯一匹配**才返回 id，其余返回 null，由调用方给明确回执。
+   */
+  private resolveCellIdStrict(raw: string): bigint | null {
+    const s = String(raw ?? '').replace(/^0x/, '').toLowerCase()
+    if (!/^[0-9a-f]{1,16}$/.test(s)) return null
+    if (s.length === 16) return BigInt('0x' + s)
+    const matches = this.store.findBySuffix(s, 8)
+    return matches.length === 1 ? matches[0] : null
   }
 
   // ── 内部工具 ────────────────────────────────────────────────────

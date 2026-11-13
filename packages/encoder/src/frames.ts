@@ -153,8 +153,42 @@ const PRED_RULES: Array<{ re: RegExp; pred: string }> = [
   { re: /有|养|拥有/, pred: 'has' },
 ]
 
+/**
+ * v0.7.3 U1（A13）：领域谓词注入。
+ *
+ * `detectPred()` 取**第一个**命中的规则，所以自定义规则必须排在内置规则之前，
+ * 否则 "灰度发布 用 canary" 会先被内置 `uses` 吃掉——配了等于没配。
+ * 用 `unshift` 整体前置，内置规则之间的**相对顺序完全不变**
+ * （runs 仍在 uses/changes 之后、discusses 仍在 communicates 之后），
+ * 因此不会重演 v0.7.1 那个"用 vitest 跑测试"归错家族的问题。
+ */
+const BASE_PRED_RULES = PRED_RULES.map((r) => ({ ...r }))
+
+export function configurePredRules(rules: Array<{ re: RegExp | string; pred: string }>): void {
+  const added: Array<{ re: RegExp; pred: string }> = []
+  for (const r of rules) {
+    if (!r || typeof r.pred !== 'string' || !r.pred.trim()) continue
+    try {
+      added.push({ re: r.re instanceof RegExp ? r.re : new RegExp(String(r.re), 'i'), pred: r.pred.trim() })
+    } catch {
+      /* 一条非法正则不该毁掉整条写入链路，跳过即可 */
+    }
+  }
+  if (added.length) PRED_RULES.unshift(...added)
+}
+
+export function resetPredRules(): void {
+  PRED_RULES.length = 0
+  PRED_RULES.push(...BASE_PRED_RULES.map((r) => ({ ...r })))
+}
+
 /** 否定词：只认紧邻谓词/客体的那些，避免"我不觉得这不好"这类双重否定误判。 */
-const NEG_CUE = /(不|没|没有|别|未|无需|不再|从不)/
+/**
+ * v0.7.3 S14：单字 `别` 是高频构词部件——"特别喜欢""个别情况""分别部署"
+ * 都会被判成否定句，进而把 polarity 翻成 neg、把句子错分到 procedure。
+ * 用后顾排除常见构词（JS lookbehind 在 Node ≥22 可用），只认真正的祈使否定。
+ */
+const NEG_CUE = /(不|没|没有|(?<![特个分区类性级])别|未|无需|不再|从不)/
 
 /** 转折词：用来识别"但…除外"这类例外。 */
 const CONTRAST = /(但是|但|不过|可是|然而|只是)/

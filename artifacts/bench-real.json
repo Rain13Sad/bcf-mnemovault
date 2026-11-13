@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-05T09:13:50.574Z",
+  "generatedAt": "2026-11-13T11:04:55.804Z",
   "note": "手写对话 + 手写 query，无模板生成。判据是渲染文本包含期望片段；陷阱题判据是 verdict≠hit。",
   "cases": 8,
   "queries": 13,

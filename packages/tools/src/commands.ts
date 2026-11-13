@@ -80,9 +80,9 @@ const HELP = `MnemoVault 命令
   /mnemo reappraise <id>       用当前心境重估一条记忆的效价
   /mnemo proactive [on|off|now|mute <min>|unmute]  主动开口
   /mnemo stats                 命中率、token 曲线、存储比
-  /mnemo doctor [--fix] [--unlock]
+  /mnemo doctor [--fix] [--unlock] [--json]   体检（--json 输出机器可读报告）
   /mnemo rebuild --from-log [--yes]
-  /mnemo export [--user <id>]
+  /mnemo export [--user <id>] [--json] [--no-raw]   导出（--json 全量；--no-raw 不含残差原文）
   /mnemo models                当前模型 / 端口 / 跨模型成本表
   /mnemo mood                  心境与情感摘要（给模型的那一行）
   /mnemo star                  星图摘要（星等最高的几条 + 坐标）
@@ -445,9 +445,18 @@ async function runCommandInner(argv: string[], deps: CommandDeps): Promise<strin
       const patch: Record<string, number | string | boolean> = {}
       for (const p of pairs) {
         const i = p.indexOf('=')
-        const k = p.slice(0, i)
+        const k = p.slice(0, i).trim()
         const raw = p.slice(i + 1)
         const num = Number(raw)
+        /**
+         * v0.7.3 S1：旧写法对 `Infinity` / `NaN` 只判 `Number.isFinite(num)`，
+         * 判不过就把**字符串**写进配置，数值闸门随后静默失效。
+         * 看起来是数字却不是有限数，直接拒绝，不要降级成字符串。
+         * 红线键名由 `MemoryService.applyAction` 在服务端统一拒绝（面板 action 也绕不过）。
+         */
+        if (!Number.isFinite(num) && /^[-+]?(?:\d|\.|infinity|nan)/i.test(raw.trim())) {
+          return `✗ 拒绝：${k}=${raw} 不是有限数值（NaN/Infinity 会让闸门静默失效）`
+        }
         patch[k] = Number.isFinite(num) && raw.trim() !== '' ? num : raw === 'true' ? true : raw === 'false' ? false : raw
       }
       const r = mem.applyAction({ kind: 'tune', patch, dryRun: dry })
@@ -469,6 +478,8 @@ async function runCommandInner(argv: string[], deps: CommandDeps): Promise<strin
 
     case 'doctor': {
       const d = mem.doctor({ fix: rest.includes('--fix'), unlock: rest.includes('--unlock') })
+      // v0.7.3 U3：一键机器可读诊断，便于监控系统/CI 直接消费（不新增命令动词）。
+      if (rest.includes('--json')) return JSON.stringify(d, null, 2)
       return [
         d.ok ? '✓ 体检通过' : '✗ 发现问题',
         `孤儿边 ${d.orphanEdges}  悬空槽 ${d.danglingSlots}  遗留锁 ${d.staleLocks}  布局 v${d.layoutVersion} D=${d.sdrDim}`,
@@ -495,8 +506,18 @@ async function runCommandInner(argv: string[], deps: CommandDeps): Promise<strin
        * 用户以为导出了全部，实际超过 5000 条就没了。JSON 档走 forEachCell 全量，
        * 带校验和，可被别的系统读取；原样导回仍走 rebuild --from-log（见 bundle 注释）。
        */
-      if (rest.includes('--json')) return JSON.stringify(exportBundle(mem), null, 2)
-      const cells = mem.store.listCells({ limit: 5000 })
+      /**
+       * v0.7.3 U4：HELP 里写了多年的 `--user` 一直没实现（静默导全库），
+       * `--json` 默认把全部残差原文带出去也没在 HELP 里说明。两处一起补：
+       * 用户 id 按 scope 过滤（纯 id 补 `user:` 前缀），`--no-raw` 关闭原文。
+       */
+      const ui = rest.indexOf('--user')
+      const rawUser = ui >= 0 ? rest[ui + 1] : undefined
+      const scope = rawUser && !rawUser.startsWith('--') ? (rawUser.includes(':') ? rawUser : `user:${rawUser}`) : undefined
+      if (rest.includes('--json')) {
+        return JSON.stringify(exportBundle(mem, { includeRaw: !rest.includes('--no-raw'), scope }), null, 2)
+      }
+      const cells = mem.store.listCells({ limit: 5000 }).filter((c) => !scope || (c.scope ?? '') === scope)
       const truncated = cells.length >= 5000 ? '\n⚠ 已达 5000 条上限，完整导出请用 /mnemo export --json' : ''
       const lines = cells.map((c) => {
         const kv = c.slots.filter((s) => s.type === 'LIT').map((s) => `${s.value}`).join(' / ')

@@ -231,9 +231,10 @@ export function interocept(s: InteroSignals, prev?: Intero): Intero {
   return { load, uncert, conflict, strain, progress, budget }
 }
 
+/** v0.7.3 S14：NaN 经 min/max 仍是 NaN，会把 temperatureDelta 等策略量污染成 NaN。 */
 function clamp01(x: number): number {
-  return Math.min(1, Math.max(0, x))
+  return Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0
 }
 function clamp(lo: number, hi: number, x: number): number {
-  return Math.min(hi, Math.max(lo, x))
+  return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : lo
 }

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * v0.7.2 · 运维工具链 CLI（评判报告 §13 / §14：E2 / E6 / D6 / D11）
+ * v0.7.3 · 运维工具链 CLI（评判报告 §13 / §14：E2 / E6 / D6 / D11）
  *
  * 用法：
- *   node scripts/vault-tools.mjs export   --db <vault.db> --out <bundle.json> [--no-raw]
+ *   node scripts/vault-tools.mjs export   --db <vault.db> --out <bundle.json> [--user <id>] [--no-raw]
  *   node scripts/vault-tools.mjs validate --in  <bundle.json>
  *   node scripts/vault-tools.mjs verify   --db <vault.db> [--session <id>]
  *   node scripts/vault-tools.mjs metrics  --db <vault.db>
+ *   node scripts/vault-tools.mjs doctor   --db <vault.db>       # 机器可读体检，不健康时非 0 退出
  *   node scripts/vault-tools.mjs backup   --db <vault.db> --dir <backupDir>
  *   node scripts/vault-tools.mjs restore  --from <backupDir> --db <vault.db> --yes
  *
@@ -18,7 +19,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, copyFileSync, readdirSync, statSync, renameSync, rmSync } from 'node:fs'
 import { createHash } from 'node:crypto'
-import { dirname, join, resolve, basename } from 'node:path'
+import { dirname, join, resolve, basename, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -48,12 +49,19 @@ const fail = (msg) => {
   console.error(`ERROR ${msg}`)
   process.exitCode = 1
 }
+/** 用户可直接修复的参数错误：给一行提示就退出，不要甩堆栈。 */
+const die = (msg) => {
+  fail(msg)
+  process.exit(1)
+}
 
 switch (cmd) {
   case 'export': {
     const db = flag('db')
     const out = flag('out', 'artifacts/vault-bundle.json')
-    const bundle = await withMemory(db, (mem) => exportBundle(mem, { includeRaw: !has('no-raw') }))
+    const user = flag('user')
+    const scope = user ? (user.includes(':') ? user : `user:${user}`) : undefined
+    const bundle = await withMemory(db, (mem) => exportBundle(mem, { includeRaw: !has('no-raw'), scope }))
     mkdirSync(dirname(out), { recursive: true })
     writeFileSync(out, JSON.stringify(bundle, null, 2), 'utf8')
     console.log(`导出完成：${out}`)
@@ -95,7 +103,7 @@ switch (cmd) {
     mkdirSync(dir, { recursive: true })
     // SQLite WAL 模式下 -wal/-shm 与 db 同属一份逻辑数据，必须一起复制。
     const files = [db, db + '-wal', db + '-shm'].filter((p) => existsSync(p))
-    const manifest = { createdAt: new Date().toISOString(), version: '0.7.2', source: resolve(db), files: [] }
+    const manifest = { createdAt: new Date().toISOString(), version: '0.7.3', source: resolve(db), files: [] }
     for (const p of files) {
       const dst = join(dir, basename(p))
       copyFileSync(p, dst)
@@ -123,30 +131,57 @@ switch (cmd) {
       fail('恢复会覆盖现有库，确认请加 --yes（先自行备份当前库）')
       break
     }
-    if (!from || !existsSync(join(from, 'manifest.json'))) throw new Error(`找不到备份清单：${from}/manifest.json`)
+    // v0.7.3 S2：旧实现漏了 --db 校验，dirname(undefined) 会抛错或写出名为 "undefined" 的文件。
+    if (!db) die('缺少 --db <目标库路径>')
+    if (!from || !existsSync(join(from, 'manifest.json'))) die(`找不到备份清单：${from}/manifest.json`)
     const m = JSON.parse(readFileSync(join(from, 'manifest.json'), 'utf8'))
-    for (const f of m.files) {
-      const src = join(from, f.name)
-      if (!existsSync(src)) throw new Error(`备份文件缺失：${src}`)
-      if (sha256(src) !== f.sha256) throw new Error(`备份文件校验失败：${f.name}`)
+    const dbBase = basename(db)
+    const targetDir = resolve(dirname(db))
+    /**
+     * v0.7.3 S2（P0 路径穿越）：manifest 来自外部文件，只校验 sha256 不校验路径，
+     * 于是 `name: "blob/../../任意文件"` 会让 restore 覆盖目标机上的任意文件。
+     * 现在文件名必须落在白名单里，且解析后的目标必须在目标目录内。
+     */
+    const safeName = (name) => {
+      if (name === dbBase || name === dbBase + '-wal' || name === dbBase + '-shm') return true
+      return /^blob\/[A-Za-z0-9._-]+$/.test(name)
     }
-    // 先写临时文件再原子替换，避免中途失败留下半份库
-    mkdirSync(dirname(db), { recursive: true })
     for (const f of m.files) {
-      const suffix = f.name.endsWith('-wal') ? '-wal' : f.name.endsWith('-shm') ? '-shm' : ''
-      const dst = f.name.startsWith('blob/') ? join(dirname(db), f.name) : db + suffix
+      const name = String(f.name ?? '')
+      if (!safeName(name)) die(`manifest 含非法路径：${name}`)
+      const src = resolve(from, name)
+      if (!src.startsWith(resolve(from) + sep)) die(`manifest 路径越界：${name}`)
+      if (!existsSync(src)) die(`备份文件缺失：${src}`)
+      if (sha256(src) !== f.sha256) die(`备份文件校验失败：${name}`)
+    }
+    // 先写临时文件再替换；全部校验通过后才动目标库
+    mkdirSync(targetDir, { recursive: true })
+    const staged = []
+    for (const f of m.files) {
+      const name = String(f.name)
+      const suffix = name.endsWith('-wal') ? '-wal' : name.endsWith('-shm') ? '-shm' : ''
+      const dst = resolve(name.startsWith('blob/') ? join(targetDir, name) : db + suffix)
+      if (!dst.startsWith(targetDir + sep)) throw new Error(`恢复目标越界：${dst}`)
       mkdirSync(dirname(dst), { recursive: true })
       const tmp = dst + '.restoring'
-      copyFileSync(join(from, f.name), tmp)
-      renameSync(tmp, dst)
+      copyFileSync(resolve(from, name), tmp)
+      staged.push({ tmp, dst })
     }
-    // 恢复后清掉可能残留的临时文件
-    for (const f of readdirSync(dirname(db))) {
-      if (f.endsWith('.restoring')) rmSync(join(dirname(db), f), { force: true })
+    for (const { tmp, dst } of staged) renameSync(tmp, dst)
+    for (const f of readdirSync(targetDir)) {
+      if (f.endsWith('.restoring')) rmSync(join(targetDir, f), { force: true })
     }
     console.log(`恢复完成：${db}（${m.files.length} 个文件，校验和全部匹配）`)
     break
   }
+  case 'doctor': {
+    /** v0.7.3 U3：一键机器可读体检，供 CI / 监控直接消费；不健康时以非 0 退出。 */
+    const db = flag('db')
+    const d = await withMemory(db, (mem) => mem.doctor())
+    console.log(JSON.stringify(d, null, 2))
+    if (!d.ok) process.exitCode = 1
+    break
+  }
   default:
-    fail(`未知子命令 ${cmd || '(空)'}。可用：export / validate / verify / metrics / backup / restore`)
+    fail(`未知子命令 ${cmd || '(空)'}。可用：export / validate / verify / metrics / backup / restore / doctor`)
 }

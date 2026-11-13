@@ -274,7 +274,7 @@ export * from './reconsolidation.js'
 export * from './neuromod.js'
 export * from './lifecycle.js'
 export * from './render.js'
-export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr, pruneQueryEntities, canonicalToken, quantize, TopK } from './recall.js'
+export { runRecall, scoreCandidate, formatBreakdown, hashEmbedding, cosine, buildQuerySdr, pruneQueryEntities, canonicalToken, configureSynonymFamilies, resetSynonymFamilies, clamp01 as clampScore01, quantize, TopK } from './recall.js'
 export { HnswIndex, BruteIndex, type VectorIndex, type VectorHit } from './ann.js'
 export { createStore, MemoryStore, SqliteStore, type Store } from './store.js'
 export * from './text.js'
@@ -284,6 +284,7 @@ export {
   stripScopeArgs,
   looksLikeInstruction,
   isSensitive,
+  RUNTIME_TUNE_DENY,
   SCOPE_ARG_KEYS,
   type ScopeMode,
   type ScopeResolution,

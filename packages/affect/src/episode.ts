@@ -202,12 +202,24 @@ export interface OpenEpisodeInput {
   labels?: EmotionHit[]
 }
 
+/**
+ * v0.7.3 S14：情绪事件 id 必须可复现（项目 §18.5「逐字节重放」契约）。
+ * 旧实现用 `Math.random()`，同一段会话日志重放两次会得到不同的 episode id，
+ * 面板轨迹与再巩固链路都对不上。改成由 (at, trigger, turn) 派生的 FNV-1a。
+ */
+function episodeNonce(input: OpenEpisodeInput): string {
+  const s = `${input.at}|${input.trigger}|${input.turn ?? 0}`
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0
+  return h.toString(36).padStart(6, '0').slice(0, 6)
+}
+
 export function openEpisode(input: OpenEpisodeInput): EmotionEpisode {
   const v = clamp(input.valence, -1, 1)
   const a = clamp01(input.arousal)
   const peak = clamp01(input.peak ?? Math.max(Math.abs(v), a))
   return {
-    id: input.id ?? `ep-${input.at.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    id: input.id ?? `ep-${input.at.toString(36)}-${episodeNonce(input)}`,
     trigger: input.trigger.slice(0, 60),
     onset: input.at,
     turn: input.turn ?? 0,

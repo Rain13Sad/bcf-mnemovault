@@ -1,6 +1,6 @@
 {
   "name": "bcf-mnemovault",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "type": "module",
   "description": "MnemoVault — LLM 层面的情感记忆引擎：稀疏码记忆晶格、四路召回、双相巩固、情感内核、3D 星图与调控台；DSH 只是其中一个宿主",

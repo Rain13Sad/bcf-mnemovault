@@ -327,6 +327,29 @@ v0.4 里 P1 与 P2 都落在 3，存储层无法区分——这是 v0.5 修掉�
 **bundle 不含"原样导回"能力**：`cellId` 是内容寻址结果，写回必须重算 SDR/向量，
 那是 `/mnemo rebuild --from-log` 的职责。导出格式承诺的是「拿得走、看得懂、校验得了」。
 
+### 3.5 v0.7.3 变更
+
+总原则不变：**新增字段可选、新增能力默认不改变既有行为**。MC03 布局未动，旧库免 rebuild。
+命令动词数仍 27（本轮只加参数，不加动词）。
+
+| 变更 | 形状 | 兼容策略 / 契约 |
+| :--- | :--- | :--- |
+| `RUNTIME_TUNE_DENY` | `RegExp`（导出常量） | 新增。安全/布局/路径键禁止经 `/mnemo tune` 或 `PanelAction{kind:'tune'}` 运行时改写；宿主设置页走 `setConfig` 部署通道，不受影响 |
+| `MemoryService.forget()` | 返回 `{ ok, message }` | **行为变更**：旧版返回 `void` 且短 id 静默 no-op。调用方忽略返回值仍合法，但面板现在透出真实回执 |
+| `MemoryService.explain()` | `string` | 短 id 改为 `findBySuffix` 唯一匹配；歧义/不存在给明确文案，不再 `padEnd` 出假 id |
+| `Store.clearLattice()` | `void` | 整体包事务、只删与被清 cell 关联的边、`preserveKinds` 参数化；两种驱动语义等价 |
+| `snapshotIdOf()` | 完整 hex（64 位） | 旧库的 16 位 snap_id 仍可读；新快照不再截到 64 bit 弱尾段 |
+| `RedactResult.semantic` | `string[]?` | 新增可选字段，语义级敏感类别（只标记，不改写文本） |
+| `SEMANTIC_PII_PATTERNS` / `detectSemanticPII()` | 导出 | 新增。住址/诊断/心理/财务/证件引用/敏感事件；`isSensitive()` 已并入 |
+| `configureTextLexicon` / `resetTextLexicon` | `(patch) => void` | 新增（core）。同义词与话题名词原地合并，`reset` 可复原 |
+| `configureSynonymFamilies` / `resetSynonymFamilies` | `(families) => void` | 新增（core）。追加查询侧同义词族并重建索引 |
+| `configureExtraction` / `resetExtraction` | `(ExtractionLexicon) => void` | 新增（**encoder 包**）。一次注入四类词典；自定义谓词前置，内置规则相对顺序不变 |
+| `exportBundle(mem, { scope?, includeRaw? })` | `VaultBundle` | `scope` 新增（按 `cell.scope` 过滤）；`--user` / `--no-raw` 据此实现 |
+| `PurgeAudit.scope` | `'vault' \| 'session'` | 新增。`session` 模式只判定可归属残留，快照/驱逐/孤儿残差仅作信息 |
+| `clampScore01` | `(x) => number` | 新增导出（recall 的归一化函数别名），NaN/Infinity → 0 |
+| `/mnemo doctor --json`、`vault-tools doctor` | JSON 报告 | 新增参数/子命令，动词数不变 |
+| `vault-tools restore` | 白名单校验 | **行为变更**：manifest 文件名必须匹配库文件/`<base>-wal`/`<base>-shm`/`blob/<安全名>`，且解析后目标必须落在目标目录内；`--db` 必填 |
+
 ---
 
 ## 4. 运行时状态：`ctx.provide('mnemoRuntime', …)`

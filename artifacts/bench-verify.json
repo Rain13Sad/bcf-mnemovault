@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-05T09:13:54.397Z",
-  "version": "0.7.2",
+  "generatedAt": "2026-11-13T11:05:01.450Z",
+  "version": "0.7.3",
   "note": "机制验证，不是公开基准；样本量小，通过≠质量优于竞品",
   "sections": {
     "crossContamination": {
@@ -73,6 +73,7 @@
       "receiptCells": 4,
       "audit": {
         "ok": true,
+        "scope": "vault",
         "cells": 0,
         "edges": 0,
         "orphanResiduals": 0,
@@ -93,11 +94,40 @@
       "expiredLockTakeover": true,
       "ownerReleaseOk": true,
       "note": "CAS + TTL + owner；MemoryStore 单进程语义等价，SQLite 走 BEGIN IMMEDIATE 跨进程互斥"
+    },
+    "securityRedLines": {
+      "pass": true,
+      "tuneBlocked": true,
+      "apiBlocked": true,
+      "traversalBlocked": true,
+      "nanSafe": true,
+      "note": "调优命令不得改写安全配置；恢复不得路径穿越；NaN 不得绕过弃权判定"
+    },
+    "idResolution": {
+      "pass": true,
+      "explainResolvesFullId": true,
+      "forgetHasReceipt": true,
+      "pinAppliesToRealCell": true,
+      "unknownShortIdRejected": true,
+      "note": "短 id 曾各自 padStart/padEnd 出不存在的 id，或静默 no-op 回\"已删除\""
+    },
+    "extractionConfig": {
+      "pass": true,
+      "lexiconInjectionEffective": true,
+      "builtinRuleOrderPreserved": true,
+      "resetRestoresBaseline": true,
+      "semanticPIIHits": [
+        1,
+        1,
+        1
+      ],
+      "semanticPIIFalsePositive": 0,
+      "note": "A13 领域词注入不改源码；E4 语义级敏感信息识别且不改写原文"
     }
   },
   "overall": {
-    "passed": 8,
-    "total": 8,
+    "passed": 11,
+    "total": 11,
     "ok": true
   }
 }

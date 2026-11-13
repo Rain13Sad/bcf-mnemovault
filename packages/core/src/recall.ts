@@ -235,9 +235,34 @@ const SYNONYM_FAMILIES: string[][] = [
 ]
 
 const SYNONYM_INDEX = new Map<string, string>()
-for (const fam of SYNONYM_FAMILIES) {
-  const canon = fam[0]
-  for (const w of fam) SYNONYM_INDEX.set(w, canon)
+const BASE_SYNONYM_FAMILIES: string[][] = SYNONYM_FAMILIES.map((f) => [...f])
+
+/** v0.7.3 U1（A13）：注入族后必须重建索引，否则"配了但没生效"。 */
+function rebuildSynonymIndex(): void {
+  SYNONYM_INDEX.clear()
+  for (const fam of SYNONYM_FAMILIES) {
+    const canon = fam[0]
+    if (!canon) continue
+    for (const w of fam) SYNONYM_INDEX.set(w, canon)
+  }
+}
+rebuildSynonymIndex()
+
+/** 追加查询侧同义词族。同名词以后注入的规范词为准。 */
+export function configureSynonymFamilies(families: string[][]): void {
+  for (const fam of families) {
+    if (!Array.isArray(fam)) continue
+    const clean = fam.filter((w): w is string => typeof w === 'string' && w.trim().length > 0).map((w) => w.trim())
+    if (clean.length < 2) continue
+    SYNONYM_FAMILIES.push(clean)
+  }
+  rebuildSynonymIndex()
+}
+
+export function resetSynonymFamilies(): void {
+  SYNONYM_FAMILIES.length = 0
+  SYNONYM_FAMILIES.push(...BASE_SYNONYM_FAMILIES.map((f) => [...f]))
+  rebuildSynonymIndex()
 }
 
 /** 把同义词族里的任一说法折成规范 token。导出是为了让测试能验证"这确实等价"。 */
@@ -843,7 +868,14 @@ export function runRecall(deps: RecallDeps, q: RecallQuery): RecallResult {
       // 语义只在"近乎同一句"时算证据（哈希向量的绝对余弦没有区分力）
       s.cand.rawSemantic >= SEMANTIC_EVIDENCE_FLOOR ? s.cand.rawSemantic : 0,
     )
-  const bestEvidence = selected.length ? Math.max(...selected.map(evidenceOf)) : 0
+  /**
+   * v0.7.3 S3：`Math.max` 里只要混进一个 NaN，结果就是 NaN，
+   * 而 `NaN < ABSTAIN_SIM` 恒为 false → verdict 直接判成 'hit'，
+   * **弃权声明被绕过**（陷阱题会拿着不相关记忆自信作答）。
+   * 非法证据一律按"没有证据"处理：宁可弃权，不可编造。
+   */
+  const evidences = selected.map(evidenceOf).filter((n) => Number.isFinite(n))
+  const bestEvidence = evidences.length ? Math.max(...evidences) : 0
   const verdict: 'hit' | 'weak' | 'none' =
     selected.length === 0 ? (pool.length > 0 ? 'weak' : 'none') : bestEvidence < ABSTAIN_SIM ? 'weak' : 'hit'
 
@@ -1093,7 +1125,10 @@ function normalizeMax(xs: number[]): number[] {
   return xs.map((x) => clamp01(x / max))
 }
 
-function clamp01(x: number): number {
+export function clamp01(x: number): number {
+  // v0.7.3 S3：归一化里混进 NaN 会让整条打分链变 NaN，`score < ignition` 恒假，
+  // 所有候选都被塞进槽位、verdict 也可能被绕过。非法值按 0（无证据）处理。
+  if (!Number.isFinite(x)) return 0
   return Math.min(1, Math.max(0, x))
 }
 

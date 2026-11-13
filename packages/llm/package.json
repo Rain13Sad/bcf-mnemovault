@@ -1,6 +1,6 @@
 {
   "name": "@rain13sad/llm-mnemo",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "LLM 适配层：常用大模型的 embedding / 抽取 / tokenizer 端口 + 情感记忆引擎",
   "keywords": [
     "dsh",
@@ -47,7 +47,7 @@
   },
   "dependencies": {
     "@deepseek-ai/schemastery": "^3.18.5",
-    "@rain13sad/llm-mnemo-core": "^0.7.2"
+    "@rain13sad/llm-mnemo-core": "^0.7.3"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "*"

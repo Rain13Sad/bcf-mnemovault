@@ -7,7 +7,8 @@
 
 import type { Appraisal, Intero, Pad } from '@rain13sad/llm-mnemo-core'
 
-const clamp = (x: number, lo = -1, hi = 1) => Math.min(hi, Math.max(lo, x))
+/** v0.7.3 S14：NaN 会让 min/max 返回 NaN，进而污染整条 PAD 与人格向量。 */
+const clamp = (x: number, lo = -1, hi = 1) => (Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : 0)
 
 export interface AppraiseInput {
   text: string
@@ -36,16 +37,20 @@ export function appraise(input: AppraiseInput): Appraisal {
   const t = input.text
   // 陪伴场景的词汇表和"客服场景"完全不同：用户说的是"难受""累""委屈"，
   // 不是"不满意""差评"。这张表是这套系统能不能"听懂情绪"的第一道关。
-  const pos = countMatches(
-    t,
-    // v0.6.2：补了"棒""赞""谢谢"的变体，以及"值得""期待"
-    /很好|真好|太好了|好棒|棒|不错|开心|高兴|舒服|轻松|喜欢|爱|暖|安心|踏实|感动|幸福|爽|辛苦了|谢谢|满意|赞|值得|期待|great|thanks|perfect|nice|good|happy|love/gi,
-  )
-  const neg = countMatches(
-    t,
-    // v0.6.2：补了"气死""烦死""恶心""无语""心烦""烦躁""害怕""担心""心疼"
-    /不好|不对|错了|糟糕|垃圾|烦|烦死|失望|不行|太慢|难受|难过|累|疲惫|委屈|生气|愤怒|气死|焦虑|害怕|担心|心疼|孤独|寂寞|崩溃|撑不住|想哭|哭|郁闷|压抑|无助|绝望|心累|头疼|压力|恶心|无语|心烦|烦躁|受不了|算了|没用|做不到|broken|wrong|bad|hate|annoy|tired|sad|angry|lonely|anxious|worried|scared/gi,
-  )
+  /**
+   * v0.7.3 S14：这是项目里的**第二套**情感词表（core/emotion.ts 是另一套）。
+   * 旧正则把中英文混在一条里，英文没有词边界：
+   * `unhappy` 命中 `happy`、`goodbye` 命中 `good`、`dislike` 命中 `like`——
+   * 实测 `appraise('I am unhappy').goalCon = +0.333`（判成正向）。
+   * 英文拆出来走 `\b` 整词匹配；中文保持子串（中文没有词界）。
+   */
+  const POS_ZH = /很好|真好|太好了|好棒|棒|不错|开心|高兴|舒服|轻松|喜欢|爱|暖|安心|踏实|感动|幸福|爽|辛苦了|谢谢|满意|赞|值得|期待/g
+  const POS_EN = /\b(?:great|thanks|perfect|nice|good|happy|love|glad|excellent|wonderful|relieved|delighted|fantastic|pleased)\b/gi
+  const NEG_ZH = /不好|不对|错了|糟糕|垃圾|烦|烦死|失望|不行|太慢|难受|难过|累|疲惫|委屈|生气|愤怒|气死|焦虑|害怕|担心|心疼|孤独|寂寞|崩溃|撑不住|想哭|哭|郁闷|压抑|无助|绝望|心累|头疼|压力|恶心|无语|心烦|烦躁|受不了|算了|没用|做不到/g
+  // 补齐高频否定词：旧表没有 unhappy/dislike，"I am unhappy" 既判不了负也判不了正（弃权）。
+  const NEG_EN = /\b(?:broken|wrong|bad|hate|annoy|tired|sad|angry|lonely|anxious|worried|scared|unhappy|dislike|awful|terrible|horrible|upset|frustrated|miserable|depressed|stressed)\b/gi
+  const pos = countMatches(t, POS_ZH) + countMatches(t, POS_EN)
+  const neg = countMatches(t, NEG_ZH) + countMatches(t, NEG_EN)
   const hedge = countMatches(t, /可能|也许|大概|不确定|好像|maybe|perhaps|not sure|I think/gi)
   const novel = input.topic && input.seenTopics && !input.seenTopics.has(input.topic) ? 1 : 0
   const goalHit = (input.goalEntities ?? []).filter((e) => e && t.toLowerCase().includes(e.toLowerCase())).length

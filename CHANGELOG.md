@@ -6,6 +6,85 @@
 本项目基线是 DeepSeek Harness `0.2.1-rc.3`（Developer Preview，宿主本身存在破坏性变更），
 所以 `0.x` 期间 minor 升级也可能不兼容。
 
+## [0.7.3] — 2026-11-13
+
+**安全收口 + 实用能力补完版本**。继续按《v0.7.1 源代码评判报告》的板块评分复核，
+重点处理 `docs/V0.7.2-REVIEW-RESPONSE.md` 第 6 节里"能在一个小版本内代码化"的残留项：
+先用运行时探针复现 v0.7.2 里**仍然存在的静默失效与安全缺口**，再补实用功能与验证覆盖。
+存储布局未动（MC03 不变，**旧库免 rebuild**），无 API 破坏性变更（新增字段可选、命令动词数不变）。
+
+### 修复（20 项，全部有"回滚即变红"的断言）
+
+- **S1（P0 安全红线）`/mnemo tune` 可改写安全配置**。实测
+  `tune security.allowGlobalScope=true` 真的把作用域红线关掉了；
+  `security.purgeRequiresConfirm=false` 能去掉删除确认；布局键可运行时改而不触发 rebuild。
+  现在 `RUNTIME_TUNE_DENY` 在**命令面与服务端 `applyAction` 两处**拦住安全/布局/路径键，
+  且拒绝 NaN/Infinity（旧写法会降级成字符串后让闸门静默失效）。
+  宿主设置页走 `setConfig` 部署通道，不受影响。
+- **S2（P0 路径穿越）`vault-tools restore`** 只校验 sha256 不校验 manifest 里的文件名，
+  `name: "blob/../../任意文件"` 可覆盖目标机任意文件；且漏 `--db` 时会写名为 `undefined` 的文件。
+  现在白名单 + `resolve` 前缀校验 + `--db` 必填 + 全量预校验后才落盘。
+- **S3（P0 弃权绕过）** `recall.ts` 的 `clamp01` 无 NaN 兜底、`bestEvidence` 的 `Math.max`
+  混入 NaN 后 `NaN < ABSTAIN_SIM` 恒假 → `verdict='hit'`，陷阱题拿着不相关记忆自信作答。
+  现在非法证据一律按"没有证据"处理（宁可弃权，不可编造）。
+- **S4 `expand()` 空来源恒占位**：`[].every()` 为 true，手动 putCell / upsertMeta / purgeAux
+  之后的 cell 永远拿不到 level-2 原文（默认 sessionId 必现）。
+- **S5/S6/S7/S9 短 id 五处各自解析**：`explain` 用了 `padEnd`（全项目其余处是 padStart）
+  再 `endsWith(slice(-4))` 张冠李戴；`forget` 静默 no-op 却回"已删除"且 evict_log 记短 id；
+  `purge cell` 短 id 删 0 条却按模糊后缀删掉**别的 cell** 的快照；`applyAction` 的
+  pin/valence/importance/resolve 都把短 id 解成不存在的 id（SUPERSEDES 边指错对象）。
+  现在统一走 `resolveCellIdStrict()`：`findBySuffix` 只有唯一匹配才返回，否则给明确回执。
+- **S8 `clearLattice()`** 多语句 autocommit（中途失败留半清空库）、`DELETE FROM edges`
+  无条件删掉保留 kind 3/4/5 的边、`Math.floor(NaN)` 直接拼进 `NOT IN (NaN)`。
+  现在整体包事务、只删与被清 cell 关联的边、kind 列表参数化；MemoryStore 等价修复。
+- **S10** `migrateColumns` 的 PRAGMA 失败被静默 `return`（tags 列永远不加，doctor 查不出根因）。
+- **S11** `listSnapshots` / `listAccess` / `recentEvicts` 的 limit 只在 `listCells` 有兜底，
+  NaN 会绑进 `LIMIT ?`；两种驱动行为也不一致。现在统一 `safeLimit()`。
+- **S12** 锁 owner 为空串时 `cur.owner !== owner` 恒 false → 空 owner 可续期他人锁。
+- **S13** `snapshotIdOf` 把 256 位摘要截到末 64 位弱尾段，配合
+  `putSnapshot ON CONFLICT DO NOTHING` 会**静默丢新快照**（重放取回错误文本）。
+  现在用完整 hex；旧库 16 位 id 仍可读。
+- **S14 情感与确定性**：项目**第二套**词表 `affect/appraisal.ts` 的英文词无边界
+  （`unhappy` 命中 `happy` → 实测判成正向）；中文单字 `别` 让"特别喜欢"被判否定/程序性；
+  `appraisal` / `policy` / `encoder` 的 clamp 无 NaN 兜底；L1 自检 async IIFE 无 `.catch()`；
+  `episode.ts` 用 `Math.random()` 生成 id，违反逐字节重放契约。
+
+### 新增（实用功能）
+
+- **U1 · 抽取词典配置化（A13）**：宿主调一次 `configureExtraction()` 即可注入
+  同义词 / 话题名词 / 查询侧同义词族 / 领域谓词，不必 fork 源码；`resetExtraction()` 可复位。
+  自定义谓词**前置**但内置规则相对顺序不变（"用 vitest 跑测试"仍归 `uses`），
+  避免重演 v0.7.1 的顺序敏感问题。
+- **U2 · 语义级敏感信息（E4）**：新增住址 / 诊断 / 心理 / 财务 / 证件引用 / 敏感事件的
+  自然语言识别（`detectSemanticPII`），并入 `isSensitive` 打 `TAG.sensitive`。
+  **只标记不改写**——把"我确诊了抑郁症"整句抹成 «SECRET:n» 会毁掉记忆本身；
+  格式类 PII（手机号/银行卡/token）仍按原路径脱敏。
+- **U3 · 机器可读体检**：`/mnemo doctor --json` 与 `vault-tools doctor`，供 CI/监控消费。
+- **U4 · 导出补全**：HELP 写了多年却从未实现的 `/mnemo export --user <id>` 落地（按 scope 过滤），
+  新增 `--json --no-raw` 隐私口径；补上 `--json` 的 HELP 说明。
+- **U5 · 档案校验与会话级验证**：`validateBundle` 补全 snapshots/evictLog/residuals/meta
+  与 counts 的交叉校验（连 checksum 一起重算的篡改也能抓到）；
+  `verifyPurge --session` 改为只判定该会话可归属的残留（旧版全库口径恒 `ok:false`）。
+- **验证层扩到 11 节**：新增安全红线、短 id 解析、抽取配置化三节，
+  `ci-assert-verify` 加对应硬断言；产物 `artifacts/bench-verify.json` 进 verify 与 CI。
+
+### 数值
+
+- 测试 **355 → 377**（新增 `test/v073-fixes.test.mjs` 22 条；原有 355 全过，0 跳过）。
+- 源文件仍 79（本轮未新增 `.ts` 文件），行数约 27,900 → 28,300；命令动词仍 27、缺点仍 28。
+- 既有指标**逐项未退化**：Recall@8 0.905 / MRR 0.73 / dedupe 1.00 / 时序 1.00 /
+  tokens 106.95 / storageRealistic 0.832 / coarse 0.626；bench-real 13/13；
+  验证层 **11/11**（Cov 1.00、情感消融 Δ 0.037）。
+- npm 上当前最新为 0.7.1；0.7.2 / 0.7.3 待发布（脚本幂等，跳版本合法）。
+
+### 仍未完成
+
+公开基准（LoCoMo / LongMemEval）、第三方红队、DPIA/PIPL 映射、静态加密、
+rerank / 迭代检索、真 embedding 默认接线、监护人同意、成文 AUP、生产案例
+—— 均未完成。逐板块对照见 `docs/V0.7.3-REVIEW-RESPONSE.md`。
+
+---
+
 ## [0.7.2] — 2026-11-05
 
 **落地能力版本**：对照《MnemoVault v0.7.1 源代码评判报告》（21 节、加权 3.49/5）逐板块复核，

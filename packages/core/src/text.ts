@@ -39,6 +39,50 @@ const SYNONYM: Record<string, string> = {
   上线: 'deploy',
 }
 
+/**
+ * v0.7.3 U1（A13 · 抽取词典配置化）：领域词过去只能改源码。
+ * `SYNONYM` 与 `TOPIC_NOUNS` 都是**模块级同一引用**，原地合并会立刻对
+ * frames.ts / encoder / recall 的所有读取点生效，不需要重建索引、不引入全局锁。
+ * 宿主在启动时调 `configureExtraction()` 一次即可，重放/测试用 `resetExtraction()` 复原。
+ */
+export interface TextLexiconPatch {
+  /** 追加的同义词映射（同名词覆盖内置值） */
+  synonyms?: Record<string, string>
+  /** 追加的话题名词 */
+  topicNouns?: string[]
+}
+const BASE_SYNONYM: Record<string, string> = { ...SYNONYM }
+/** TOPIC_NOUNS 定义在本文件更下方（const 有暂时性死区），基线只能在首次调用时捕获。 */
+let baseTopicSnapshot: string[] | null = null
+function ensureTopicBase(): string[] {
+  if (!baseTopicSnapshot) baseTopicSnapshot = [...TOPIC_NOUNS]
+  return baseTopicSnapshot
+}
+
+export function configureTextLexicon(patch: TextLexiconPatch): void {
+  ensureTopicBase()
+  if (patch.synonyms) {
+    for (const [k, v] of Object.entries(patch.synonyms)) {
+      if (typeof k === 'string' && typeof v === 'string' && k.trim() && v.trim()) {
+        SYNONYM[k.trim().toLowerCase()] = v.trim().toLowerCase()
+      }
+    }
+  }
+  if (patch.topicNouns) {
+    for (const t of patch.topicNouns) {
+      if (typeof t === 'string' && t.trim() && !TOPIC_NOUNS.includes(t.trim())) TOPIC_NOUNS.push(t.trim())
+    }
+  }
+}
+
+export function resetTextLexicon(): void {
+  ensureTopicBase()
+  for (const k of Object.keys(SYNONYM)) delete SYNONYM[k]
+  Object.assign(SYNONYM, BASE_SYNONYM)
+  TOPIC_NOUNS.length = 0
+  TOPIC_NOUNS.push(...ensureTopicBase())
+}
+
 export function normToken(s: string): string {
   const t = s.trim().toLowerCase().replace(/[“”"'`。，、；：！？（）()【】\[\]]/g, '')
   return SYNONYM[t] ?? t
@@ -335,6 +379,32 @@ const SECRET_PATTERNS: Array<{ re: RegExp; kind: string; test?: (s: string) => b
   },
 ]
 
+/**
+ * v0.7.3 U2（E4 · 语义级敏感信息）：现有 SECRET_PATTERNS 全是**格式**匹配
+ * （手机号 / 身份证 / 银行卡 / token），自然语言里的住址、诊断、心理状况、
+ * 财务金额完全漏判。这些不适合整段替换成 «SECRET:n»——那会把
+ * "我确诊了抑郁症"这句记忆本身抹掉。做法是**识别并标记**
+ * （收紧保留策略、打 TAG.sensitive），不改写文本。
+ *
+ * 正则刻意不带 g：只判存在性，`RegExp.test` 不会因 lastIndex 漂移而误判。
+ */
+export const SEMANTIC_PII_PATTERNS: Array<{ re: RegExp; kind: string }> = [
+  { re: /(?:住址|地址|住在|家在|现居|搬到)[\s:：]?[\u4e00-\u9fa5A-Za-z0-9]{2,30}(?:路|街|巷|号|栋|单元|室|小区|花园|苑|村|镇|区|市|省)/, kind: 'address' },
+  { re: /(?:确诊|诊断|病历|患有|得了)[\u4e00-\u9fa5]{2,12}(?:癌|炎|症|病|综合征)/, kind: 'health' },
+  { re: /(?:抑郁症|焦虑症|双相情感障碍|强迫症|创伤后应激|PTSD|服药|化疗|放疗|住院|手术|复诊)/i, kind: 'health' },
+  { re: /(?:月收入|年薪|月薪|存款|工资|欠款|负债|房贷|银行卡余额|余额)[\s:：]?[¥￥]?\d[\d,.]*[万千元块kK]?/, kind: 'financial' },
+  { re: /(?:身份证号|护照号|社保号|工号|学号)[\s:：]?[A-Za-z0-9]{6,}/, kind: 'id_ref' },
+  { re: /(?:前任|出轨|家暴|性侵|离婚|堕胎|自残|自杀|被裁|裁员)/, kind: 'sensitive_event' },
+]
+
+/** 返回命中的语义敏感类别（去重）。不改变文本，可安全用于只读检查。 */
+export function detectSemanticPII(text: string): string[] {
+  if (!text) return []
+  const hit = new Set<string>()
+  for (const p of SEMANTIC_PII_PATTERNS) if (p.re.test(text)) hit.add(p.kind)
+  return [...hit]
+}
+
 /** Luhn 校验：银行卡号的必要条件。用它把"16 位订单号"从 PII 里排除掉。 */
 function luhn(digits: string): boolean {
   if (!/^\d{13,19}$/.test(digits)) return false
@@ -356,6 +426,8 @@ export interface RedactResult {
   text: string
   secrets: Array<{ kind: string; index: number }>
   pii: boolean
+  /** v0.7.3 U2：语义级敏感类别（只标记，不改写文本） */
+  semantic?: string[]
 }
 
 /**
@@ -380,7 +452,7 @@ export function redact(text: string): RedactResult {
       return `«SECRET:${n}»`
     })
   }
-  return { text: out, secrets, pii: secrets.length > 0 }
+  return { text: out, secrets, pii: secrets.length > 0, semantic: detectSemanticPII(text) }
 }
 
 /**
